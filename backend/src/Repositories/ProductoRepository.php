@@ -133,8 +133,8 @@ class ProductoRepository
             "INSERT INTO productos
                 (nombre, variante, sku, descripcion, tipo, categoria_id, precio_venta, precio_costo,
                  stock_actual, stock_minimo, unidad_medida, imagen_url, 
-                 es_vendible, es_insumo, activo, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())"
+                 es_vendible, es_insumo, es_tienda, subcategoria, precio_oferta, peso_gramos, dimensiones, estado_stock, es_destacado, activo, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())"
         );
 
         $stmt->execute([
@@ -152,6 +152,13 @@ class ProductoRepository
             $data['imagen_url']    ?? null,
             isset($data['es_vendible']) ? (int)$data['es_vendible'] : 1,
             isset($data['es_insumo']) ? (int)$data['es_insumo'] : 0,
+            isset($data['es_tienda']) ? (int)$data['es_tienda'] : 0,
+            $data['subcategoria']  ?? null,
+            isset($data['precio_oferta']) ? (float)$data['precio_oferta'] : null,
+            (int) ($data['peso_gramos'] ?? 50),
+            $data['dimensiones']   ?? null,
+            $data['estado_stock']  ?? 'ready',
+            isset($data['es_destacado']) ? (int)$data['es_destacado'] : 0,
         ]);
 
         $newId = (int) $this->db->lastInsertId();
@@ -196,6 +203,13 @@ class ProductoRepository
             'imagen_url'    => 'string',
             'es_vendible'   => 'int',
             'es_insumo'     => 'int',
+            'es_tienda'     => 'int',
+            'subcategoria'  => 'string',
+            'precio_oferta' => 'float',
+            'peso_gramos'   => 'int',
+            'dimensiones'   => 'string',
+            'estado_stock'  => 'string',
+            'es_destacado'  => 'int',
         ];
 
         foreach ($map as $col => $type) {

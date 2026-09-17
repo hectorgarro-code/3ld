@@ -23,6 +23,9 @@ export interface Producto {
   activo: number // 1 o 0
   es_vendible: number
   es_insumo: number
+  es_tienda?: number | boolean
+  subcategoria?: string
+  precio_oferta?: number | null
   created_at: string
   updated_at: string
 }

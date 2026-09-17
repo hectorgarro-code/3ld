@@ -23,6 +23,7 @@ const productoSchema = z.object({
   descripcion: z.string().optional(),
   es_vendible: z.boolean().default(true),
   es_insumo: z.boolean().default(false),
+  es_tienda: z.boolean().default(false),
 })
 
 type ProductoForm = z.infer<typeof productoSchema>
@@ -70,6 +71,7 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
       descripcion: '',
       es_vendible: true,
       es_insumo: false,
+      es_tienda: false,
     },
   })
 
@@ -93,6 +95,7 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
         descripcion: producto.descripcion || '',
         es_vendible: producto.es_vendible !== 0,
         es_insumo: producto.es_insumo === 1,
+        es_tienda: Boolean(p.es_tienda),
       })
       setReceta((producto as any).receta || [])
       setImagesBase64([])
@@ -151,6 +154,7 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
         variante: data.variante || undefined,
         es_vendible: data.es_vendible ? 1 : 0,
         es_insumo: data.es_insumo ? 1 : 0,
+        es_tienda: data.es_tienda ? 1 : 0,
       }
 
       if (receta.length > 0) {
@@ -410,6 +414,18 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
                     <div>
                       <p className="text-sm font-bold text-slate-800">Es Insumo Interno</p>
                       <p className="text-xs text-slate-400">Materia prima o insumos (ej. Cajas)</p>
+                    </div>
+                  </label>
+
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      {...register('es_tienda')}
+                      className="w-5 h-5 rounded accent-cyan-600 bg-slate-50 border-slate-100"
+                    />
+                    <div>
+                      <p className="text-sm font-bold text-slate-800">🌐 Visible en Tienda Web</p>
+                      <p className="text-xs text-slate-400">Publicar en catálogo (tienda.3ld.com.ar)</p>
                     </div>
                   </label>
                 </div>
