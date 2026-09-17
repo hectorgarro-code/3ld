@@ -1,0 +1,61 @@
+name: Deploy Sistema 3LD to Hostinger FTP
+
+on:
+  push:
+    branches:
+      - main
+      - master
+
+jobs:
+  web-deploy:
+    name: Build & Deploy via FTP
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 🚚 Get latest code
+        uses: actions/checkout@v4
+
+      - name: 🟢 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: 🔨 Install & Build Frontend
+        run: |
+          cd frontend
+          npm ci
+          npm run build
+
+      - name: 🐘 Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+
+      - name: 📦 Install Backend Dependencies
+        run: |
+          cd backend
+          composer install --no-dev --optimize-autoloader
+
+      - name: 📁 Prepare Deployment Directory
+        run: |
+          mkdir deploy_dist
+          cp -r frontend/dist/* deploy_dist/
+          mkdir -p deploy_dist/backend
+          cp -r backend/* deploy_dist/backend/
+          mkdir -p deploy_dist/backend/public/uploads
+
+      - name: 📂 Sync Files via FTP to Hostinger
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          port: ${{ secrets.FTP_PORT || 21 }}
+          local-dir: ./deploy_dist/
+          server-dir: ./public_html/sistema/
+          dangerous-clean-slate: false
+          exclude: |
+            **/backend/config/config.local.php
+            **/backend/public/uploads/**

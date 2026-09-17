@@ -1,0 +1,141 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #4318FF;
+  --color-primary-dark: #3911D4;
+  --color-primary-light: #8168FF;
+  --color-secondary: #01B574;
+  --color-secondary-dark: #019962;
+  --color-accent: #00E396;
+  --color-brand-purple: #7000FF;
+  --color-brand-green: #01B574;
+  --color-surface: #F4F7FE;
+  --color-surface-secondary: #E9EDF7;
+  --color-surface-card: #FFFFFF;
+  --color-surface-elevated: #E2E8F0;
+
+  --font-family-sans: 'Nunito', sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Nunito', sans-serif;
+  background-color: var(--color-surface);
+  color: #2B3674;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Scrollbar styling for Light Mode */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #E2E8F0;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #CBD5E1;
+}
+
+/* Custom range input styling */
+input[type='range'] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: 3px;
+  background: #E2E8F0;
+  outline: none;
+}
+
+input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  cursor: pointer;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 6px rgba(67, 24, 255, 0.4);
+}
+
+/* Toast animations */
+@keyframes slideInRight {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes slideOutRight {
+  from { transform: translateX(0); opacity: 1; }
+  to { transform: translateX(100%); opacity: 0; }
+}
+
+.toast-enter {
+  animation: slideInRight 0.3s ease forwards;
+}
+
+.toast-exit {
+  animation: slideOutRight 0.3s ease forwards;
+}
+
+/* Global Utility Classes for Glass/Clean UI Shadows */
+.card-shadow {
+  box-shadow: 0px 4px 20px rgba(0, 0, 0, 0.05);
+}
+
+@media print {
+  body {
+    background-color: white !important;
+    color: black !important;
+  }
+  .print-hidden {
+    display: none !important;
+  }
+  /* Hide typical layout elements */
+  aside, header, nav {
+    display: none !important;
+  }
+  /* Simplify cards for printing */
+  .card-shadow {
+    box-shadow: none !important;
+    border: 1px solid #E2E8F0 !important;
+  }
+  /* Remove rounded corners and backgrounds to save ink */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  /* Adjust main layout to take full width when printing */
+  main {
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+  .overflow-hidden {
+    overflow: visible !important;
+  }
+  .overflow-y-auto {
+    overflow: visible !important;
+  }
+  .h-screen {
+    height: auto !important;
+  }
+}

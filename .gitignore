@@ -1,0 +1,8 @@
+node_modules/
+frontend/node_modules/
+frontend/dist/
+backend/vendor/
+backend/config/config.local.php
+config.local.php
+.env
+.DS_Store

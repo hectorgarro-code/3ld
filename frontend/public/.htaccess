@@ -1,0 +1,15 @@
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  # Redirigir llamadas API a backend/public/index.php
+  RewriteRule ^api/(.*)$ backend/public/index.php [QSA,L]
+
+  # Servir archivos subidos
+  RewriteRule ^uploads/(.*)$ backend/public/uploads/$1 [L]
+
+  # SPA Routing (React Router)
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule ^ index.html [L]
+</IfModule>

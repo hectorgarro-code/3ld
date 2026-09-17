@@ -1,0 +1,9 @@
+{
+  "name": "sistema3ld-root",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "npm --prefix frontend run build",
+    "deploy": "git add . && git commit -m \"Auto-deploy update\" && git push origin main"
+  }
+}

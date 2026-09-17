@@ -1,0 +1,19 @@
+<?php
+// Copiar este archivo como config.local.php en el servidor Hostinger (backend/config/config.local.php)
+return [
+    'db' => [
+        'host'    => 'localhost', // O la IP de la base de datos de Hostinger
+        'dbname'  => 'u803496046_sistema3ld', // Nombre de BD creado en Hostinger
+        'user'    => 'u803496046_user',      // Usuario de BD de Hostinger
+        'pass'    => 'TU_CONTRASEÑA_AQUÍ',    // Contraseña del usuario de BD
+        'charset' => 'utf8mb4',
+    ],
+    'jwt' => [
+        'secret'     => 'clave_secreta_super_segura_sistema_3ld_prod',
+        'expiration' => 86400,
+    ],
+    'app' => [
+        'debug' => false,
+        'env'   => 'production',
+    ],
+];
