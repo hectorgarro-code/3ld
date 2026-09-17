@@ -155,10 +155,10 @@ class PedidoRepository
                 LEFT JOIN clientes c ON c.id = p.cliente_id
                 {$where}
                 ORDER BY p.created_at DESC
-                LIMIT ? OFFSET ?";
+                LIMIT {$perPage} OFFSET {$offset}";
 
         $stmt = $this->db->prepare($sql);
-        $stmt->execute(array_merge($binds, [$perPage, $offset]));
+        $stmt->execute($binds);
         $pedidos = $stmt->fetchAll();
 
         return ['data' => $pedidos, 'total' => $total];
@@ -451,10 +451,10 @@ class PedidoRepository
                 LEFT JOIN clientes c ON c.id = p.cliente_id
                 {$where}
                 ORDER BY p.created_at DESC
-                LIMIT ? OFFSET ?";
+                LIMIT {$perPage} OFFSET {$offset}";
 
         $stmt = $this->db->prepare($sql);
-        $stmt->execute(array_merge($binds, [$perPage, $offset]));
+        $stmt->execute($binds);
         $items = $stmt->fetchAll();
 
         return ['data' => $items, 'total' => $total];

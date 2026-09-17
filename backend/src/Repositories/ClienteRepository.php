@@ -43,10 +43,10 @@ class ClienteRepository
                 {$where}
                 GROUP BY c.id
                 ORDER BY c.nombre ASC
-                LIMIT ? OFFSET ?";
+                LIMIT {$perPage} OFFSET {$offset}";
 
         $stmt = $this->db->prepare($sql);
-        $stmt->execute(array_merge($binds, [$perPage, $offset]));
+        $stmt->execute($binds);
         $clientes = $stmt->fetchAll();
 
         return [

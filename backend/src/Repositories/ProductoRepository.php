@@ -59,10 +59,10 @@ class ProductoRepository
                 LEFT JOIN categorias_producto c ON c.id = p.categoria_id
                 {$where}
                 ORDER BY p.nombre ASC
-                LIMIT ? OFFSET ?";
+                LIMIT {$perPage} OFFSET {$offset}";
 
         $stmt = $this->db->prepare($sql);
-        $stmt->execute(array_merge($binds, [$perPage, $offset]));
+        $stmt->execute($binds);
         $productos = $stmt->fetchAll();
 
         if (!empty($productos)) {
