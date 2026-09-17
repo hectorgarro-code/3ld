@@ -23,6 +23,9 @@ use App\Controllers\ProduccionController;
 use App\Controllers\ProveedoresController;
 use App\Controllers\ComprasController;
 use App\Controllers\TiendaController;
+use App\Controllers\AiController;
+use App\Services\OpenAiService;
+use App\Services\MakerWorldScraper;
 use App\Repositories\TiendaRepository;
 use App\Middleware\AuthMiddleware;
 use App\Middleware\CorsMiddleware;
@@ -40,6 +43,15 @@ $containerBuilder->addDefinitions([
     'config' => $config,
     PDO::class => function ($c) {
         return (new \App\Database($c->get('config')))->getConnection();
+    },
+    OpenAiService::class => function ($c) {
+        return new OpenAiService($c->get('config'));
+    },
+    MakerWorldScraper::class => function () {
+        return new MakerWorldScraper();
+    },
+    AiController::class => function ($c) {
+        return new AiController($c->get(OpenAiService::class), $c->get(MakerWorldScraper::class));
     },
     TiendaRepository::class => function ($c) {
         return new TiendaRepository($c->get(PDO::class));
@@ -375,6 +387,16 @@ $app->group('/api/v1', function (RouteCollectorProxy $api) use ($config, $auth, 
         });
         $g->post('/config', function ($req, $res) use ($container) {
             return $container->get(TiendaController::class)->saveConfig($req, $res);
+        });
+    })->add($auth);
+
+    // AI & MakerWorld Integration
+    $api->group('/ai', function (RouteCollectorProxy $g) use ($container) {
+        $g->post('/import-makerworld', function ($req, $res) use ($container) {
+            return $container->get(AiController::class)->importMakerWorld($req, $res);
+        });
+        $g->post('/generate-text', function ($req, $res) use ($container) {
+            return $container->get(AiController::class)->generateText($req, $res);
         });
     })->add($auth);
 });

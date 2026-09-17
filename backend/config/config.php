@@ -12,6 +12,10 @@ $config = [
         'secret'     => 'sistema3ld_jwt_secret_cambia_en_produccion_2024',
         'expiration' => 86400, // 24 horas en segundos
     ],
+    'openai' => [
+        'api_key' => getenv('OPENAI_API_KEY') ?: '',
+        'model'   => 'gpt-4o-mini',
+    ],
     'app' => [
         'debug' => true, // false en producción
         'env'   => 'development',

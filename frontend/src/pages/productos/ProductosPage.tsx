@@ -2,9 +2,10 @@ import { useState } from 'react'
 import { useProductos, useCategorias, useDeleteProducto, useUpdateProducto } from '@/hooks/useProductos'
 import { formatARS } from '@/lib/cost-calculator'
 import { cn } from '@/lib/utils'
-import { Search, AlertTriangle, Package, Plus, Minus, Pencil, Copy, Trash2, Loader2 } from 'lucide-react'
+import { Search, AlertTriangle, Package, Plus, Minus, Pencil, Copy, Trash2, Loader2, Bot, Sparkles } from 'lucide-react'
 import type { Producto, ProductoTipo } from '@/types'
 import { ProductoFormModal } from '@/components/productos/ProductoFormModal'
+import { MakerWorldImportModal } from '@/components/productos/MakerWorldImportModal'
 import { toast } from '@/store/toastStore'
 
 const tipoConfig: Record<string, { label: string; color: string; emoji: string }> = {
@@ -154,6 +155,7 @@ export default function ProductosPage() {
   
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [isMakerWorldModalOpen, setIsMakerWorldModalOpen] = useState(false)
   const [selectedProducto, setSelectedProducto] = useState<Producto | null>(null)
   const [isDuplicate, setIsDuplicate] = useState(false)
 
@@ -209,13 +211,22 @@ export default function ProductosPage() {
             className="w-full rounded-xl border border-slate-100 bg-white card-shadow py-2.5 pl-10 pr-4 text-sm text-slate-800 placeholder-gray-500 outline-none focus:border-primary"
           />
         </div>
-        <button
-          onClick={handleNew}
-          className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary to-primary-dark px-5 py-2.5 text-sm font-black text-white shadow-lg shadow-primary/30 transition-all hover:shadow-primary/50"
-        >
-          <Plus className="h-4 w-4" />
-          Nuevo Producto
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setIsMakerWorldModalOpen(true)}
+            className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-600 to-cyan-500 px-4 py-2.5 text-xs font-black text-white shadow-md transition-all hover:brightness-110"
+          >
+            <Bot className="h-4 w-4" />
+            <span>Importar MakerWorld (IA)</span>
+          </button>
+          <button
+            onClick={handleNew}
+            className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary to-primary-dark px-5 py-2.5 text-xs font-black text-white shadow-lg shadow-primary/30 transition-all hover:shadow-primary/50"
+          >
+            <Plus className="h-4 w-4" />
+            Nuevo Producto
+          </button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -280,12 +291,17 @@ export default function ProductosPage() {
         </div>
       )}
 
-      {/* Modal */}
+      {/* Modales */}
       <ProductoFormModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         producto={selectedProducto}
         isDuplicate={isDuplicate}
+      />
+
+      <MakerWorldImportModal
+        isOpen={isMakerWorldModalOpen}
+        onClose={() => setIsMakerWorldModalOpen(false)}
       />
     </div>
   )

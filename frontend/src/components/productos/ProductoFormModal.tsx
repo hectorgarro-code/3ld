@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { X, Loader2, ImagePlus, Trash2, Plus } from 'lucide-react'
+import { X, Loader2, ImagePlus, Trash2, Plus, Sparkles } from 'lucide-react'
+import api from '@/lib/api'
 import type { Producto } from '@/types'
 import { compressImage } from '@/lib/imageUtils'
 import { useCreateProducto, useUpdateProducto, useCategorias, useProductos } from '@/hooks/useProductos'
@@ -43,6 +44,7 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
 
   const [imagesBase64, setImagesBase64] = useState<string[]>([])
   const [isCompressing, setIsCompressing] = useState(false)
+  const [isGeneratingAi, setIsGeneratingAi] = useState(false)
   const [receta, setReceta] = useState<{insumo_id: number, cantidad: number, insumo_nombre?: string, precio_costo?: number, unidad_medida?: string}[]>([])
   const [activeTab, setActiveTab] = useState<'detalles' | 'historial'>('detalles')
 
@@ -55,6 +57,8 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
     register,
     handleSubmit,
     reset,
+    setValue,
+    getValues,
     formState: { errors, isSubmitting },
   } = useForm({
     resolver: zodResolver(productoSchema),
@@ -144,6 +148,28 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
 
   const handleRemoveImage = (index: number) => {
     setImagesBase64((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  const handleGenerateAiText = async () => {
+    const currentName = getValues('nombre')
+    const currentDesc = getValues('descripcion')
+    if (!currentName && !currentDesc) {
+      toast('Ingresá al menos el nombre del producto para generar con IA', 'error')
+      return
+    }
+    try {
+      setIsGeneratingAi(true)
+      const res = await api.post('/ai/generate-text', { title: currentName, details: currentDesc })
+      if (res.data?.success && res.data?.data) {
+        if (res.data.data.title) setValue('nombre', res.data.data.title)
+        if (res.data.data.description) setValue('descripcion', res.data.data.description)
+        toast('Texto comercial generado con OpenAI Luna', 'success')
+      }
+    } catch (err: any) {
+      toast('Error al generar texto con IA', 'error')
+    } finally {
+      setIsGeneratingAi(false)
+    }
   }
 
   const onSubmit = async (data: ProductoForm) => {
@@ -382,9 +408,24 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
                 </div>
                 
                 <div className="md:col-span-2">
-                  <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-500">
-                    Descripción
-                  </label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                      Descripción
+                    </label>
+                    <button
+                      type="button"
+                      onClick={handleGenerateAiText}
+                      disabled={isGeneratingAi}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold bg-cyan-50 text-cyan-700 hover:bg-cyan-100 rounded-lg border border-cyan-200 transition disabled:opacity-50"
+                    >
+                      {isGeneratingAi ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Sparkles className="h-3.5 w-3.5 text-cyan-600" />
+                      )}
+                      <span>Generar con IA (OpenAI)</span>
+                    </button>
+                  </div>
                   <textarea
                     {...register('descripcion')}
                     rows={3}
