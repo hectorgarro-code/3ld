@@ -373,12 +373,18 @@ $app->group('/api/v1', function (RouteCollectorProxy $api) use ($config, $auth, 
         $g->post('/productos/{id}/toggle', function ($req, $res, $args) use ($container) {
             return $container->get(TiendaController::class)->toggle($req, $res, $args);
         });
+        $g->post('/config', function ($req, $res) use ($container) {
+            return $container->get(TiendaController::class)->saveConfig($req, $res);
+        });
     })->add($auth);
 });
 
 // Tienda Pública (sin autenticación requerida)
 $app->get('/api/v1/tienda/productos', function ($req, $res) use ($container) {
     return $container->get(TiendaController::class)->getProductos($req, $res);
+});
+$app->get('/api/v1/tienda/config', function ($req, $res) use ($container) {
+    return $container->get(TiendaController::class)->getConfig($req, $res);
 });
 
 // ── Health check (no auth) ───────────────────────────────────────────────────

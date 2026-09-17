@@ -69,4 +69,38 @@ class TiendaController
             return Response::error('Error al cambiar visibilidad: ' . $e->getMessage(), 500);
         }
     }
+
+    /**
+     * GET /api/v1/tienda/config
+     * Obtener configuración visual y bloques de la tienda (Elementor)
+     */
+    public function getConfig(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
+    {
+        try {
+            $file = __DIR__ . '/../../config/tienda_config.json';
+            if (file_exists($file)) {
+                $content = json_decode(file_get_contents($file), true);
+                return Response::success($content);
+            }
+            return Response::success(null);
+        } catch (Throwable $e) {
+            return Response::error('Error al leer configuración de tienda: ' . $e->getMessage(), 500);
+        }
+    }
+
+    /**
+     * POST /api/v1/tienda/config
+     * Guardar configuración visual del editor de tienda (Elementor)
+     */
+    public function saveConfig(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
+    {
+        try {
+            $data = $request->getParsedBody();
+            $file = __DIR__ . '/../../config/tienda_config.json';
+            file_put_contents($file, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+            return Response::success($data, 'Configuración visual guardada correctamente');
+        } catch (Throwable $e) {
+            return Response::error('Error al guardar configuración: ' . $e->getMessage(), 500);
+        }
+    }
 }

@@ -44,6 +44,7 @@ const NuevaCompraPage = lazy(() => import('@/pages/compras/NuevaCompraPage'))
 const CotizadorPage = lazy(() => import('@/pages/cotizador/CotizadorPage'))
 const TiendaPage = lazy(() => import('@/pages/tienda/TiendaPage'))
 const TiendaAdminPage = lazy(() => import('@/pages/tienda/TiendaAdminPage'))
+const TiendaBuilderPage = lazy(() => import('@/pages/tienda/TiendaBuilderPage'))
 
 export const router = createBrowserRouter([
   {
@@ -197,6 +198,14 @@ export const router = createBrowserRouter([
         element: (
           <Suspense fallback={<PageLoader />}>
             <TiendaAdminPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'tienda-builder',
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            <TiendaBuilderPage />
           </Suspense>
         ),
       },

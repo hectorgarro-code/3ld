@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import {
   Store,
   Plus,
@@ -138,6 +139,13 @@ export default function TiendaAdminPage() {
         </div>
 
         <div className="flex items-center gap-3">
+          <Link
+            to="/tienda-builder"
+            className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-cyan-600 to-cyan-500 hover:from-cyan-500 hover:to-cyan-400 text-white text-xs font-extrabold rounded-xl shadow-md transition"
+          >
+            <Sparkles className="h-4 w-4" />
+            <span>Editor Visual (Elementor)</span>
+          </Link>
           <a
             href="/tienda"
             target="_blank"
