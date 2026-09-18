@@ -15,10 +15,6 @@ class OpenAiService
     {
         $this->apiKey = $config['openai']['api_key'] ?? '';
         $this->model  = $config['openai']['model'] ?? 'gpt-4o-mini';
-
-        if (empty($this->apiKey)) {
-            throw new RuntimeException('API Key de OpenAI no configurada.');
-        }
     }
 
     /**
@@ -94,6 +90,10 @@ Responde en formato JSON único:
      */
     private function callOpenAi(string $prompt): string
     {
+        if (empty($this->apiKey)) {
+            throw new RuntimeException('API Key de OpenAI no configurada.');
+        }
+
         $url = 'https://api.openai.com/v1/chat/completions';
         
         $payload = [
