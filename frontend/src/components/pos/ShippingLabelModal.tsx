@@ -1,6 +1,7 @@
 import React from 'react'
 import { X, Printer, Package, Truck } from 'lucide-react'
-import { type ShippingConfig, PROVINCIAS_CORREO_ARG } from '@/lib/correoArgentino'
+import { type ShippingConfig, PROVINCIAS_CORREO_ARG, REMITENTE_3LD } from '@/lib/correoArgentino'
+
 
 
 interface ShippingLabelModalProps {
@@ -116,10 +117,15 @@ export function ShippingLabelModal({
             {/* Remitente */}
             <div className="border border-slate-300 rounded-lg p-2.5 bg-slate-50 text-[11px] space-y-0.5">
               <span className="text-[9px] font-bold text-slate-500 uppercase">REMITENTE</span>
-              <p className="font-bold text-slate-900">3LD - Sistema 3D & Soluciones</p>
-              <p className="text-slate-600">Av. Libertador 1240, CABA (CP 1425)</p>
-              <p className="text-slate-600">contacto@3ld.com.ar | Tel: +54 9 11 5555-3333</p>
+              <p className="font-bold text-slate-900">{REMITENTE_3LD.nombre}</p>
+              <p className="text-slate-700">
+                {REMITENTE_3LD.calle} {REMITENTE_3LD.altura}, {REMITENTE_3LD.localidad} ({REMITENTE_3LD.provinciaNombre}) - CP {REMITENTE_3LD.codigoPostal}
+              </p>
+              <p className="text-slate-600">
+                {REMITENTE_3LD.email} | Tel: {REMITENTE_3LD.telefono}
+              </p>
             </div>
+
 
             {/* Dimensions & Weight */}
             <div className="grid grid-cols-3 gap-2 border-t border-slate-200 pt-2 text-[10px]">

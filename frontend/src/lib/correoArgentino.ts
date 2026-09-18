@@ -32,6 +32,18 @@ export const PROVINCIAS_CORREO_ARG: CorreoProvincia[] = [
   { codigo: 'V', nombre: 'Tierra del Fuego' },
 ]
 
+export const REMITENTE_3LD = {
+  nombre: '3LD Didácticos',
+  calle: 'Salta',
+  altura: '3169',
+  localidad: 'San Bernardo del Tuyú',
+  provinciaCodigo: 'B',
+  provinciaNombre: 'Buenos Aires',
+  codigoPostal: '7111',
+  telefono: '2257512597',
+  email: '3lddidacticos@gmail.com',
+}
+
 export interface ShippingConfig {
   destinatarioNombre: string
   telefono: string
@@ -50,7 +62,7 @@ export interface ShippingConfig {
   valorDeclarado?: number
 }
 
-// Parametric rate estimation
+// Parametric rate estimation from origin San Bernardo del Tuyú (CP 7111, Prov. Bs. As.)
 export function calcularTarifaCorreoArgentino(config: {
   provinciaCodigo: string
   codigoPostal: string
@@ -60,7 +72,7 @@ export function calcularTarifaCorreoArgentino(config: {
   largoCm: number
   deliveryType: 'homeDelivery' | 'agency'
 }): {
-  zona: 'Local / CABA' | 'Regional' | 'Nacional'
+  zona: 'Local / Costa' | 'Regional (Bs As / CABA)' | 'Nacional'
   pesoFacturableKg: number
   precioFinal: number
 } {
@@ -69,30 +81,33 @@ export function calcularTarifaCorreoArgentino(config: {
   const pesoVolumetricoKg = (config.altoCm * config.anchoCm * config.largoCm) / 4000
   const pesoFacturableKg = Math.max(pesoRealKg, pesoVolumetricoKg)
 
-  // Determinar zona aproximada por provincia / CP
-  let zona: 'Local / CABA' | 'Regional' | 'Nacional' = 'Nacional'
+  // Determinar zona desde origen San Bernardo (CP 7111)
+  let zona: 'Local / Costa' | 'Regional (Bs As / CABA)' | 'Nacional' = 'Nacional'
   const cpNum = parseInt(config.codigoPostal) || 0
 
-  if (config.provinciaCodigo === 'C' || (cpNum >= 1000 && cpNum <= 1499)) {
-    zona = 'Local / CABA'
+  if (cpNum >= 7100 && cpNum <= 7119) {
+    zona = 'Local / Costa'
   } else if (
-    ['B', 'S', 'X', 'E'].includes(config.provinciaCodigo) ||
-    (cpNum >= 1600 && cpNum <= 3100)
+    config.provinciaCodigo === 'B' ||
+    config.provinciaCodigo === 'C' ||
+    (cpNum >= 1000 && cpNum <= 2999) ||
+    (cpNum >= 6000 && cpNum <= 8999)
   ) {
-    zona = 'Regional'
+    zona = 'Regional (Bs As / CABA)'
   } else {
     zona = 'Nacional'
   }
 
-  // Tarifas base estimadas Correo Clásico Paq.ar (actualizadas a valores de referencia ARS)
+  // Tarifas base estimadas Correo Clásico Paq.ar
   let basePrice = 4800
-  if (zona === 'Local / CABA') {
-    basePrice = 4200
-  } else if (zona === 'Regional') {
-    basePrice = 5400
+  if (zona === 'Local / Costa') {
+    basePrice = 3900
+  } else if (zona === 'Regional (Bs As / CABA)') {
+    basePrice = 5200
   } else {
     basePrice = 6900
   }
+
 
   // Incremento por peso facturable
   if (pesoFacturableKg > 1 && pesoFacturableKg <= 2) {
