@@ -30,12 +30,14 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'http://localhost:8000',
-        changeOrigin: true
+        target: 'https://sistema.3ld.com.ar',
+        changeOrigin: true,
+        secure: false,
       },
       '/uploads': {
-        target: 'http://localhost:8000',
-        changeOrigin: true
+        target: 'https://sistema.3ld.com.ar',
+        changeOrigin: true,
+        secure: false,
       }
     }
   }
