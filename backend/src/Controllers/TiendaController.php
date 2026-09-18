@@ -45,7 +45,7 @@ class TiendaController
             $data = (array) $request->getParsedBody();
             $success = $this->repository->updateTiendaProduct($id, $data);
             if ($success) {
-                return Response::success(null, 'Producto actualizado en la tienda');
+                return Response::success(['message' => 'Producto actualizado en la tienda']);
             }
             return Response::error('No se pudo actualizar el producto', 400);
         } catch (Throwable $e) {
@@ -64,7 +64,7 @@ class TiendaController
             $data = (array) $request->getParsedBody();
             $esTienda = !empty($data['es_tienda']);
             $this->repository->toggleTiendaStatus($id, $esTienda);
-            return Response::success(null, $esTienda ? 'Producto publicado en tienda' : 'Producto retirado de la tienda');
+            return Response::success(['message' => $esTienda ? 'Producto publicado en tienda' : 'Producto retirado de la tienda']);
         } catch (Throwable $e) {
             return Response::error('Error al cambiar visibilidad: ' . $e->getMessage(), 500);
         }
@@ -98,7 +98,7 @@ class TiendaController
             $data = $request->getParsedBody();
             $file = __DIR__ . '/../../config/tienda_config.json';
             file_put_contents($file, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
-            return Response::success($data, 'Configuración visual guardada correctamente');
+            return Response::success(['config' => $data, 'message' => 'Configuración visual guardada correctamente']);
         } catch (Throwable $e) {
             return Response::error('Error al guardar configuración: ' . $e->getMessage(), 500);
         }
