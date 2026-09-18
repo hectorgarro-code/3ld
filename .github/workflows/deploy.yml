@@ -46,10 +46,15 @@ jobs:
           cp -r backend/* deploy_dist/backend/
           mkdir -p deploy_dist/backend/public/uploads
 
+      - name: 🧹 Clean FTP Hostname
+        run: |
+          CLEAN_HOST=$(echo "${{ secrets.FTP_SERVER }}" | sed -e 's|^[a-z]*://||' -e 's|/.*$||' -e 's/[[:space:]]//g')
+          echo "FTP_CLEAN_HOST=$CLEAN_HOST" >> $GITHUB_ENV
+
       - name: 📂 Sync Files via FTP to Hostinger
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
-          server: ${{ secrets.FTP_SERVER }}
+          server: ${{ env.FTP_CLEAN_HOST }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
           port: ${{ secrets.FTP_PORT || 21 }}
