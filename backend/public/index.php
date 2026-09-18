@@ -33,6 +33,10 @@ use Slim\Factory\AppFactory;
 use Slim\Routing\RouteCollectorProxy;
 use DI\ContainerBuilder;
 
+use App\Repositories\ProductoRepository;
+use App\Repositories\DashboardRepository;
+use App\Repositories\ClienteRepository;
+
 // ── Bootstrap ────────────────────────────────────────────────────────────────
 require_once __DIR__ . '/../vendor/autoload.php';
 
@@ -52,6 +56,24 @@ $containerBuilder->addDefinitions([
     },
     AiController::class => function ($c) {
         return new AiController($c->get(OpenAiService::class), $c->get(MakerWorldScraper::class));
+    },
+    ProductoRepository::class => function ($c) {
+        return new ProductoRepository($c->get(PDO::class));
+    },
+    ProductosController::class => function ($c) {
+        return new ProductosController($c->get(ProductoRepository::class));
+    },
+    DashboardRepository::class => function ($c) {
+        return new DashboardRepository($c->get(PDO::class));
+    },
+    DashboardController::class => function ($c) {
+        return new DashboardController($c->get(DashboardRepository::class));
+    },
+    ClienteRepository::class => function ($c) {
+        return new ClienteRepository($c->get(PDO::class));
+    },
+    ClientesController::class => function ($c) {
+        return new ClientesController($c->get(ClienteRepository::class));
     },
     TiendaRepository::class => function ($c) {
         return new TiendaRepository($c->get(PDO::class));
@@ -119,7 +141,7 @@ $errorMiddleware->setDefaultErrorHandler(
         $response = $app->getResponseFactory()->createResponse();
         $payload  = [
             'success' => false,
-            'message' => $displayErrorDetails ? $exception->getMessage() : 'Error interno del servidor',
+            'message' => $exception->getMessage() ?: 'Error interno del servidor',
         ];
         if ($displayErrorDetails) {
             $payload['trace'] = $exception->getTraceAsString();
