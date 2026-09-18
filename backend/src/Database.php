@@ -37,6 +37,7 @@ class Database
 
             try {
                 self::$instance = new PDO($dsn, $user, $pass, $options);
+                self::ensureSchema(self::$instance);
             } catch (PDOException $e) {
                 throw new PDOException(
                     'Error al conectar con la base de datos: ' . $e->getMessage(),
@@ -46,6 +47,15 @@ class Database
         }
 
         return self::$instance;
+    }
+
+    private static function ensureSchema(PDO $db): void
+    {
+        try {
+            $db->exec("ALTER TABLE productos ADD COLUMN archivo_url VARCHAR(500) NULL");
+        } catch (\Throwable $e) {
+            // Se ignora si la columna ya existe
+        }
     }
 
     /**
