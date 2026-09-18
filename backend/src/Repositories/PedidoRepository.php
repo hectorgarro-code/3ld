@@ -234,6 +234,7 @@ class PedidoRepository
                 $descuentoPct = (float) ($item['descuento_pct'] ?? 0);
                 $subtotal    = $cantidad * $precioUnit * (1 - $descuentoPct / 100);
 
+                $productoId  = !empty($item['producto_id']) ? (int) $item['producto_id'] : null;
                 $stmtItem = $this->db->prepare(
                     "INSERT INTO pedido_items
                         (pedido_id, producto_id, descripcion, cantidad, precio_unit,
@@ -242,7 +243,7 @@ class PedidoRepository
                 );
                 $stmtItem->execute([
                     $pedidoId,
-                    $item['producto_id'] ?? null,
+                    $productoId,
                     $item['descripcion'] ?? null,
                     $cantidad,
                     $precioUnit,
@@ -250,6 +251,7 @@ class PedidoRepository
                     $subtotal,
                     $item['notas'] ?? null,
                 ]);
+
             }
 
             $this->recalcularTotales($pedidoId);
@@ -322,12 +324,13 @@ class PedidoRepository
         );
         $stmt->execute([
             $pedidoId,
-            $body['producto_id'] ?? null,
+            !empty($body['producto_id']) ? (int) $body['producto_id'] : null,
             $body['descripcion'] ?? null,
             $cantidad,
             $precioUnit,
             $descuentoPct,
             $subtotal,
+
             $body['notas'] ?? null,
         ]);
 

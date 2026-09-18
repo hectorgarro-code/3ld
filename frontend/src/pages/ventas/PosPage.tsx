@@ -282,7 +282,14 @@ export default function PosPage() {
     try {
       const trackingNumber = `TN-${new Date().getFullYear()}${String(Date.now()).slice(-8)}`
 
-      const itemsPayload = cart.map((item) => ({
+      const itemsPayload: Array<{
+        producto_id?: number | null
+        descripcion?: string
+        cantidad: number
+        precio_unit: number
+        subtotal: number
+        notas?: string
+      }> = cart.map((item) => ({
         producto_id: item.producto_id,
         cantidad: item.cantidad,
         precio_unit: item.precio_unit,
@@ -292,13 +299,16 @@ export default function PosPage() {
 
       if (includeShipping && shippingCalculation.precioFinal > 0) {
         itemsPayload.push({
-          producto_id: 0,
+          producto_id: null,
+          descripcion: `Envío Correo Argentino - ${shippingConfig.deliveryType === 'homeDelivery' ? 'Domicilio' : 'Sucursal'} (CP ${shippingConfig.codigoPostal})`,
           cantidad: 1,
           precio_unit: shippingCalculation.precioFinal,
           subtotal: shippingCalculation.precioFinal,
           notas: `Correo Arg. ${shippingConfig.deliveryType === 'homeDelivery' ? 'Domicilio' : 'Sucursal'} (CP ${shippingConfig.codigoPostal})`,
         })
       }
+
+
 
       const shippingNote = includeShipping
         ? ` | ENVÍO CORREO ARGENTINO [TN: ${trackingNumber} | CP: ${shippingConfig.codigoPostal} | ${shippingConfig.localidad} (${shippingConfig.provinciaCodigo}) | Medidas: ${shippingConfig.altoCm}x${shippingConfig.anchoCm}x${shippingConfig.largoCm}cm - ${shippingConfig.pesoGramos}g | Entrega: ${shippingConfig.deliveryType}]`
