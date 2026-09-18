@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { X, PackagePlus, ShoppingBag, Camera, ImagePlus, Loader2, ArrowLeft, Sparkles } from 'lucide-react'
+import { X, PackagePlus, ShoppingBag, Camera, ImagePlus, Loader2, ArrowLeft, Sparkles, CreditCard } from 'lucide-react'
 import { compressImage } from '@/lib/imageUtils'
 import { toast } from '@/store/toastStore'
 
@@ -114,6 +114,27 @@ export function QuickCreateModal({ isOpen, onClose, onOpenProductForm }: QuickCr
               <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
                 ¿Qué deseas registrar hoy?
               </p>
+
+              {/* Option 0: Venta POS */}
+              <button
+                onClick={() => {
+                  handleClose()
+                  navigate('/pos')
+                }}
+                className="w-full flex items-center gap-4 p-4 rounded-2xl border-2 border-slate-100 bg-slate-50/50 hover:bg-teal-50 hover:border-teal-400 transition-all text-left group"
+              >
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-teal-500 to-teal-700 text-white shadow-md shadow-teal-500/20 group-hover:scale-105 transition-transform">
+                  <CreditCard className="h-6 w-6" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-base font-black text-slate-800 group-hover:text-teal-600 transition-colors">
+                    Venta Rápida POS
+                  </h3>
+                  <p className="text-xs text-slate-500 truncate">
+                    Cobro en mostrador / facturar desde el celular
+                  </p>
+                </div>
+              </button>
 
               {/* Option 1: Nuevo Pedido */}
               <button

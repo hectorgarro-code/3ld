@@ -21,6 +21,7 @@ import {
   CreditCard,
   MessageSquare,
   Sparkles,
+  ChevronLeft,
 } from 'lucide-react'
 
 export interface PosCartItem {
@@ -43,12 +44,14 @@ export default function PosPage() {
   const [search, setSearch] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
   const [cart, setCart] = useState<PosCartItem[]>([])
+  const [mobileView, setMobileView] = useState<'catalog' | 'ticket'>('catalog')
 
   // Order Details State
   const [clienteId, setClienteId] = useState<number | ''>('')
   const [descuentoPct, setDescuentoPct] = useState<number>(0)
   const [estadoPedido, setEstadoPedido] = useState<'presupuesto' | 'aprobado' | 'cobrado'>('cobrado')
   const [notasGenerales, setNotasGenerales] = useState<string>('')
+
 
   // Modals
   const [isProductoModalOpen, setIsProductoModalOpen] = useState(false)
@@ -240,9 +243,46 @@ export default function PosPage() {
   }
 
   return (
-    <div className="h-[calc(100vh-5rem)] flex flex-col md:flex-row gap-4 overflow-hidden p-2 sm:p-4 bg-slate-50/50">
+    <div className="min-h-[calc(100vh-5rem)] md:h-[calc(100vh-5rem)] flex flex-col md:flex-row gap-3 sm:gap-4 p-2 sm:p-4 bg-slate-50/50 pb-20 md:pb-4">
+      {/* Mobile Top View Switcher */}
+      <div className="md:hidden flex items-center bg-white p-1 rounded-2xl border border-slate-200 shadow-2xs">
+        <button
+          type="button"
+          onClick={() => setMobileView('catalog')}
+          className={`flex-1 py-2.5 text-xs font-black rounded-xl transition flex items-center justify-center gap-1.5 ${
+            mobileView === 'catalog'
+              ? 'bg-teal-600 text-white shadow-2xs'
+              : 'text-slate-500 hover:text-slate-900'
+          }`}
+        >
+          <Package className="h-4 w-4" />
+          <span>Catálogo</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setMobileView('ticket')}
+          className={`flex-1 py-2.5 text-xs font-black rounded-xl transition flex items-center justify-center gap-1.5 ${
+            mobileView === 'ticket'
+              ? 'bg-slate-900 text-white shadow-2xs'
+              : 'text-slate-500 hover:text-slate-900'
+          }`}
+        >
+          <FileText className="h-4 w-4" />
+          <span>Ticket ({cart.length})</span>
+          {cart.length > 0 && (
+            <span className="ml-1 bg-teal-500 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold">
+              {formatARS(total)}
+            </span>
+          )}
+        </button>
+      </div>
+
       {/* LEFT COLUMN: Catalog & Products */}
-      <div className="flex-1 flex flex-col min-w-0 bg-white rounded-3xl border border-slate-200 shadow-xs overflow-hidden">
+      <div
+        className={`flex-1 flex-col min-w-0 bg-white rounded-3xl border border-slate-200 shadow-xs overflow-hidden ${
+          mobileView === 'ticket' ? 'hidden md:flex' : 'flex'
+        }`}
+      >
         {/* Top Header / Controls */}
         <div className="p-4 border-b border-slate-100 space-y-3 bg-white">
           <div className="flex items-center justify-between gap-3">
@@ -376,9 +416,23 @@ export default function PosPage() {
       </div>
 
       {/* RIGHT COLUMN: POS Ticket / Venta */}
-      <div className="w-full md:w-96 flex flex-col bg-white rounded-3xl border border-slate-200 shadow-xs overflow-hidden">
+      <div
+        className={`w-full md:w-96 flex-col bg-white rounded-3xl border border-slate-200 shadow-xs overflow-hidden ${
+          mobileView === 'catalog' ? 'hidden md:flex' : 'flex'
+        }`}
+      >
         {/* Ticket Header */}
         <div className="p-4 border-b border-slate-100 bg-slate-900 text-white space-y-3">
+          {/* Mobile Back to Catalog Button */}
+          <button
+            type="button"
+            onClick={() => setMobileView('catalog')}
+            className="md:hidden flex items-center gap-1.5 text-xs text-teal-300 hover:text-white font-bold pb-1"
+          >
+            <ChevronLeft className="h-4 w-4" />
+            <span>Volver al Catálogo de Productos</span>
+          </button>
+
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-black tracking-wide uppercase flex items-center gap-2 text-teal-400">
               <FileText className="h-4 w-4" /> Ticket de Venta
@@ -544,6 +598,31 @@ export default function PosPage() {
           </button>
         </div>
       </div>
+
+      {/* MOBILE FLOATING TICKET BAR (Catalog view) */}
+      {mobileView === 'catalog' && cart.length > 0 && (
+        <div className="md:hidden fixed bottom-20 left-4 right-4 z-40">
+          <button
+            type="button"
+            onClick={() => setMobileView('ticket')}
+            className="w-full bg-slate-900 hover:bg-slate-800 text-white p-3.5 rounded-2xl shadow-2xl border border-slate-700 flex items-center justify-between font-black text-xs transition active:scale-95"
+          >
+            <div className="flex items-center gap-2.5">
+              <span className="h-6 w-6 rounded-lg bg-teal-500 text-white flex items-center justify-center text-[11px] font-black shadow-xs">
+                {cart.reduce((s, i) => s + i.cantidad, 0)}
+              </span>
+              <span className="text-white font-black text-xs">Ver Ticket de Venta</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-teal-400 font-black text-sm">{formatARS(total)}</span>
+              <span className="text-[10px] bg-teal-600 text-white px-2.5 py-1 rounded-xl font-bold uppercase tracking-wider">
+                Cobrar →
+              </span>
+            </div>
+          </button>
+        </div>
+      )}
+
 
       {/* QUICK ADD ITEM MODAL */}
       {selectedProductForAdd && (
