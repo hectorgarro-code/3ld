@@ -12,9 +12,11 @@ export interface Producto {
   id: number
   nombre: string
   variante?: string
+  sku?: string
   descripcion?: string
   tipo: ProductoTipo
   categoria_id?: number
+  categoria_nombre?: string
   categoria?: Categoria
   precio_venta: number
   precio_costo?: number

@@ -13,6 +13,7 @@ import {
   Building2,
   Printer,
   Store,
+  CreditCard,
 } from 'lucide-react'
 
 export interface NavGroup {
@@ -35,6 +36,7 @@ export const navGroups: NavGroup[] = [
   {
     label: 'Ventas',
     items: [
+      { to: '/pos', label: 'Venta POS', icon: <CreditCard className="h-5 w-5" /> },
       { to: '/pedidos', label: 'Pedidos', icon: <Package className="h-5 w-5" /> },
       { to: '/clientes', label: 'Clientes', icon: <Users className="h-5 w-5" /> },
       { to: '/productos', label: 'Productos', icon: <ShoppingBag className="h-5 w-5" /> },
@@ -42,6 +44,7 @@ export const navGroups: NavGroup[] = [
       { to: '/cotizador', label: 'Cotizador', icon: <Calculator className="h-5 w-5" /> },
     ],
   },
+
   {
     label: 'Inventario',
     items: [

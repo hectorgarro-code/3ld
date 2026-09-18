@@ -26,6 +26,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 const LoginPage = lazy(() => import('@/pages/auth/LoginPage'))
 const DashboardPage = lazy(() => import('@/pages/DashboardPage'))
 const VentasPage = lazy(() => import('@/pages/ventas/VentasPage'))
+const PosPage = lazy(() => import('@/pages/ventas/PosPage'))
 const PedidoDetailPage = lazy(() => import('@/pages/ventas/PedidoDetailPage'))
 const NuevoPedidoPage = lazy(() => import('@/pages/ventas/NuevoPedidoPage'))
 const ClientesPage = lazy(() => import('@/pages/clientes/ClientesPage'))
@@ -72,6 +73,14 @@ export const router = createBrowserRouter([
         ),
       },
       {
+        path: 'pos',
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            <PosPage />
+          </Suspense>
+        ),
+      },
+      {
         path: 'pedidos',
         element: (
           <Suspense fallback={<PageLoader />}>
@@ -87,6 +96,7 @@ export const router = createBrowserRouter([
           </Suspense>
         ),
       },
+
       {
         path: 'pedidos/:id',
         element: (
