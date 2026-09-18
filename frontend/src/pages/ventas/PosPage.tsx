@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useProductos } from '@/hooks/useProductos'
 import { useClientes, useCreateCliente } from '@/hooks/useClientes'
@@ -22,7 +22,18 @@ import {
   MessageSquare,
   Sparkles,
   ChevronLeft,
+  Truck,
+  Printer,
+  ChevronDown,
 } from 'lucide-react'
+import {
+  calcularTarifaCorreoArgentino,
+  PROVINCIAS_CORREO_ARG,
+  type ShippingConfig,
+} from '@/lib/correoArgentino'
+import { ShippingLabelModal } from '@/components/pos/ShippingLabelModal'
+
+
 
 export interface PosCartItem {
   producto_id: number
@@ -52,12 +63,36 @@ export default function PosPage() {
   const [estadoPedido, setEstadoPedido] = useState<'presupuesto' | 'aprobado' | 'cobrado'>('cobrado')
   const [notasGenerales, setNotasGenerales] = useState<string>('')
 
+  // Shipping (Correo Argentino) State
+  const [includeShipping, setIncludeShipping] = useState<boolean>(false)
+  const [showShippingDetails, setShowShippingDetails] = useState<boolean>(false)
+  const [isShippingLabelModalOpen, setIsShippingLabelModalOpen] = useState<boolean>(false)
+  const [lastOrderTracking, setLastOrderTracking] = useState<string>('')
+  const [lastOrderId, setLastOrderId] = useState<string>('')
+
+  const [shippingConfig, setShippingConfig] = useState<ShippingConfig>({
+    destinatarioNombre: '',
+    telefono: '',
+    email: '',
+    calle: '',
+    altura: '',
+    pisoDpto: '',
+    localidad: '',
+    provinciaCodigo: 'B',
+    codigoPostal: '',
+    deliveryType: 'homeDelivery',
+    pesoGramos: 350,
+    altoCm: 15,
+    anchoCm: 20,
+    largoCm: 25,
+  })
 
   // Modals
   const [isProductoModalOpen, setIsProductoModalOpen] = useState(false)
   const [isNewClienteModalOpen, setIsNewClienteModalOpen] = useState(false)
   const [newClienteNombre, setNewClienteNombre] = useState('')
   const [newClienteTelefono, setNewClienteTelefono] = useState('')
+
 
   // Item Edit Note Modal
   const [itemNoteModalIndex, setItemNoteModalIndex] = useState<number | null>(null)
@@ -176,14 +211,58 @@ export default function PosPage() {
     }
   }
 
+  // Sync client details into shippingConfig
+  useEffect(() => {
+    const c = clientesData?.data.find((cl) => cl.id === activeClienteId)
+    if (c) {
+      setShippingConfig((prev) => ({
+        ...prev,
+        destinatarioNombre: c.nombre || '',
+        telefono: c.telefono || '',
+        email: c.email || '',
+        calle: c.direccion || '',
+      }))
+    }
+  }, [activeClienteId, clientesData])
+
+  // Estimated weight from cart products
+  const totalCartWeightGrams = useMemo(() => {
+    return cart.reduce((acc, item) => {
+      const prod = productosData?.data.find((p) => p.id === item.producto_id)
+      const weight = (prod as any)?.peso_gramos || 150
+      return acc + weight * item.cantidad
+    }, 0)
+  }, [cart, productosData])
+
+  useEffect(() => {
+    if (totalCartWeightGrams > 0) {
+      setShippingConfig((prev) => ({ ...prev, pesoGramos: totalCartWeightGrams }))
+    }
+  }, [totalCartWeightGrams])
+
+  // Shipping rate calculation
+  const shippingCalculation = useMemo(() => {
+    if (!includeShipping) return { precioFinal: 0, pesoFacturableKg: 0, zona: 'Nacional' as const }
+    return calcularTarifaCorreoArgentino({
+      provinciaCodigo: shippingConfig.provinciaCodigo,
+      codigoPostal: shippingConfig.codigoPostal,
+      pesoGramos: shippingConfig.pesoGramos || 350,
+      altoCm: shippingConfig.altoCm || 15,
+      anchoCm: shippingConfig.anchoCm || 20,
+      largoCm: shippingConfig.largoCm || 25,
+      deliveryType: shippingConfig.deliveryType,
+    })
+  }, [includeShipping, shippingConfig])
+
   // Calculations
   const subtotal = useMemo(() => {
     return cart.reduce((sum, item) => sum + item.cantidad * item.precio_unit, 0)
   }, [cart])
 
   const total = useMemo(() => {
-    return subtotal * (1 - descuentoPct / 100)
-  }, [subtotal, descuentoPct])
+    const base = subtotal * (1 - descuentoPct / 100)
+    return base + (includeShipping ? shippingCalculation.precioFinal : 0)
+  }, [subtotal, descuentoPct, includeShipping, shippingCalculation])
 
   // Submit POS Sale
   const handleCheckout = async () => {
@@ -195,32 +274,62 @@ export default function PosPage() {
       toast('Seleccioná un cliente para continuar', 'error')
       return
     }
+    if (includeShipping && !shippingConfig.codigoPostal.trim()) {
+      toast('Ingresá el Código Postal para cotizar y despachar con Correo Argentino', 'error')
+      return
+    }
 
     try {
+      const trackingNumber = `TN-${new Date().getFullYear()}${String(Date.now()).slice(-8)}`
+
+      const itemsPayload = cart.map((item) => ({
+        producto_id: item.producto_id,
+        cantidad: item.cantidad,
+        precio_unit: item.precio_unit,
+        subtotal: item.cantidad * item.precio_unit,
+        notas: item.notas,
+      }))
+
+      if (includeShipping && shippingCalculation.precioFinal > 0) {
+        itemsPayload.push({
+          producto_id: 0,
+          cantidad: 1,
+          precio_unit: shippingCalculation.precioFinal,
+          subtotal: shippingCalculation.precioFinal,
+          notas: `Correo Arg. ${shippingConfig.deliveryType === 'homeDelivery' ? 'Domicilio' : 'Sucursal'} (CP ${shippingConfig.codigoPostal})`,
+        })
+      }
+
+      const shippingNote = includeShipping
+        ? ` | ENVÍO CORREO ARGENTINO [TN: ${trackingNumber} | CP: ${shippingConfig.codigoPostal} | ${shippingConfig.localidad} (${shippingConfig.provinciaCodigo}) | Medidas: ${shippingConfig.altoCm}x${shippingConfig.anchoCm}x${shippingConfig.largoCm}cm - ${shippingConfig.pesoGramos}g | Entrega: ${shippingConfig.deliveryType}]`
+        : ''
+
       const payload = {
         cliente_id: Number(activeClienteId),
         descuento_pct: descuentoPct,
         impuesto_pct: 0,
-        notas: notasGenerales.trim() || 'Venta efectuada en Terminal POS',
-        items: cart.map((item) => ({
-          producto_id: item.producto_id,
-          cantidad: item.cantidad,
-          precio_unit: item.precio_unit,
-          subtotal: item.cantidad * item.precio_unit,
-          notas: item.notas,
-        })),
+        notas: (notasGenerales.trim() || 'Venta efectuada en Terminal POS') + shippingNote,
+        items: itemsPayload,
       }
 
-      await createPedido.mutateAsync(payload as any)
+      const created: any = await createPedido.mutateAsync(payload as any)
       toast('¡Venta realizada con éxito! Reflejada en Pedidos', 'success')
+
+      if (includeShipping) {
+        setLastOrderTracking(trackingNumber)
+        setLastOrderId(created?.numero_pedido || String(created?.id || ''))
+        setIsShippingLabelModalOpen(true)
+      }
 
       setCart([])
       setNotasGenerales('')
       setDescuentoPct(0)
+      setIncludeShipping(false)
     } catch (e: any) {
       toast(e?.response?.data?.message || 'Error al procesar la venta', 'error')
     }
   }
+
 
   // Quick Client Creation
   const handleCreateQuickCliente = async (e: React.FormEvent) => {
@@ -567,12 +676,230 @@ export default function PosPage() {
             </div>
           </div>
 
+          {/* Envío Correo Argentino Card */}
+          <div className="rounded-2xl border border-slate-200 bg-white p-3 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={includeShipping}
+                  onChange={(e) => {
+                    setIncludeShipping(e.target.checked)
+                    if (e.target.checked) setShowShippingDetails(true)
+                  }}
+                  className="h-4 w-4 rounded border-slate-300 text-teal-600 focus:ring-teal-500"
+                />
+                <div className="flex items-center gap-1.5 font-extrabold text-xs text-slate-800">
+                  <Truck className="h-4 w-4 text-amber-500" />
+                  <span>Envío Correo Argentino</span>
+                </div>
+              </label>
+
+              {includeShipping && (
+                <button
+                  type="button"
+                  onClick={() => setShowShippingDetails(!showShippingDetails)}
+                  className="text-[11px] font-bold text-teal-600 hover:text-teal-700 flex items-center gap-0.5"
+                >
+                  <span>{showShippingDetails ? 'Menos' : 'Detalles'}</span>
+                  <ChevronDown
+                    className={`h-3.5 w-3.5 transition-transform ${
+                      showShippingDetails ? 'rotate-180' : ''
+                    }`}
+                  />
+                </button>
+              )}
+            </div>
+
+            {includeShipping && (
+              <div className="space-y-2.5 pt-1 text-xs">
+                {/* CP & Province */}
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="font-bold text-slate-600 block mb-0.5 text-[11px]">
+                      Código Postal (CP)
+                    </label>
+                    <input
+                      type="text"
+                      maxLength={8}
+                      value={shippingConfig.codigoPostal}
+                      onChange={(e) =>
+                        setShippingConfig({ ...shippingConfig, codigoPostal: e.target.value })
+                      }
+                      placeholder="Ej: 1425"
+                      className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl font-black text-slate-900 focus:bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="font-bold text-slate-600 block mb-0.5 text-[11px]">
+                      Provincia Destino
+                    </label>
+                    <select
+                      value={shippingConfig.provinciaCodigo}
+                      onChange={(e) =>
+                        setShippingConfig({ ...shippingConfig, provinciaCodigo: e.target.value })
+                      }
+                      className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 text-[11px] focus:bg-white"
+                    >
+                      {PROVINCIAS_CORREO_ARG.map((p) => (
+                        <option key={p.codigo} value={p.codigo}>
+                          {p.nombre} ({p.codigo})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Tipo de Entrega */}
+                <div className="grid grid-cols-2 gap-1.5 bg-slate-100 p-1 rounded-xl text-[11px] font-bold">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setShippingConfig({ ...shippingConfig, deliveryType: 'homeDelivery' })
+                    }
+                    className={`py-1.5 rounded-lg transition ${
+                      shippingConfig.deliveryType === 'homeDelivery'
+                        ? 'bg-white text-slate-900 shadow-2xs'
+                        : 'text-slate-500'
+                    }`}
+                  >
+                    🏠 Domicilio
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setShippingConfig({ ...shippingConfig, deliveryType: 'agency' })
+                    }
+                    className={`py-1.5 rounded-lg transition ${
+                      shippingConfig.deliveryType === 'agency'
+                        ? 'bg-white text-slate-900 shadow-2xs'
+                        : 'text-slate-500'
+                    }`}
+                  >
+                    🏬 Sucursal
+                  </button>
+                </div>
+
+                {/* Collapsible Destination & Package details */}
+                {showShippingDetails && (
+                  <div className="space-y-2 pt-2 border-t border-slate-100 bg-slate-50/60 p-2 rounded-xl">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="font-bold text-slate-600 block mb-0.5 text-[10px]">
+                          Localidad / Ciudad
+                        </label>
+                        <input
+                          type="text"
+                          value={shippingConfig.localidad}
+                          onChange={(e) =>
+                            setShippingConfig({ ...shippingConfig, localidad: e.target.value })
+                          }
+                          placeholder="Localidad"
+                          className="w-full p-1.5 bg-white border border-slate-200 rounded-lg text-xs"
+                        />
+                      </div>
+                      <div>
+                        <label className="font-bold text-slate-600 block mb-0.5 text-[10px]">
+                          Calle y Altura
+                        </label>
+                        <input
+                          type="text"
+                          value={shippingConfig.calle}
+                          onChange={(e) =>
+                            setShippingConfig({ ...shippingConfig, calle: e.target.value })
+                          }
+                          placeholder="Calle 123"
+                          className="w-full p-1.5 bg-white border border-slate-200 rounded-lg text-xs"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-4 gap-1.5 text-[10px]">
+                      <div>
+                        <span className="font-bold text-slate-600 block mb-0.5">Peso (g)</span>
+                        <input
+                          type="number"
+                          value={shippingConfig.pesoGramos}
+                          onChange={(e) =>
+                            setShippingConfig({
+                              ...shippingConfig,
+                              pesoGramos: parseInt(e.target.value) || 0,
+                            })
+                          }
+                          className="w-full p-1.5 bg-white border border-slate-200 rounded-lg font-bold text-xs"
+                        />
+                      </div>
+                      <div>
+                        <span className="font-bold text-slate-600 block mb-0.5">Alto (cm)</span>
+                        <input
+                          type="number"
+                          value={shippingConfig.altoCm}
+                          onChange={(e) =>
+                            setShippingConfig({
+                              ...shippingConfig,
+                              altoCm: parseInt(e.target.value) || 1,
+                            })
+                          }
+                          className="w-full p-1.5 bg-white border border-slate-200 rounded-lg font-bold text-xs"
+                        />
+                      </div>
+                      <div>
+                        <span className="font-bold text-slate-600 block mb-0.5">Ancho (cm)</span>
+                        <input
+                          type="number"
+                          value={shippingConfig.anchoCm}
+                          onChange={(e) =>
+                            setShippingConfig({
+                              ...shippingConfig,
+                              anchoCm: parseInt(e.target.value) || 1,
+                            })
+                          }
+                          className="w-full p-1.5 bg-white border border-slate-200 rounded-lg font-bold text-xs"
+                        />
+                      </div>
+                      <div>
+                        <span className="font-bold text-slate-600 block mb-0.5">Largo (cm)</span>
+                        <input
+                          type="number"
+                          value={shippingConfig.largoCm}
+                          onChange={(e) =>
+                            setShippingConfig({
+                              ...shippingConfig,
+                              largoCm: parseInt(e.target.value) || 1,
+                            })
+                          }
+                          className="w-full p-1.5 bg-white border border-slate-200 rounded-lg font-bold text-xs"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Rate Summary */}
+                <div className="flex items-center justify-between bg-amber-50/70 border border-amber-200/80 px-2.5 py-1.5 rounded-xl font-bold text-amber-900 text-[11px]">
+                  <span>
+                    Zona: {shippingCalculation.zona} ({shippingCalculation.pesoFacturableKg} kg)
+                  </span>
+                  <span className="text-xs font-black text-amber-800">
+                    +${shippingCalculation.precioFinal.toLocaleString('es-AR')}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Totals display */}
           <div className="space-y-1 pt-1">
             {descuentoPct > 0 && (
               <div className="flex justify-between text-xs text-slate-500 font-bold">
                 <span>Subtotal</span>
                 <span>{formatARS(subtotal)}</span>
+              </div>
+            )}
+            {includeShipping && shippingCalculation.precioFinal > 0 && (
+              <div className="flex justify-between text-xs text-amber-700 font-bold">
+                <span>Envío Correo Argentino</span>
+                <span>+{formatARS(shippingCalculation.precioFinal)}</span>
               </div>
             )}
             <div className="flex justify-between items-center text-slate-900">
@@ -787,6 +1114,17 @@ export default function PosPage() {
           refetchProds()
         }}
       />
+
+      {/* MODAL ROTULO DE ENVIO CORREO ARGENTINO */}
+      <ShippingLabelModal
+        isOpen={isShippingLabelModalOpen}
+        onClose={() => setIsShippingLabelModalOpen(false)}
+        trackingNumber={lastOrderTracking}
+        orderNumber={lastOrderId}
+        shippingConfig={shippingConfig}
+        totalOrder={total}
+      />
     </div>
   )
 }
+
