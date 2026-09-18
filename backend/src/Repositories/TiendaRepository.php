@@ -60,20 +60,36 @@ class TiendaRepository
             $orderBy = "ORDER BY p.nombre ASC";
         }
 
-        $sql = "SELECT p.id, p.nombre AS title, p.subcategoria, p.descripcion,
-                       p.precio_venta AS price, p.precio_oferta AS oldPrice,
-                       p.stock_actual, p.estado_stock AS stockStatus,
-                       p.imagen_url AS image, p.peso_gramos AS weightGrams,
-                       p.dimensiones AS size, p.es_destacado,
-                       c.nombre AS category
-                FROM productos p
-                LEFT JOIN categorias_producto c ON c.id = p.categoria_id
-                {$where}
-                {$orderBy}";
+        try {
+            $sql = "SELECT p.id, p.nombre AS title, p.subcategoria, p.descripcion,
+                           p.precio_venta AS price, p.precio_oferta AS oldPrice,
+                           p.stock_actual, p.estado_stock AS stockStatus,
+                           p.imagen_url AS image, p.peso_gramos AS weightGrams,
+                           p.dimensiones AS size, p.es_destacado,
+                           c.nombre AS category
+                    FROM productos p
+                    LEFT JOIN categorias_producto c ON c.id = p.categoria_id
+                    {$where}
+                    {$orderBy}";
 
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute($binds);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute($binds);
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (\PDOException $e) {
+            $fallbackSql = "SELECT p.id, p.nombre AS title, '' AS subcategoria, p.descripcion,
+                                   p.precio_venta AS price, NULL AS oldPrice,
+                                   p.stock_actual, 'ready' AS stockStatus,
+                                   p.imagen_url AS image, 50 AS weightGrams,
+                                   NULL AS size, 0 AS es_destacado,
+                                   c.nombre AS category
+                            FROM productos p
+                            LEFT JOIN categorias_producto c ON c.id = p.categoria_id
+                            WHERE p.activo = 1 AND p.es_vendible = 1
+                            ORDER BY p.id DESC";
+            $stmt = $this->db->prepare($fallbackSql);
+            $stmt->execute();
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        }
     }
 
     /**

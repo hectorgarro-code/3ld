@@ -39,11 +39,21 @@ class AiController
             // 1. Scrape MakerWorld Page
             $scraped = $this->scraper->scrape($url);
 
-            // 2. Process with OpenAI GPT
-            $aiResult = $this->openAiService->optimizeProductForSales(
-                $scraped['raw_title'],
-                $scraped['raw_description']
-            );
+            // 2. Process with OpenAI GPT (con fallback en caso de error de API/Red)
+            try {
+                $aiResult = $this->openAiService->optimizeProductForSales(
+                    $scraped['raw_title'],
+                    $scraped['raw_description']
+                );
+            } catch (Throwable $aiErr) {
+                $aiResult = [
+                    'title'           => $scraped['raw_title'],
+                    'description'     => $scraped['raw_description'],
+                    'category'        => 'accesorio',
+                    'suggested_price' => 8500,
+                    'ai_error'        => $aiErr->getMessage(),
+                ];
+            }
 
             return Response::success([
                 'title'           => $aiResult['title'] ?? $scraped['raw_title'],
@@ -54,9 +64,10 @@ class AiController
                 'raw_description' => $scraped['raw_description'],
                 'images'          => $scraped['images'],
                 'source_url'      => $url,
+                'ai_error'        => $aiResult['ai_error'] ?? null,
             ]);
         } catch (Throwable $e) {
-            return Response::error('Error al importar desde MakerWorld con IA: ' . $e->getMessage(), 500);
+            return Response::error('Error al importar desde MakerWorld: ' . $e->getMessage(), 500);
         }
     }
 
@@ -75,7 +86,15 @@ class AiController
                 return Response::error('Ingresá al menos un título o detalle para generar con IA', 400);
             }
 
-            $aiResult = $this->openAiService->generateSalesCopy($title, $details);
+            try {
+                $aiResult = $this->openAiService->generateSalesCopy($title, $details);
+            } catch (Throwable $aiErr) {
+                $aiResult = [
+                    'title'       => $title,
+                    'description' => $details,
+                    'ai_error'    => $aiErr->getMessage(),
+                ];
+            }
 
             return Response::success($aiResult);
         } catch (Throwable $e) {

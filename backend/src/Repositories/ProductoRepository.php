@@ -135,37 +135,63 @@ class ProductoRepository
     {
         $sku = !empty(trim((string)($data['sku'] ?? ''))) ? trim($data['sku']) : null;
 
-        $stmt = $this->db->prepare(
-            "INSERT INTO productos
-                (nombre, variante, sku, descripcion, tipo, categoria_id, precio_venta, precio_costo,
-                 stock_actual, stock_minimo, unidad_medida, imagen_url, 
-                 es_vendible, es_insumo, es_tienda, subcategoria, precio_oferta, peso_gramos, dimensiones, estado_stock, es_destacado, activo, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())"
-        );
+        try {
+            $stmt = $this->db->prepare(
+                "INSERT INTO productos
+                    (nombre, variante, sku, descripcion, tipo, categoria_id, precio_venta, precio_costo,
+                     stock_actual, stock_minimo, unidad_medida, imagen_url, 
+                     es_vendible, es_insumo, es_tienda, subcategoria, precio_oferta, peso_gramos, dimensiones, estado_stock, es_destacado, activo, created_at, updated_at)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())"
+            );
 
-        $stmt->execute([
-            trim($data['nombre']),
-            $data['variante']      ?? null,
-            $sku,
-            $data['descripcion']   ?? null,
-            $data['tipo']          ?? 'impresion_3d',
-            $data['categoria_id']  ?? null,
-            (float) ($data['precio_venta']  ?? 0),
-            (float) ($data['precio_costo']  ?? 0),
-            (int)   ($data['stock_actual']  ?? 0),
-            (int)   ($data['stock_minimo']  ?? 0),
-            $data['unidad_medida'] ?? 'unidad',
-            $data['imagen_url']    ?? null,
-            isset($data['es_vendible']) ? (int)$data['es_vendible'] : 1,
-            isset($data['es_insumo']) ? (int)$data['es_insumo'] : 0,
-            isset($data['es_tienda']) ? (int)$data['es_tienda'] : 0,
-            $data['subcategoria']  ?? null,
-            isset($data['precio_oferta']) ? (float)$data['precio_oferta'] : null,
-            (int) ($data['peso_gramos'] ?? 50),
-            $data['dimensiones']   ?? null,
-            $data['estado_stock']  ?? 'ready',
-            isset($data['es_destacado']) ? (int)$data['es_destacado'] : 0,
-        ]);
+            $stmt->execute([
+                trim($data['nombre']),
+                $data['variante']      ?? null,
+                $sku,
+                $data['descripcion']   ?? null,
+                $data['tipo']          ?? 'impresion_3d',
+                $data['categoria_id']  ?? null,
+                (float) ($data['precio_venta']  ?? 0),
+                (float) ($data['precio_costo']  ?? 0),
+                (int)   ($data['stock_actual']  ?? 0),
+                (int)   ($data['stock_minimo']  ?? 0),
+                $data['unidad_medida'] ?? 'unidad',
+                $data['imagen_url']    ?? null,
+                isset($data['es_vendible']) ? (int)$data['es_vendible'] : 1,
+                isset($data['es_insumo']) ? (int)$data['es_insumo'] : 0,
+                isset($data['es_tienda']) ? (int)$data['es_tienda'] : 0,
+                $data['subcategoria']  ?? null,
+                isset($data['precio_oferta']) ? (float)$data['precio_oferta'] : null,
+                (int) ($data['peso_gramos'] ?? 50),
+                $data['dimensiones']   ?? null,
+                $data['estado_stock']  ?? 'ready',
+                isset($data['es_destacado']) ? (int)$data['es_destacado'] : 0,
+            ]);
+        } catch (\PDOException $e) {
+            $stmt = $this->db->prepare(
+                "INSERT INTO productos
+                    (nombre, variante, sku, descripcion, tipo, categoria_id, precio_venta, precio_costo,
+                     stock_actual, stock_minimo, unidad_medida, imagen_url, 
+                     es_vendible, es_insumo, activo, created_at, updated_at)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())"
+            );
+            $stmt->execute([
+                trim($data['nombre']),
+                $data['variante']      ?? null,
+                $sku,
+                $data['descripcion']   ?? null,
+                $data['tipo']          ?? 'impresion_3d',
+                $data['categoria_id']  ?? null,
+                (float) ($data['precio_venta']  ?? 0),
+                (float) ($data['precio_costo']  ?? 0),
+                (int)   ($data['stock_actual']  ?? 0),
+                (int)   ($data['stock_minimo']  ?? 0),
+                $data['unidad_medida'] ?? 'unidad',
+                $data['imagen_url']    ?? null,
+                isset($data['es_vendible']) ? (int)$data['es_vendible'] : 1,
+                isset($data['es_insumo']) ? (int)$data['es_insumo'] : 0,
+            ]);
+        }
 
         $newId = (int) $this->db->lastInsertId();
 
