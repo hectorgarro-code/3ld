@@ -407,6 +407,9 @@ $app->group('/api/v1', function (RouteCollectorProxy $api) use ($config, $auth, 
 
     // Tienda Admin
     $api->group('/tienda', function (RouteCollectorProxy $g) use ($container) {
+        $g->post('/productos/bulk-update', function ($req, $res) use ($container) {
+            return $container->get(TiendaController::class)->bulkUpdate($req, $res);
+        });
         $g->put('/productos/{id}', function ($req, $res, $args) use ($container) {
             return $container->get(TiendaController::class)->updateProducto($req, $res, $args);
         });
@@ -417,6 +420,7 @@ $app->group('/api/v1', function (RouteCollectorProxy $api) use ($config, $auth, 
             return $container->get(TiendaController::class)->saveConfig($req, $res);
         });
     })->add($auth);
+
 
     // AI & MakerWorld Integration
     $api->group('/ai', function (RouteCollectorProxy $g) use ($container) {

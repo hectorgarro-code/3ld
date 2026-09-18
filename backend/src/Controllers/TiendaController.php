@@ -71,6 +71,33 @@ class TiendaController
     }
 
     /**
+     * POST /api/v1/tienda/productos/bulk-update
+     * Ejecutar acciones masivas sobre varios productos
+     */
+    public function bulkUpdate(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
+    {
+        try {
+            $data = (array) $request->getParsedBody();
+            $ids = array_map('intval', $data['ids'] ?? []);
+            $action = $data['action'] ?? '';
+            $params = $data['params'] ?? [];
+
+            if (empty($ids) || empty($action)) {
+                return Response::error('Faltan productos o acción a realizar', 400);
+            }
+
+            $success = $this->repository->bulkUpdate($ids, $action, $params);
+            if ($success) {
+                return Response::success(['message' => 'Acción masiva ejecutada con éxito']);
+            }
+            return Response::error('No se pudo ejecutar la acción masiva', 400);
+        } catch (Throwable $e) {
+            return Response::error('Error en acción masiva: ' . $e->getMessage(), 500);
+        }
+    }
+
+
+    /**
      * GET /api/v1/tienda/config
      * Obtener configuración visual y bloques de la tienda (Elementor)
      */

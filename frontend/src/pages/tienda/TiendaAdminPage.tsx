@@ -2,18 +2,22 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Store,
-  Plus,
   Search,
-  Check,
   X,
   Edit2,
   Eye,
   EyeOff,
   ExternalLink,
   Package,
-  Zap,
   Sparkles,
   RefreshCw,
+  FolderPlus,
+  DollarSign,
+  Tag,
+  Boxes,
+  CheckSquare,
+  Square,
+  Sliders,
 } from 'lucide-react'
 import api from '@/lib/api'
 
@@ -33,20 +37,45 @@ export interface AdminProduct {
   es_destacado?: boolean | number
   peso_gramos?: number
   dimensiones?: string
+  categoria_id?: number
   categoria_nombre?: string
+}
+
+export interface Categoria {
+  id: number
+  nombre: string
 }
 
 export default function TiendaAdminPage() {
   const [products, setProducts] = useState<AdminProduct[]>([])
+  const [categories, setCategories] = useState<Categoria[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [filterTienda, setFilterTienda] = useState<'all' | 'published' | 'hidden'>('all')
 
-  // Edit Modal State
+  // Selection
+  const [selectedIds, setSelectedIds] = useState<number[]>([])
+
+  // Single Edit Modal State
   const [editingProduct, setEditingProduct] = useState<AdminProduct | null>(null)
-  const [isNewProductModalOpen, setIsNewProductModalOpen] = useState(false)
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState<{ text: string; type: 'success' | 'error' } | null>(null)
+
+  // Bulk Action Modals
+  const [bulkModal, setBulkModal] = useState<'category' | 'prices' | 'offers' | 'stock' | null>(null)
+  
+  // Bulk Form States
+  const [bulkCatId, setBulkCatId] = useState<string>('')
+  const [bulkSubcat, setBulkSubcat] = useState<string>('')
+
+  const [bulkPriceMode, setBulkPriceMode] = useState<'percentage' | 'fixed'>('percentage')
+  const [bulkPriceValue, setBulkPriceValue] = useState<number>(0)
+
+  const [bulkOfferMode, setBulkOfferMode] = useState<'percentage' | 'fixed' | 'clear'>('percentage')
+  const [bulkOfferValue, setBulkOfferValue] = useState<number>(0)
+
+  const [bulkStockMode, setBulkStockMode] = useState<'add' | 'fixed'>('fixed')
+  const [bulkStockValue, setBulkStockValue] = useState<number>(0)
 
   const fetchProducts = async () => {
     setLoading(true)
@@ -62,8 +91,22 @@ export default function TiendaAdminPage() {
     }
   }
 
+  const fetchCategories = async () => {
+    try {
+      const res = await api.get('/categorias')
+      if (Array.isArray(res.data?.data)) {
+        setCategories(res.data.data)
+      } else if (Array.isArray(res.data)) {
+        setCategories(res.data)
+      }
+    } catch (e) {
+      // Fail gracefully
+    }
+  }
+
   useEffect(() => {
     fetchProducts()
+    fetchCategories()
   }, [])
 
   const showToast = (text: string, type: 'success' | 'error' = 'success') => {
@@ -71,6 +114,41 @@ export default function TiendaAdminPage() {
     setTimeout(() => setToast(null), 3000)
   }
 
+  const filteredProducts = products.filter((p) => {
+    if (filterTienda === 'published' && !p.es_tienda) return false
+    if (filterTienda === 'hidden' && p.es_tienda) return false
+    if (search.trim()) {
+      const q = search.toLowerCase()
+      return (
+        p.nombre.toLowerCase().includes(q) ||
+        (p.subcategoria || '').toLowerCase().includes(q) ||
+        (p.categoria_nombre || '').toLowerCase().includes(q)
+      )
+    }
+    return true
+  })
+
+  // Selection Logic
+  const allFilteredSelected =
+    filteredProducts.length > 0 && filteredProducts.every((p) => selectedIds.includes(p.id))
+
+  const toggleSelectAllFiltered = () => {
+    if (allFilteredSelected) {
+      const filteredSet = new Set(filteredProducts.map((p) => p.id))
+      setSelectedIds((prev) => prev.filter((id) => !filteredSet.has(id)))
+    } else {
+      const filteredSet = new Set(filteredProducts.map((p) => p.id))
+      setSelectedIds((prev) => Array.from(new Set([...prev, ...filteredSet])))
+    }
+  }
+
+  const toggleSelectOne = (id: number) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    )
+  }
+
+  // Single Toggle Visibilidad
   const handleToggleTienda = async (prod: AdminProduct) => {
     const newStatus = !prod.es_tienda
     try {
@@ -110,19 +188,32 @@ export default function TiendaAdminPage() {
     }
   }
 
-  const filteredProducts = products.filter((p) => {
-    if (filterTienda === 'published' && !p.es_tienda) return false
-    if (filterTienda === 'hidden' && p.es_tienda) return false
-    if (search.trim()) {
-      const q = search.toLowerCase()
-      return (
-        p.nombre.toLowerCase().includes(q) ||
-        (p.subcategoria || '').toLowerCase().includes(q) ||
-        (p.categoria_nombre || '').toLowerCase().includes(q)
-      )
+  // Execute Bulk Operation
+  const executeBulkAction = async (action: string, params: Record<string, any>) => {
+    if (selectedIds.length === 0) {
+      showToast('Selecciona al menos un producto', 'error')
+      return
     }
-    return true
-  })
+    setSaving(true)
+    try {
+      const res = await api.post('/tienda/productos/bulk-update', {
+        ids: selectedIds,
+        action,
+        params,
+      })
+      if (res.data?.success) {
+        showToast(`Acción masiva ejecutada en ${selectedIds.length} productos`)
+        setBulkModal(null)
+        fetchProducts()
+      } else {
+        showToast(res.data?.message || 'Error en la acción masiva', 'error')
+      }
+    } catch (e: any) {
+      showToast(e?.response?.data?.message || 'Error en la acción masiva', 'error')
+    } finally {
+      setSaving(false)
+    }
+  }
 
   return (
     <div className="p-6 space-y-6">
@@ -134,7 +225,7 @@ export default function TiendaAdminPage() {
             <h1 className="text-2xl font-black text-slate-900">Gestión de Tienda Pública</h1>
           </div>
           <p className="text-xs text-slate-500 mt-1">
-            Administra los productos del catálogo web, precios, ofertas y estado de stock para la tienda.
+            Administra los productos del catálogo web, realiza acciones masivas de precios, stock y categorías.
           </p>
         </div>
 
@@ -178,6 +269,91 @@ export default function TiendaAdminPage() {
           <button onClick={() => setToast(null)}>
             <X className="h-4 w-4" />
           </button>
+        </div>
+      )}
+
+      {/* Sticky Bulk Action Toolbar */}
+      {selectedIds.length > 0 && (
+        <div className="sticky top-4 z-30 bg-slate-900 text-white p-4 rounded-2xl shadow-xl border border-slate-800 flex flex-col md:flex-row items-center justify-between gap-4 animate-in slide-in-from-top-4 duration-200">
+          <div className="flex items-center gap-3">
+            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-white font-extrabold text-xs">
+              {selectedIds.length}
+            </span>
+            <span className="text-xs font-bold">Productos seleccionados</span>
+            <button
+              onClick={() => setSelectedIds([])}
+              className="text-[11px] text-slate-400 hover:text-white underline font-semibold ml-2"
+            >
+              Deseleccionar todos
+            </button>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <button
+              onClick={() => executeBulkAction('visibility', { es_tienda: 1 })}
+              disabled={saving}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-bold transition"
+            >
+              <Eye className="h-3.5 w-3.5" />
+              <span>Publicar</span>
+            </button>
+            <button
+              onClick={() => executeBulkAction('visibility', { es_tienda: 0 })}
+              disabled={saving}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 rounded-xl font-bold border border-slate-700 transition"
+            >
+              <EyeOff className="h-3.5 w-3.5" />
+              <span>Ocultar</span>
+            </button>
+
+            <button
+              onClick={() => {
+                setBulkCatId('')
+                setBulkSubcat('')
+                setBulkModal('category')
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 rounded-xl font-bold transition"
+            >
+              <FolderPlus className="h-3.5 w-3.5" />
+              <span>Categoría</span>
+            </button>
+
+            <button
+              onClick={() => {
+                setBulkPriceMode('percentage')
+                setBulkPriceValue(0)
+                setBulkModal('prices')
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 rounded-xl font-bold transition"
+            >
+              <DollarSign className="h-3.5 w-3.5" />
+              <span>Cambiar Precios</span>
+            </button>
+
+            <button
+              onClick={() => {
+                setBulkOfferMode('percentage')
+                setBulkOfferValue(10)
+                setBulkModal('offers')
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-500 rounded-xl font-bold transition"
+            >
+              <Tag className="h-3.5 w-3.5" />
+              <span>Precio Oferta</span>
+            </button>
+
+            <button
+              onClick={() => {
+                setBulkStockMode('fixed')
+                setBulkStockValue(10)
+                setBulkModal('stock')
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-600 hover:bg-purple-500 rounded-xl font-bold transition"
+            >
+              <Boxes className="h-3.5 w-3.5" />
+              <span>Stock</span>
+            </button>
+          </div>
         </div>
       )}
 
@@ -231,6 +407,14 @@ export default function TiendaAdminPage() {
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-200 uppercase tracking-wider">
               <tr>
+                <th className="p-4 w-10">
+                  <input
+                    type="checkbox"
+                    checked={allFilteredSelected}
+                    onChange={toggleSelectAllFiltered}
+                    className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary cursor-pointer"
+                  />
+                </th>
                 <th className="p-4">Producto</th>
                 <th className="p-4">Categoría / Subcat</th>
                 <th className="p-4">Precio Venta</th>
@@ -243,89 +427,441 @@ export default function TiendaAdminPage() {
             <tbody className="divide-y divide-slate-100 font-medium">
               {filteredProducts.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="p-8 text-center text-slate-400">
+                  <td colSpan={8} className="p-8 text-center text-slate-400">
                     No se encontraron productos
                   </td>
                 </tr>
               ) : (
-                filteredProducts.map((p) => (
-                  <tr key={p.id} className="hover:bg-slate-50/80 transition">
-                    <td className="p-4">
-                      <div className="flex items-center gap-3">
-                        {p.imagen_url ? (
-                          <img
-                            src={p.imagen_url}
-                            alt={p.nombre}
-                            className="h-10 w-10 object-cover rounded-xl border border-slate-200"
-                          />
-                        ) : (
-                          <div className="h-10 w-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400">
-                            <Package className="h-5 w-5" />
+                filteredProducts.map((p) => {
+                  const isSelected = selectedIds.includes(p.id)
+                  return (
+                    <tr
+                      key={p.id}
+                      className={`transition ${
+                        isSelected ? 'bg-indigo-50/60' : 'hover:bg-slate-50/80'
+                      }`}
+                    >
+                      <td className="p-4">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleSelectOne(p.id)}
+                          className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary cursor-pointer"
+                        />
+                      </td>
+                      <td className="p-4">
+                        <div className="flex items-center gap-3">
+                          {p.imagen_url ? (
+                            <img
+                              src={p.imagen_url}
+                              alt={p.nombre}
+                              className="h-10 w-10 object-cover rounded-xl border border-slate-200"
+                            />
+                          ) : (
+                            <div className="h-10 w-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400">
+                              <Package className="h-5 w-5" />
+                            </div>
+                          )}
+                          <div>
+                            <p className="font-bold text-slate-900">{p.nombre}</p>
+                            {p.sku && <p className="text-[10px] text-slate-400">SKU: {p.sku}</p>}
                           </div>
-                        )}
-                        <div>
-                          <p className="font-bold text-slate-900">{p.nombre}</p>
-                          {p.sku && <p className="text-[10px] text-slate-400">SKU: {p.sku}</p>}
                         </div>
-                      </div>
-                    </td>
-                    <td className="p-4">
-                      <p className="font-semibold text-slate-700">{p.categoria_nombre || 'General'}</p>
-                      <p className="text-[10px] text-cyan-700 font-bold">{p.subcategoria || 'Sin subcat'}</p>
-                    </td>
-                    <td className="p-4 font-bold text-slate-900">
-                      ${p.precio_venta?.toLocaleString('es-AR')}
-                    </td>
-                    <td className="p-4">
-                      {p.precio_oferta ? (
-                        <span className="font-bold text-emerald-600">
-                          ${p.precio_oferta.toLocaleString('es-AR')}
-                        </span>
-                      ) : (
-                        <span className="text-slate-300">-</span>
-                      )}
-                    </td>
-                    <td className="p-4">
-                      <span className="font-extrabold text-slate-800">{p.stock_actual} un</span>
-                    </td>
-                    <td className="p-4">
-                      <button
-                        onClick={() => handleToggleTienda(p)}
-                        className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-extrabold transition ${
-                          p.es_tienda
-                            ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
-                            : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-                        }`}
-                      >
-                        {p.es_tienda ? (
-                          <>
-                            <Eye className="h-3.5 w-3.5 text-emerald-600" />
-                            <span>Publicado</span>
-                          </>
+                      </td>
+                      <td className="p-4">
+                        <p className="font-semibold text-slate-700">
+                          {p.categoria_nombre || 'General'}
+                        </p>
+                        <p className="text-[10px] text-cyan-700 font-bold">
+                          {p.subcategoria || 'Sin subcat'}
+                        </p>
+                      </td>
+                      <td className="p-4 font-bold text-slate-900">
+                        ${p.precio_venta?.toLocaleString('es-AR')}
+                      </td>
+                      <td className="p-4">
+                        {p.precio_oferta ? (
+                          <span className="font-bold text-emerald-600">
+                            ${p.precio_oferta.toLocaleString('es-AR')}
+                          </span>
                         ) : (
-                          <>
-                            <EyeOff className="h-3.5 w-3.5 text-slate-400" />
-                            <span>Oculto</span>
-                          </>
+                          <span className="text-slate-300">-</span>
                         )}
-                      </button>
-                    </td>
-                    <td className="p-4 text-right">
-                      <button
-                        onClick={() => setEditingProduct(p)}
-                        className="p-2 text-slate-600 hover:text-primary hover:bg-primary/10 rounded-xl transition"
-                        title="Editar publicación"
-                      >
-                        <Edit2 className="h-4 w-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))
+                      </td>
+                      <td className="p-4">
+                        <span className="font-extrabold text-slate-800">{p.stock_actual} un</span>
+                      </td>
+                      <td className="p-4">
+                        <button
+                          onClick={() => handleToggleTienda(p)}
+                          className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-extrabold transition ${
+                            p.es_tienda
+                              ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
+                              : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                          }`}
+                        >
+                          {p.es_tienda ? (
+                            <>
+                              <Eye className="h-3.5 w-3.5 text-emerald-600" />
+                              <span>Publicado</span>
+                            </>
+                          ) : (
+                            <>
+                              <EyeOff className="h-3.5 w-3.5 text-slate-400" />
+                              <span>Oculto</span>
+                            </>
+                          )}
+                        </button>
+                      </td>
+                      <td className="p-4 text-right">
+                        <button
+                          onClick={() => setEditingProduct(p)}
+                          className="p-2 text-slate-600 hover:text-primary hover:bg-primary/10 rounded-xl transition"
+                          title="Editar publicación"
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  )
+                })
               )}
             </tbody>
           </table>
         </div>
       </div>
+
+      {/* Bulk Category Modal */}
+      {bulkModal === 'category' && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 animate-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <FolderPlus className="h-5 w-5 text-indigo-600" />
+                <h3 className="font-extrabold text-base text-slate-900">Asignar Categoría Masiva</h3>
+              </div>
+              <button onClick={() => setBulkModal(null)} className="p-1 text-slate-400 hover:text-slate-600">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="mt-4 space-y-4 text-xs">
+              <p className="text-slate-500">
+                Asigna categoría o subcategoría a los <strong>{selectedIds.length}</strong> productos seleccionados.
+              </p>
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Categoría Principal</label>
+                <select
+                  value={bulkCatId}
+                  onChange={(e) => setBulkCatId(e.target.value)}
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-900"
+                >
+                  <option value="">-- No modificar categoría principal --</option>
+                  {categories.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.nombre}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Subcategoría</label>
+                <input
+                  type="text"
+                  value={bulkSubcat}
+                  onChange={(e) => setBulkSubcat(e.target.value)}
+                  placeholder="Ej: Navidad, Regalos, Llaveros"
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-900"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-4 border-t border-slate-100">
+                <button
+                  onClick={() => setBulkModal(null)}
+                  className="px-4 py-2 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 transition"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={() =>
+                    executeBulkAction('category', {
+                      categoria_id: bulkCatId !== '' ? bulkCatId : null,
+                      subcategoria: bulkSubcat.trim() !== '' ? bulkSubcat.trim() : null,
+                    })
+                  }
+                  disabled={saving}
+                  className="px-5 py-2 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition shadow-md disabled:opacity-50"
+                >
+                  Aplicar Cambios
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Prices Modal */}
+      {bulkModal === 'prices' && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 animate-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <DollarSign className="h-5 w-5 text-cyan-600" />
+                <h3 className="font-extrabold text-base text-slate-900">Cambiar Precios de Venta</h3>
+              </div>
+              <button onClick={() => setBulkModal(null)} className="p-1 text-slate-400 hover:text-slate-600">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="mt-4 space-y-4 text-xs">
+              <p className="text-slate-500">
+                Aplica variaciones de precio a los <strong>{selectedIds.length}</strong> productos seleccionados.
+              </p>
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Tipo de Modificación</label>
+                <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-xl font-bold">
+                  <button
+                    onClick={() => setBulkPriceMode('percentage')}
+                    className={`py-2 rounded-lg transition ${
+                      bulkPriceMode === 'percentage'
+                        ? 'bg-white text-slate-900 shadow-2xs'
+                        : 'text-slate-500'
+                    }`}
+                  >
+                    Porcentaje (%+ / %-)
+                  </button>
+                  <button
+                    onClick={() => setBulkPriceMode('fixed')}
+                    className={`py-2 rounded-lg transition ${
+                      bulkPriceMode === 'fixed'
+                        ? 'bg-white text-slate-900 shadow-2xs'
+                        : 'text-slate-500'
+                    }`}
+                  >
+                    Precio Fijo ($)
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">
+                  {bulkPriceMode === 'percentage'
+                    ? 'Porcentaje (Ej: 15 para +15%, -10 para -10%)'
+                    : 'Nuevo Precio ($)'}
+                </label>
+                <input
+                  type="number"
+                  step="any"
+                  value={bulkPriceValue}
+                  onChange={(e) => setBulkPriceValue(parseFloat(e.target.value) || 0)}
+                  placeholder="0"
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 text-sm"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-4 border-t border-slate-100">
+                <button
+                  onClick={() => setBulkModal(null)}
+                  className="px-4 py-2 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 transition"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={() =>
+                    executeBulkAction('prices', {
+                      mode: bulkPriceMode,
+                      value: bulkPriceValue,
+                    })
+                  }
+                  disabled={saving}
+                  className="px-5 py-2 bg-cyan-600 text-white font-bold rounded-xl hover:bg-cyan-700 transition shadow-md disabled:opacity-50"
+                >
+                  Aplicar a {selectedIds.length} productos
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Offer Modal */}
+      {bulkModal === 'offers' && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 animate-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <Tag className="h-5 w-5 text-amber-600" />
+                <h3 className="font-extrabold text-base text-slate-900">Configurar Precio de Oferta</h3>
+              </div>
+              <button onClick={() => setBulkModal(null)} className="p-1 text-slate-400 hover:text-slate-600">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="mt-4 space-y-4 text-xs">
+              <p className="text-slate-500">
+                Establece ofertas en los <strong>{selectedIds.length}</strong> productos seleccionados.
+              </p>
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Modo de Oferta</label>
+                <div className="grid grid-cols-3 gap-1 p-1 bg-slate-100 rounded-xl font-bold">
+                  <button
+                    onClick={() => setBulkOfferMode('percentage')}
+                    className={`py-2 rounded-lg transition text-[11px] ${
+                      bulkOfferMode === 'percentage'
+                        ? 'bg-white text-slate-900 shadow-2xs'
+                        : 'text-slate-500'
+                    }`}
+                  >
+                    % Descuento
+                  </button>
+                  <button
+                    onClick={() => setBulkOfferMode('fixed')}
+                    className={`py-2 rounded-lg transition text-[11px] ${
+                      bulkOfferMode === 'fixed'
+                        ? 'bg-white text-slate-900 shadow-2xs'
+                        : 'text-slate-500'
+                    }`}
+                  >
+                    Precio Fijo
+                  </button>
+                  <button
+                    onClick={() => setBulkOfferMode('clear')}
+                    className={`py-2 rounded-lg transition text-[11px] ${
+                      bulkOfferMode === 'clear'
+                        ? 'bg-red-500 text-white shadow-2xs'
+                        : 'text-slate-500'
+                    }`}
+                  >
+                    Quitar Oferta
+                  </button>
+                </div>
+              </div>
+
+              {bulkOfferMode !== 'clear' && (
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">
+                    {bulkOfferMode === 'percentage'
+                      ? 'Descuento % sobre precio regular (Ej: 20 para 20% OFF)'
+                      : 'Precio de Oferta Fijo ($)'}
+                  </label>
+                  <input
+                    type="number"
+                    step="any"
+                    value={bulkOfferValue}
+                    onChange={(e) => setBulkOfferValue(parseFloat(e.target.value) || 0)}
+                    placeholder="Ej: 15"
+                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 text-sm"
+                  />
+                </div>
+              )}
+
+              <div className="flex items-center justify-end gap-2 pt-4 border-t border-slate-100">
+                <button
+                  onClick={() => setBulkModal(null)}
+                  className="px-4 py-2 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 transition"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={() =>
+                    executeBulkAction('offers', {
+                      mode: bulkOfferMode,
+                      value: bulkOfferValue,
+                    })
+                  }
+                  disabled={saving}
+                  className="px-5 py-2 bg-amber-600 text-white font-bold rounded-xl hover:bg-amber-700 transition shadow-md disabled:opacity-50"
+                >
+                  Aplicar Oferta
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Stock Modal */}
+      {bulkModal === 'stock' && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 animate-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <Boxes className="h-5 w-5 text-purple-600" />
+                <h3 className="font-extrabold text-base text-slate-900">Modificar Stock Masivo</h3>
+              </div>
+              <button onClick={() => setBulkModal(null)} className="p-1 text-slate-400 hover:text-slate-600">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="mt-4 space-y-4 text-xs">
+              <p className="text-slate-500">
+                Ajusta las cantidades de stock de los <strong>{selectedIds.length}</strong> productos seleccionados.
+              </p>
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Acción de Stock</label>
+                <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-xl font-bold">
+                  <button
+                    onClick={() => setBulkStockMode('fixed')}
+                    className={`py-2 rounded-lg transition ${
+                      bulkStockMode === 'fixed'
+                        ? 'bg-white text-slate-900 shadow-2xs'
+                        : 'text-slate-500'
+                    }`}
+                  >
+                    Establecer Cantidad Fija
+                  </button>
+                  <button
+                    onClick={() => setBulkStockMode('add')}
+                    className={`py-2 rounded-lg transition ${
+                      bulkStockMode === 'add'
+                        ? 'bg-white text-slate-900 shadow-2xs'
+                        : 'text-slate-500'
+                    }`}
+                  >
+                    Sumar / Restar Delta
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">
+                  {bulkStockMode === 'fixed'
+                    ? 'Nueva cantidad de stock (Ej: 10)'
+                    : 'Cantidad a añadir o restar (Ej: +5 o -3)'}
+                </label>
+                <input
+                  type="number"
+                  value={bulkStockValue}
+                  onChange={(e) => setBulkStockValue(parseFloat(e.target.value) || 0)}
+                  placeholder="0"
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 text-sm"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-4 border-t border-slate-100">
+                <button
+                  onClick={() => setBulkModal(null)}
+                  className="px-4 py-2 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 transition"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={() =>
+                    executeBulkAction('stock', {
+                      mode: bulkStockMode,
+                      value: bulkStockValue,
+                    })
+                  }
+                  disabled={saving}
+                  className="px-5 py-2 bg-purple-600 text-white font-bold rounded-xl hover:bg-purple-700 transition shadow-md disabled:opacity-50"
+                >
+                  Actualizar Stock
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Edit Modal */}
       {editingProduct && (

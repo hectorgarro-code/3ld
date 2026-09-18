@@ -102,6 +102,96 @@ class TiendaRepository
     }
 
     /**
+     * Acciones masivas sobre productos
+     */
+    public function bulkUpdate(array $ids, string $action, array $params): bool
+    {
+        if (empty($ids)) {
+            return false;
+        }
+
+        $inClause = implode(',', array_fill(0, count($ids), '?'));
+
+        switch ($action) {
+            case 'visibility':
+                $esTienda = !empty($params['es_tienda']) ? 1 : 0;
+                $sql = "UPDATE productos SET es_tienda = ?, updated_at = NOW() WHERE id IN ({$inClause})";
+                $stmt = $this->db->prepare($sql);
+                return $stmt->execute(array_merge([$esTienda], $ids));
+
+            case 'category':
+                $categoriaId = isset($params['categoria_id']) && $params['categoria_id'] !== '' ? (int)$params['categoria_id'] : null;
+                $subcategoria = $params['subcategoria'] ?? null;
+                
+                $setParts = [];
+                $binds = [];
+                if ($categoriaId !== null) {
+                    $setParts[] = "categoria_id = ?";
+                    $binds[] = $categoriaId;
+                }
+                if ($subcategoria !== null) {
+                    $setParts[] = "subcategoria = ?";
+                    $binds[] = $subcategoria;
+                }
+                if (empty($setParts)) {
+                    return false;
+                }
+                $setParts[] = "updated_at = NOW()";
+                $sql = "UPDATE productos SET " . implode(', ', $setParts) . " WHERE id IN ({$inClause})";
+                $stmt = $this->db->prepare($sql);
+                return $stmt->execute(array_merge($binds, $ids));
+
+            case 'prices':
+                $mode = $params['mode'] ?? 'percentage'; // 'percentage' | 'fixed'
+                $value = (float)($params['value'] ?? 0);
+                if ($mode === 'percentage') {
+                    $multiplier = 1 + ($value / 100);
+                    $sql = "UPDATE productos SET precio_venta = GREATEST(0, ROUND(precio_venta * ?, 2)), updated_at = NOW() WHERE id IN ({$inClause})";
+                    $stmt = $this->db->prepare($sql);
+                    return $stmt->execute(array_merge([$multiplier], $ids));
+                } else {
+                    $sql = "UPDATE productos SET precio_venta = GREATEST(0, ?), updated_at = NOW() WHERE id IN ({$inClause})";
+                    $stmt = $this->db->prepare($sql);
+                    return $stmt->execute(array_merge([$value], $ids));
+                }
+
+            case 'offers':
+                $mode = $params['mode'] ?? 'clear'; // 'percentage' | 'fixed' | 'clear'
+                if ($mode === 'clear') {
+                    $sql = "UPDATE productos SET precio_oferta = NULL, updated_at = NOW() WHERE id IN ({$inClause})";
+                    $stmt = $this->db->prepare($sql);
+                    return $stmt->execute($ids);
+                } elseif ($mode === 'percentage') {
+                    $discountPct = (float)($params['value'] ?? 0); // e.g. 10 means 10% off
+                    $multiplier = 1 - ($discountPct / 100);
+                    $sql = "UPDATE productos SET precio_oferta = GREATEST(0, ROUND(precio_venta * ?, 2)), updated_at = NOW() WHERE id IN ({$inClause})";
+                    $stmt = $this->db->prepare($sql);
+                    return $stmt->execute(array_merge([$multiplier], $ids));
+                } else {
+                    $value = (float)($params['value'] ?? 0);
+                    $sql = "UPDATE productos SET precio_oferta = GREATEST(0, ?), updated_at = NOW() WHERE id IN ({$inClause})";
+                    $stmt = $this->db->prepare($sql);
+                    return $stmt->execute(array_merge([$value], $ids));
+                }
+
+            case 'stock':
+                $mode = $params['mode'] ?? 'add'; // 'add' | 'fixed'
+                $value = (float)($params['value'] ?? 0);
+                if ($mode === 'add') {
+                    $sql = "UPDATE productos SET stock_actual = GREATEST(0, stock_actual + ?), updated_at = NOW() WHERE id IN ({$inClause})";
+                    $stmt = $this->db->prepare($sql);
+                    return $stmt->execute(array_merge([$value], $ids));
+                } else {
+                    $sql = "UPDATE productos SET stock_actual = GREATEST(0, ?), updated_at = NOW() WHERE id IN ({$inClause})";
+                    $stmt = $this->db->prepare($sql);
+                    return $stmt->execute(array_merge([$value], $ids));
+                }
+        }
+
+        return false;
+    }
+
+    /**
      * Actualizar detalles específicos de la tienda en un producto
      */
     public function updateTiendaProduct(int $id, array $data): bool
@@ -134,3 +224,4 @@ class TiendaRepository
         ]);
     }
 }
+
