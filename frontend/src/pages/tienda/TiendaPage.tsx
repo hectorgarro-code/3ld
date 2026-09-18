@@ -378,8 +378,8 @@ export default function TiendaPage() {
       )}
 
       {/* Top Notification Bar */}
-      <div className="bg-gradient-to-r from-slate-950 via-cyan-950 to-slate-950 text-white text-[11px] sm:text-xs py-2 px-4 text-center font-medium tracking-wide flex items-center justify-center gap-2 border-b border-cyan-900/40">
-        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+      <div className="bg-gradient-to-r from-[#6B66C8] via-[#5752B3] to-[#6B66C8] text-white text-[11px] sm:text-xs py-2 px-4 text-center font-bold tracking-wide flex items-center justify-center gap-2 border-b border-[#5752B3]">
+        <span className="w-2.5 h-2.5 rounded-full bg-[#F7C731] animate-pulse"></span>
         <span>🚚 <strong>Envío Gratis</strong> en La Costa desde $30.000 | Envíos por Andreani a todo el país</span>
       </div>
 
@@ -396,13 +396,7 @@ export default function TiendaPage() {
               }}
               className="flex items-center gap-2.5 cursor-pointer group"
             >
-              <div className="w-10 h-10 rounded-2xl bg-slate-900 flex items-center justify-center text-cyan-400 font-black text-xl shadow-md border border-slate-800 transition group-hover:scale-105">
-                3L<span className="text-cyan-400">D</span>
-              </div>
-              <div className="flex flex-col">
-                <span className="font-extrabold text-lg tracking-tight leading-tight text-slate-900">TIENDA 3LD</span>
-                <span className="text-[10px] font-semibold text-cyan-700 tracking-wider uppercase">Taller de Impresión 3D</span>
-              </div>
+              <img src="/logo.png" alt="3LD Logo" className="h-10 sm:h-12 w-auto object-contain transition group-hover:scale-105" />
             </div>
 
             {/* Desktop Search Bar */}
@@ -412,7 +406,7 @@ export default function TiendaPage() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Buscar entre +1.000 modelos (ej: Nerf, Sello, Cortantes)..."
-                className="w-full pl-10 pr-10 py-2 bg-slate-100/90 border border-slate-200 rounded-full text-xs focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:bg-white transition"
+                className="w-full pl-10 pr-10 py-2 bg-slate-100/90 border border-slate-200 rounded-full text-xs focus:outline-none focus:ring-2 focus:ring-[#6B66C8] focus:bg-white transition"
               />
               <Search className="w-4 h-4 absolute left-3.5 top-2.5 text-slate-400" />
               {searchQuery && (
@@ -426,20 +420,20 @@ export default function TiendaPage() {
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setIsQuoteModalOpen(true)}
-                className="hidden sm:flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold bg-cyan-50 text-cyan-800 border border-cyan-200 rounded-full hover:bg-cyan-100 transition active:scale-95"
+                className="hidden sm:flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold bg-[#EFEBFC] text-[#6B66C8] border border-[#D5D0F7] rounded-full hover:bg-[#E2DCFA] transition active:scale-95"
               >
-                <Layers className="w-4 h-4 text-cyan-600" />
+                <Layers className="w-4 h-4 text-[#6B66C8]" />
                 <span>Cotizar STL</span>
               </button>
 
               {/* Cart Button */}
               <button
                 onClick={() => setIsCartOpen(true)}
-                className="relative p-2.5 bg-slate-900 text-white rounded-2xl hover:bg-slate-800 transition shadow-sm active:scale-95 flex items-center justify-center"
+                className="relative p-2.5 bg-[#6B66C8] text-white rounded-2xl hover:bg-[#5752B3] transition shadow-sm active:scale-95 flex items-center justify-center"
               >
                 <ShoppingCart className="w-5 h-5" />
                 {cartItemsCount > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-cyan-500 text-white text-[11px] font-black w-5 h-5 rounded-full flex items-center justify-center shadow">
+                  <span className="absolute -top-1 -right-1 bg-[#F88D86] text-white text-[11px] font-black w-5 h-5 rounded-full flex items-center justify-center shadow">
                     {cartItemsCount}
                   </span>
                 )}
@@ -483,8 +477,8 @@ export default function TiendaPage() {
                   }}
                   className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition active:scale-95 ${
                     active
-                      ? 'bg-slate-900 text-white shadow-sm ring-2 ring-slate-900 ring-offset-1'
-                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                      ? 'bg-[#6B66C8] text-white shadow-sm ring-2 ring-[#6B66C8] ring-offset-1'
+                      : 'bg-slate-100 text-slate-700 hover:bg-[#EFEBFC] hover:text-[#6B66C8]'
                   }`}
                 >
                   <span>{cat.icon}</span>
@@ -498,7 +492,7 @@ export default function TiendaPage() {
 
       {/* Subcategory Pills */}
       {currentCategoryData.subcategories.length > 0 && (
-        <div className="bg-slate-100/90 border-b border-slate-200 py-2 px-4">
+        <div className="bg-[#F8F7FD] border-b border-slate-200 py-2 px-4">
           <div className="max-w-7xl mx-auto flex items-center gap-2 overflow-x-auto no-scrollbar">
             {currentCategoryData.subcategories.map((sub) => {
               const active = selectedSubcategory === sub || (selectedSubcategory === 'all' && sub === 'Todos');
@@ -508,7 +502,7 @@ export default function TiendaPage() {
                   onClick={() => setSelectedSubcategory(sub === 'Todos' ? 'all' : sub)}
                   className={`px-3 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition active:scale-95 ${
                     active
-                      ? 'bg-cyan-600 text-white shadow-xs'
+                      ? 'bg-[#6B66C8] text-white shadow-xs'
                       : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
                   }`}
                 >
