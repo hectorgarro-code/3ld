@@ -68,22 +68,28 @@ class ProductoRepository
         if (!empty($productos)) {
             $ids = array_column($productos, 'id');
             $placeholders = implode(',', array_fill(0, count($ids), '?'));
-            $stmtRecetas = $this->db->prepare(
-                "SELECT r.producto_id, r.insumo_id, r.cantidad, p.nombre as insumo_nombre, p.precio_costo, p.unidad_medida 
-                 FROM producto_recetas r 
-                 JOIN productos p ON p.id = r.insumo_id 
-                 WHERE r.producto_id IN ($placeholders)"
-            );
-            $stmtRecetas->execute($ids);
-            $recetas = $stmtRecetas->fetchAll();
+            try {
+                $stmtRecetas = $this->db->prepare(
+                    "SELECT r.producto_id, r.insumo_id, r.cantidad, p.nombre as insumo_nombre, p.precio_costo, p.unidad_medida 
+                     FROM producto_recetas r 
+                     JOIN productos p ON p.id = r.insumo_id 
+                     WHERE r.producto_id IN ($placeholders)"
+                );
+                $stmtRecetas->execute($ids);
+                $recetas = $stmtRecetas->fetchAll();
 
-            $recetasIndexed = [];
-            foreach ($recetas as $receta) {
-                $recetasIndexed[$receta['producto_id']][] = $receta;
-            }
+                $recetasIndexed = [];
+                foreach ($recetas as $receta) {
+                    $recetasIndexed[$receta['producto_id']][] = $receta;
+                }
 
-            foreach ($productos as &$p) {
-                $p['receta'] = $recetasIndexed[$p['id']] ?? [];
+                foreach ($productos as &$p) {
+                    $p['receta'] = $recetasIndexed[$p['id']] ?? [];
+                }
+            } catch (\Throwable $e) {
+                foreach ($productos as &$p) {
+                    $p['receta'] = [];
+                }
             }
         }
 
