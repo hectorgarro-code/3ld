@@ -214,6 +214,12 @@ $app->group('/api/v1', function (RouteCollectorProxy $api) use ($config, $auth, 
         $g->post('', function ($req, $res) use ($container) {
             return $container->get(CategoriasController::class)->create($req, $res);
         });
+        $g->put('/{id}', function ($req, $res, $args) use ($container) {
+            return $container->get(CategoriasController::class)->update($req, $res, $args);
+        });
+        $g->delete('/{id}', function ($req, $res, $args) use ($container) {
+            return $container->get(CategoriasController::class)->destroy($req, $res, $args);
+        });
     })->add($auth);
 
     // ── Proveedores ───────────────────────────────────────────────────────────

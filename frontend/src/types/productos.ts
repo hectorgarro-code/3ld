@@ -4,6 +4,7 @@ export interface Categoria {
   id: number
   nombre: string
   descripcion?: string
+  productos_count?: number
   created_at: string
 }
 

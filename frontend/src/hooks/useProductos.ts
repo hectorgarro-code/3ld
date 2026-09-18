@@ -55,7 +55,47 @@ export function useCategorias() {
         return cats
       }
     },
-    staleTime: 1000 * 60 * 10, // 10 minutes
+    staleTime: 1000 * 60 * 2, // 2 minutes
+  })
+}
+
+export function useCreateCategoria() {
+  const queryClient = useQueryClient()
+  return useMutation<Categoria, Error, { nombre: string; descripcion?: string }>({
+    mutationFn: async (payload) => {
+      const { data } = await api.post<ApiResponse<Categoria>>('/categorias', payload)
+      return data.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['categorias'] })
+    },
+  })
+}
+
+export function useUpdateCategoria() {
+  const queryClient = useQueryClient()
+  return useMutation<Categoria, Error, { id: number; payload: { nombre: string; descripcion?: string } }>({
+    mutationFn: async ({ id, payload }) => {
+      const { data } = await api.put<ApiResponse<Categoria>>(`/categorias/${id}`, payload)
+      return data.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['categorias'] })
+      queryClient.invalidateQueries({ queryKey: ['productos'] })
+    },
+  })
+}
+
+export function useDeleteCategoria() {
+  const queryClient = useQueryClient()
+  return useMutation<void, Error, number>({
+    mutationFn: async (id) => {
+      await api.delete(`/categorias/${id}`)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['categorias'] })
+      queryClient.invalidateQueries({ queryKey: ['productos'] })
+    },
   })
 }
 

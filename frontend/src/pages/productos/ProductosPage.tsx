@@ -2,10 +2,11 @@ import { useState } from 'react'
 import { useProductos, useCategorias, useDeleteProducto, useUpdateProducto } from '@/hooks/useProductos'
 import { formatARS } from '@/lib/cost-calculator'
 import { cn } from '@/lib/utils'
-import { Search, AlertTriangle, Package, Plus, Minus, Pencil, Copy, Trash2, Loader2, Bot, Sparkles } from 'lucide-react'
+import { Search, AlertTriangle, Package, Plus, Minus, Pencil, Copy, Trash2, Loader2, Bot, Sparkles, Tags } from 'lucide-react'
 import type { Producto, ProductoTipo } from '@/types'
 import { ProductoFormModal } from '@/components/productos/ProductoFormModal'
 import { MakerWorldImportModal } from '@/components/productos/MakerWorldImportModal'
+import { CategoriasModal } from '@/components/productos/CategoriasModal'
 import { toast } from '@/store/toastStore'
 
 const tipoConfig: Record<string, { label: string; color: string; emoji: string }> = {
@@ -46,7 +47,6 @@ function ProductoCard({
     if (newStock < 0) return
 
     const tieneReceta = (producto as any).receta && (producto as any).receta.length > 0
-
 
     try {
       await updateMutation.mutateAsync({ id: producto.id, payload: { stock_actual: newStock } })
@@ -156,6 +156,7 @@ export default function ProductosPage() {
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isMakerWorldModalOpen, setIsMakerWorldModalOpen] = useState(false)
+  const [isCategoriasModalOpen, setIsCategoriasModalOpen] = useState(false)
   const [selectedProducto, setSelectedProducto] = useState<Producto | null>(null)
   const [isDuplicate, setIsDuplicate] = useState(false)
 
@@ -211,7 +212,14 @@ export default function ProductosPage() {
             className="w-full rounded-xl border border-slate-100 bg-white card-shadow py-2.5 pl-10 pr-4 text-sm text-slate-800 placeholder-gray-500 outline-none focus:border-primary"
           />
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+          <button
+            onClick={() => setIsCategoriasModalOpen(true)}
+            className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs font-black text-slate-700 card-shadow transition-all hover:bg-slate-50 hover:border-[#6B66C8]/40"
+          >
+            <Tags className="h-4 w-4 text-[#6B66C8]" />
+            <span>Categorías</span>
+          </button>
           <button
             onClick={() => setIsMakerWorldModalOpen(true)}
             className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-600 to-cyan-500 px-4 py-2.5 text-xs font-black text-white shadow-md transition-all hover:brightness-110"
@@ -250,18 +258,27 @@ export default function ProductosPage() {
         </div>
 
         {/* Categoria filter */}
-        {categorias && categorias.length > 0 && (
-          <select
-            value={categoriaId ?? ''}
-            onChange={(e) => setCategoriaId(e.target.value ? Number(e.target.value) : undefined)}
-            className="w-full sm:w-48 rounded-xl border border-slate-100 bg-white card-shadow px-4 py-2.5 text-sm text-slate-800 outline-none focus:border-primary"
+        <div className="flex items-center gap-2">
+          {categorias && categorias.length > 0 && (
+            <select
+              value={categoriaId ?? ''}
+              onChange={(e) => setCategoriaId(e.target.value ? Number(e.target.value) : undefined)}
+              className="w-full sm:w-48 rounded-xl border border-slate-100 bg-white card-shadow px-4 py-2.5 text-sm text-slate-800 outline-none focus:border-primary"
+            >
+              <option value="">Todas las categorías</option>
+              {categorias.map((c) => (
+                <option key={c.id} value={c.id}>{c.nombre}</option>
+              ))}
+            </select>
+          )}
+          <button
+            onClick={() => setIsCategoriasModalOpen(true)}
+            className="p-2.5 rounded-xl border border-slate-100 bg-white text-slate-500 hover:text-[#6B66C8] hover:border-[#6B66C8]/40 transition card-shadow shrink-0"
+            title="Gestionar Categorías"
           >
-            <option value="">Todas las categorías</option>
-            {categorias.map((c) => (
-              <option key={c.id} value={c.id}>{c.nombre}</option>
-            ))}
-          </select>
-        )}
+            <Tags className="h-4 w-4" />
+          </button>
+        </div>
       </div>
 
       {/* Grid */}
@@ -302,6 +319,11 @@ export default function ProductosPage() {
       <MakerWorldImportModal
         isOpen={isMakerWorldModalOpen}
         onClose={() => setIsMakerWorldModalOpen(false)}
+      />
+
+      <CategoriasModal
+        isOpen={isCategoriasModalOpen}
+        onClose={() => setIsCategoriasModalOpen(false)}
       />
     </div>
   )
