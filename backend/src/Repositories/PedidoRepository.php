@@ -180,7 +180,7 @@ class PedidoRepository
 
         $stmtItems = $this->db->prepare(
             "SELECT pi.*, pr.nombre AS producto_nombre, pr.sku AS producto_sku,
-                    pr.unidad_medida
+                    pr.unidad_medida, pr.archivo_url
              FROM pedido_items pi
              LEFT JOIN productos pr ON pr.id = pi.producto_id
              WHERE pi.pedido_id = ?

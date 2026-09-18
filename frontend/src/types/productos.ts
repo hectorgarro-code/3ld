@@ -29,6 +29,7 @@ export interface Producto {
   es_tienda?: number | boolean
   subcategoria?: string
   precio_oferta?: number | null
+  archivo_url?: string
   created_at: string
   updated_at: string
 }

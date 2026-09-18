@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { X, Loader2, ImagePlus, Trash2, Plus, Sparkles } from 'lucide-react'
+import { X, Loader2, ImagePlus, Trash2, Plus, Sparkles, ExternalLink } from 'lucide-react'
 import api from '@/lib/api'
 import type { Producto } from '@/types'
 import { compressImage } from '@/lib/imageUtils'
@@ -22,6 +22,7 @@ const productoSchema = z.object({
   stock_actual: z.number().min(0),
   stock_minimo: z.number().min(0),
   descripcion: z.string().optional(),
+  archivo_url: z.string().optional().nullable(),
   es_vendible: z.boolean().default(true),
   es_insumo: z.boolean().default(false),
   es_tienda: z.boolean().default(false),
@@ -59,6 +60,7 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
     reset,
     setValue,
     getValues,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm({
     resolver: zodResolver(productoSchema),
@@ -73,6 +75,7 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
       stock_actual: 1,
       stock_minimo: 1,
       descripcion: '',
+      archivo_url: '',
       es_vendible: true,
       es_insumo: false,
       es_tienda: false,
@@ -97,6 +100,7 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
         stock_actual: isDuplicate ? 1 : producto.stock_actual,
         stock_minimo: producto.stock_minimo || 0,
         descripcion: producto.descripcion || '',
+        archivo_url: p.archivo_url || '',
         es_vendible: producto.es_vendible !== 0,
         es_insumo: producto.es_insumo === 1,
         es_tienda: Boolean(p.es_tienda),
@@ -115,8 +119,10 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
         stock_actual: 1,
         stock_minimo: 1,
         descripcion: '',
+        archivo_url: '',
         es_vendible: true,
         es_insumo: false,
+        es_tienda: false,
       })
       setReceta([])
       if (initialImages && initialImages.length > 0) {
@@ -178,6 +184,7 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
         ...data,
         categoria_id: data.categoria_id || undefined,
         variante: data.variante || undefined,
+        archivo_url: data.archivo_url?.trim() || null,
         es_vendible: data.es_vendible ? 1 : 0,
         es_insumo: data.es_insumo ? 1 : 0,
         es_tienda: data.es_tienda ? 1 : 0,
@@ -431,6 +438,38 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
                     rows={3}
                     className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition-colors focus:border-primary focus:bg-white resize-none"
                   />
+                </div>
+
+                <div className="md:col-span-2 bg-blue-50/50 p-3.5 rounded-2xl border border-blue-100">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs font-bold uppercase tracking-wider text-blue-900">
+                        Enlace del Archivo / STL
+                      </label>
+                      <span className="text-[10px] font-bold bg-blue-200/70 text-blue-800 px-2 py-0.5 rounded-full">
+                        🔒 Uso Interno (Oculto al cliente)
+                      </span>
+                    </div>
+                    {watch('archivo_url') && (
+                      <a
+                        href={watch('archivo_url')!}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 text-xs font-bold text-blue-600 hover:text-blue-800 hover:underline"
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                        Abrir enlace
+                      </a>
+                    )}
+                  </div>
+                  <input
+                    {...register('archivo_url')}
+                    className="w-full rounded-xl border border-blue-200 bg-white px-4 py-2.5 text-xs font-mono text-blue-700 outline-none transition-colors focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    placeholder="https://makerworld.com/es/models/... o Google Drive / Dropbox"
+                  />
+                  <p className="mt-1 text-[11px] text-blue-600/80">
+                    Al cargar desde MakerWorld se guarda automáticamente este link para que puedas descargar e imprimir el modelo cuando haya ventas.
+                  </p>
                 </div>
                 
                 <div className="md:col-span-2 flex gap-6 mt-2 border-t border-slate-100 pt-4">

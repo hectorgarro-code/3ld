@@ -5,7 +5,7 @@ import api from '@/lib/api'
 import { formatARS } from '@/lib/cost-calculator'
 import { formatDate, formatDateTime, cn } from '@/lib/utils'
 import { toast } from '@/store/toastStore'
-import { ChevronLeft, CheckCircle, Clock, Package, Truck, Ban } from 'lucide-react'
+import { ChevronLeft, CheckCircle, Clock, Package, Truck, Ban, ExternalLink } from 'lucide-react'
 import type { PedidoEstado } from '@/types'
 
 const ESTADO_STEPS: PedidoEstado[] = [
@@ -210,9 +210,23 @@ export default function PedidoDetailPage() {
                 className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2"
               >
                 <div>
-                  <p className="text-sm font-bold text-slate-800">
-                    {item.producto?.nombre ?? item.producto_nombre ?? item.descripcion ?? item.descripcion_custom ?? 'Ítem'}
-                  </p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-bold text-slate-800">
+                      {item.producto?.nombre ?? item.producto_nombre ?? item.descripcion ?? item.descripcion_custom ?? 'Ítem'}
+                    </p>
+                    {(item.archivo_url || item.producto?.archivo_url) && (
+                      <a
+                        href={item.archivo_url || item.producto?.archivo_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 rounded-md bg-blue-100 px-2 py-0.5 text-[11px] font-bold text-blue-700 hover:bg-blue-200 transition-colors"
+                        title="Descargar/Imprimir archivo original del modelo 3D"
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                        Descargar STL
+                      </a>
+                    )}
+                  </div>
                   {item.notas && (
                     <p className="text-xs italic text-brand-purple">{item.notas}</p>
                   )}

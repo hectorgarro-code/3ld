@@ -51,7 +51,7 @@ class ProductoRepository
         // Fetch
         $sql = "SELECT p.id, p.nombre, p.variante, p.sku, p.descripcion, p.tipo,
                        p.precio_venta, p.precio_costo, p.stock_actual, p.stock_minimo,
-                       p.unidad_medida, p.imagen_url, p.activo,
+                       p.unidad_medida, p.imagen_url, p.archivo_url, p.activo,
                        p.es_vendible, p.es_insumo,
                        p.created_at, p.updated_at,
                        c.id AS categoria_id, c.nombre AS categoria_nombre
@@ -139,9 +139,9 @@ class ProductoRepository
             $stmt = $this->db->prepare(
                 "INSERT INTO productos
                     (nombre, variante, sku, descripcion, tipo, categoria_id, precio_venta, precio_costo,
-                     stock_actual, stock_minimo, unidad_medida, imagen_url, 
+                     stock_actual, stock_minimo, unidad_medida, imagen_url, archivo_url,
                      es_vendible, es_insumo, es_tienda, subcategoria, precio_oferta, peso_gramos, dimensiones, estado_stock, es_destacado, activo, created_at, updated_at)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())"
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())"
             );
 
             $stmt->execute([
@@ -157,6 +157,7 @@ class ProductoRepository
                 (int)   ($data['stock_minimo']  ?? 0),
                 $data['unidad_medida'] ?? 'unidad',
                 $data['imagen_url']    ?? null,
+                $data['archivo_url']   ?? null,
                 isset($data['es_vendible']) ? (int)$data['es_vendible'] : 1,
                 isset($data['es_insumo']) ? (int)$data['es_insumo'] : 0,
                 isset($data['es_tienda']) ? (int)$data['es_tienda'] : 0,
@@ -171,9 +172,9 @@ class ProductoRepository
             $stmt = $this->db->prepare(
                 "INSERT INTO productos
                     (nombre, variante, sku, descripcion, tipo, categoria_id, precio_venta, precio_costo,
-                     stock_actual, stock_minimo, unidad_medida, imagen_url, 
+                     stock_actual, stock_minimo, unidad_medida, imagen_url, archivo_url,
                      es_vendible, es_insumo, activo, created_at, updated_at)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())"
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())"
             );
             $stmt->execute([
                 trim($data['nombre']),
@@ -188,10 +189,12 @@ class ProductoRepository
                 (int)   ($data['stock_minimo']  ?? 0),
                 $data['unidad_medida'] ?? 'unidad',
                 $data['imagen_url']    ?? null,
+                $data['archivo_url']   ?? null,
                 isset($data['es_vendible']) ? (int)$data['es_vendible'] : 1,
                 isset($data['es_insumo']) ? (int)$data['es_insumo'] : 0,
             ]);
         }
+
 
         $newId = (int) $this->db->lastInsertId();
 
@@ -242,6 +245,7 @@ class ProductoRepository
             'dimensiones'   => 'string',
             'estado_stock'  => 'string',
             'es_destacado'  => 'int',
+            'archivo_url'   => 'string',
         ];
 
         foreach ($map as $col => $type) {

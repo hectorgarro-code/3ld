@@ -27,6 +27,7 @@ export interface PedidoItem {
   subtotal: number
   estado: PedidoEstado
   notas?: string
+  archivo_url?: string
 }
 
 export interface PedidoItemFlattened extends PedidoItem {

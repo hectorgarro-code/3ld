@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useProductos, useCategorias, useDeleteProducto, useUpdateProducto } from '@/hooks/useProductos'
 import { formatARS } from '@/lib/cost-calculator'
 import { cn } from '@/lib/utils'
-import { Search, AlertTriangle, Package, Plus, Minus, Pencil, Copy, Trash2, Loader2, Bot, Sparkles, Tags } from 'lucide-react'
+import { Search, AlertTriangle, Package, Plus, Minus, Pencil, Copy, Trash2, Loader2, Bot, Sparkles, Tags, Download, ExternalLink } from 'lucide-react'
 import type { Producto, ProductoTipo } from '@/types'
 import { ProductoFormModal } from '@/components/productos/ProductoFormModal'
 import { MakerWorldImportModal } from '@/components/productos/MakerWorldImportModal'
@@ -63,6 +63,17 @@ function ProductoCard({
     <div className="group relative rounded-2xl border border-slate-100 bg-white card-shadow p-4 transition-all hover:border-primary/30">
       {/* Action Buttons (visible on hover) */}
       <div className="absolute right-2 top-2 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+        {producto.archivo_url && (
+          <a
+            href={producto.archivo_url}
+            target="_blank"
+            rel="noreferrer"
+            className="rounded-lg bg-blue-50/80 p-1.5 text-blue-600 hover:bg-blue-100 transition-colors"
+            title="Abrir Archivo / STL Original"
+          >
+            <Download className="h-4 w-4" />
+          </a>
+        )}
         <button
           onClick={() => onEdit(producto)}
           className="rounded-lg bg-slate-50/50 p-1.5 text-slate-500 hover:bg-primary/20 hover:text-primary transition-colors"

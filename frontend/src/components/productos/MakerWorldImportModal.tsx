@@ -47,6 +47,7 @@ export function MakerWorldImportModal({ isOpen, onClose, onSuccess }: Props) {
   const [stockActual, setStockActual] = useState<number>(5)
   const [stockMinimo, setStockMinimo] = useState<number>(1)
   const [esTienda, setEsTienda] = useState<boolean>(true)
+  const [archivoUrl, setArchivoUrl] = useState<string>('')
   const [saving, setSaving] = useState(false)
 
   const { data: categorias } = useCategorias()
@@ -71,6 +72,7 @@ export function MakerWorldImportModal({ isOpen, onClose, onSuccess }: Props) {
         setDescription(d.description || '')
         setPrecioVenta(d.suggested_price || 8500)
         setPrecioCosto(Math.round((d.suggested_price || 8500) * 0.35))
+        setArchivoUrl(d.source_url || url.trim())
         if (d.images && d.images.length > 0) {
           setSelectedImage(d.images[0])
         }
@@ -131,6 +133,7 @@ export function MakerWorldImportModal({ isOpen, onClose, onSuccess }: Props) {
         es_vendible: 1,
         es_insumo: 0,
         es_tienda: esTienda ? 1 : 0,
+        archivo_url: archivoUrl.trim() || undefined,
       } as any)
 
       toast(`¡Producto "${title}" guardado con éxito!`, 'success')
@@ -351,6 +354,22 @@ export function MakerWorldImportModal({ isOpen, onClose, onSuccess }: Props) {
                       </option>
                     ))}
                   </select>
+                </div>
+
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">
+                    Enlace Archivo / STL (Uso Interno - Oculto al Cliente)
+                  </label>
+                  <input
+                    type="url"
+                    value={archivoUrl}
+                    onChange={(e) => setArchivoUrl(e.target.value)}
+                    placeholder="https://makerworld.com/..."
+                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-mono text-xs text-blue-600 focus:bg-white focus:ring-2 focus:ring-cyan-500"
+                  />
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    Enlace al modelo para descargar e imprimir cuando ingrese un pedido de este producto.
+                  </p>
                 </div>
 
                 <div className="pt-2">
