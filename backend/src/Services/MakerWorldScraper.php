@@ -40,46 +40,7 @@ class MakerWorldScraper
                     $description = trim(strip_tags((string)$apiData['summary']));
                 }
 
-                if (!empty($apiData['coverUrl'])) {
-                    $cover = (string)$apiData['coverUrl'];
-                    if (str_starts_with($cover, '//')) $cover = 'https:' . $cover;
-                    $rawImages[] = $cover;
-                }
-
-                $pictureSources = [
-                    $apiData['pictures'] ?? null,
-                    $apiData['designPictures'] ?? null,
-                    $apiData['slides'] ?? null,
-                    $apiData['images'] ?? null,
-                ];
-
-                foreach ($pictureSources as $source) {
-                    if (!empty($source) && is_array($source)) {
-                        foreach ($source as $pic) {
-                            $pUrl = is_string($pic)
-                                ? $pic
-                                : ($pic['url'] ?? $pic['coverUrl'] ?? $pic['originUrl'] ?? $pic['path'] ?? '');
-                            if (is_string($pUrl) && !empty($pUrl)) {
-                                if (str_starts_with($pUrl, '//')) $pUrl = 'https:' . $pUrl;
-                                $rawImages[] = $pUrl;
-                            }
-                        }
-                    }
-                }
-
-                if (!empty($apiData['instances']) && is_array($apiData['instances'])) {
-                    foreach ($apiData['instances'] as $inst) {
-                        if (is_array($inst)) {
-                            $pUrl = is_string($inst['coverUrl'] ?? null)
-                                ? $inst['coverUrl']
-                                : (is_string($inst['url'] ?? null) ? $inst['url'] : '');
-                            if (!empty($pUrl)) {
-                                if (str_starts_with($pUrl, '//')) $pUrl = 'https:' . $pUrl;
-                                $rawImages[] = $pUrl;
-                            }
-                        }
-                    }
-                }
+                $this->collectAllImagesFromApi($apiData, $rawImages);
             }
         }
 
@@ -244,6 +205,23 @@ class MakerWorldScraper
         }
 
         return $imgUrl;
+    }
+
+    private function collectAllImagesFromApi(array $data, array &$rawImages): void
+    {
+        array_walk_recursive($data, function ($value, $key) use (&$rawImages) {
+            if (is_string($value) && in_array($key, ['cover', 'coverUrl', 'url', 'originUrl', 'coverPortrait', 'coverLandscape'], true)) {
+                $url = trim($value);
+                if (str_starts_with($url, '//')) {
+                    $url = 'https:' . $url;
+                }
+                if (str_starts_with($url, 'http') && (str_contains($url, 'makerworld') || str_contains($url, 'bblmw') || str_contains($url, 'bambulab') || str_contains($url, 'cloudfront'))) {
+                    if (!str_contains($url, 'avatar') && !str_contains($url, 'icon') && !str_contains($url, 'logo') && !str_contains($url, 'plate_') && !str_contains($url, 'public/us.png')) {
+                        $rawImages[] = $url;
+                    }
+                }
+            }
+        });
     }
 
     private function fetchUrl(string $url): string
