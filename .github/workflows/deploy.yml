@@ -63,4 +63,3 @@ jobs:
           dangerous-clean-slate: false
           exclude: |
             **/backend/config/config.local.php
-            **/backend/public/uploads/**
