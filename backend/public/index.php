@@ -441,6 +441,11 @@ $app->get('/api/v1/tienda/config', function ($req, $res) use ($container) {
     return $container->get(TiendaController::class)->getConfig($req, $res);
 });
 
+// Proxy público de imágenes de MakerWorld
+$app->get('/api/v1/ai/proxy-image', function ($req, $res) use ($container) {
+    return $container->get(AiController::class)->proxyImage($req, $res);
+});
+
 // ── Health check (no auth) ───────────────────────────────────────────────────
 $app->get('/api/v1/health', function ($req, $res) {
     $res->getBody()->write(json_encode([

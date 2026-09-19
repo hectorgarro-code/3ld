@@ -271,10 +271,7 @@ export function MakerWorldImportModal({ isOpen, onClose, onSuccess }: Props) {
                           src={imgUrl}
                           alt={`Foto ${idx + 1}`}
                           className="w-full h-full object-cover"
-                          onError={(e) => {
-                            ;(e.target as HTMLImageElement).src =
-                              'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=600&auto=format&fit=crop&q=80'
-                          }}
+                          loading="lazy"
                         />
                         {isSelected && (
                           <div className="absolute top-1 right-1 bg-cyan-500 text-white rounded-full p-0.5 shadow">

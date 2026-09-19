@@ -101,4 +101,58 @@ class AiController
             return Response::error('Error al generar texto con IA: ' . $e->getMessage(), 500);
         }
     }
+
+    /**
+     * GET /api/v1/ai/proxy-image
+     * Sirve imágenes de MakerWorld evitando bloqueo por Content-Type: application/octet-stream
+     */
+    public function proxyImage(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
+    {
+        $params = $request->getQueryParams();
+        $imgUrl = trim((string)($params['url'] ?? ''));
+
+        if (empty($imgUrl)) {
+            return Response::error('URL requerida', 400);
+        }
+
+        if (str_starts_with($imgUrl, '//')) {
+            $imgUrl = 'https:' . $imgUrl;
+        }
+
+        $uploadDir = __DIR__ . '/../../public/uploads/productos/';
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0777, true);
+        }
+
+        $filename = 'mw_' . md5($imgUrl) . '.jpg';
+        $destPath = $uploadDir . $filename;
+
+        if (!file_exists($destPath) || filesize($destPath) < 500) {
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, $imgUrl);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+            curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36');
+            curl_setopt($ch, CURLOPT_TIMEOUT, 15);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+
+            $data = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+
+            if ($httpCode === 200 && !empty($data) && strlen($data) > 500) {
+                file_put_contents($destPath, $data);
+            }
+        }
+
+        if (file_exists($destPath) && filesize($destPath) > 500) {
+            $stream = fopen($destPath, 'rb');
+            return $response
+                ->withHeader('Content-Type', 'image/jpeg')
+                ->withHeader('Cache-Control', 'public, max-age=86400')
+                ->withBody(new \Slim\Psr7\Stream($stream));
+        }
+
+        return $response->withHeader('Location', $imgUrl)->withStatus(302);
+    }
 }

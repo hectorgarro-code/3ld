@@ -5,8 +5,12 @@
   # Redirigir llamadas API a backend/public/index.php
   RewriteRule ^api/(.*)$ backend/public/index.php [QSA,L]
 
-  # Servir archivos subidos
+  # Servir archivos subidos directamente desde backend/public/uploads
   RewriteRule ^uploads/(.*)$ backend/public/uploads/$1 [L]
+
+  # No reescribir uploads, backend ni llamadas de API a index.html
+  RewriteCond %{REQUEST_URI} ^/(uploads|backend|api)/
+  RewriteRule ^ - [L]
 
   # SPA Routing (React Router)
   RewriteCond %{REQUEST_FILENAME} !-f

@@ -120,6 +120,11 @@ class ProductosController
 
     private function handleImageUpload(array &$body): void
     {
+        $uploadDir = __DIR__ . '/../../public/uploads/productos/';
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0777, true);
+        }
+
         if (!empty($body['imagen_base64'])) {
             $base64Data = $body['imagen_base64'];
             if (preg_match('/^data:image\/(\w+);base64,/', $base64Data, $type)) {
@@ -133,18 +138,38 @@ class ProductosController
                     throw new \Exception('Fallo al decodificar imagen Base64');
                 }
                 
-                $uploadDir = __DIR__ . '/../../public/uploads/productos/';
-                if (!is_dir($uploadDir)) {
-                    mkdir($uploadDir, 0777, true);
-                }
-                
                 $fileName = uniqid() . '.' . $ext;
                 $filePath = $uploadDir . $fileName;
                 
                 if (file_put_contents($filePath, $decoded)) {
-                    $body['imagen_url'] = '/uploads/productos/' . $fileName;
+                    $body['imagen_url'] = '/backend/public/uploads/productos/' . $fileName;
                 } else {
                     throw new \Exception('No se pudo guardar la imagen en disco');
+                }
+            }
+        } elseif (!empty($body['imagen_url']) && str_contains($body['imagen_url'], 'proxy-image')) {
+            $parsed = parse_url($body['imagen_url']);
+            parse_str($parsed['query'] ?? '', $qParams);
+            if (!empty($qParams['url'])) {
+                $rawUrl = $qParams['url'];
+                $hashName = 'mw_' . md5($rawUrl) . '.jpg';
+                $destPath = $uploadDir . $hashName;
+                if (!file_exists($destPath)) {
+                    $ch = curl_init();
+                    curl_setopt($ch, CURLOPT_URL, $rawUrl);
+                    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+                    curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36');
+                    curl_setopt($ch, CURLOPT_TIMEOUT, 15);
+                    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+                    $data = curl_exec($ch);
+                    curl_close($ch);
+                    if (!empty($data) && strlen($data) > 500) {
+                        file_put_contents($destPath, $data);
+                    }
+                }
+                if (file_exists($destPath)) {
+                    $body['imagen_url'] = '/backend/public/uploads/productos/' . $hashName;
                 }
             }
         }

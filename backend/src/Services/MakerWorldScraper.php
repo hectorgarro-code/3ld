@@ -102,23 +102,20 @@ class MakerWorldScraper
             }
         }
 
-        // 3. Descargar imágenes remotas directamente al servidor en /uploads/productos/ (hasta 10 fotos)
-        $localImages = [];
+        // 3. Generar URLs a través del proxy de imágenes del sistema (hasta 10 fotos)
+        $proxyImages = [];
         foreach (array_slice($uniqueRaw, 0, 10) as $remoteUrl) {
-            $localPath = $this->downloadImageToServer($remoteUrl);
-            if (!empty($localPath)) {
-                $localImages[] = $localPath;
-            }
+            $proxyImages[] = '/api/v1/ai/proxy-image?url=' . urlencode($remoteUrl);
         }
 
-        if (empty($localImages)) {
-            $localImages[] = 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=600&auto=format&fit=crop&q=80';
+        if (empty($proxyImages)) {
+            $proxyImages[] = 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=600&auto=format&fit=crop&q=80';
         }
 
         return [
             'raw_title'       => trim($title),
             'raw_description' => trim($description),
-            'images'          => array_values(array_unique($localImages)),
+            'images'          => array_values(array_unique($proxyImages)),
         ];
     }
 
