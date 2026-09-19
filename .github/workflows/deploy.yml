@@ -59,7 +59,7 @@ jobs:
           password: ${{ secrets.FTP_PASSWORD }}
           port: ${{ secrets.FTP_PORT || 21 }}
           local-dir: ./deploy_dist/
-          server-dir: ./public_html/sistema/
+          server-dir: ./sistema/
           dangerous-clean-slate: false
           exclude: |
             **/backend/config/config.local.php
