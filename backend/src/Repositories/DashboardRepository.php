@@ -55,9 +55,10 @@ class DashboardRepository
 
         // Rentabilidad Mes (Ventas - Costos de items vendidos)
         $stmtCostosMes = $this->db->prepare(
-            "SELECT COALESCE(SUM(pi.cantidad * pi.precio_costo), 0) 
+            "SELECT COALESCE(SUM(pi.cantidad * COALESCE(pi.costo_unitario, pr.precio_costo, 0)), 0) 
              FROM pedido_items pi 
              JOIN pedidos p ON p.id = pi.pedido_id 
+             LEFT JOIN productos pr ON pr.id = pi.producto_id
              WHERE DATE(p.created_at) >= ? AND p.estado NOT IN ('anulado', 'cancelado')"
         );
         $stmtCostosMes->execute([$firstDayMonth]);

@@ -119,14 +119,18 @@ class ProductoRepository
             return null;
         }
 
-        $stmtReceta = $this->db->prepare(
-            "SELECT r.producto_id, r.insumo_id, r.cantidad, p.nombre as insumo_nombre, p.precio_costo, p.unidad_medida 
-             FROM producto_recetas r 
-             JOIN productos p ON p.id = r.insumo_id 
-             WHERE r.producto_id = ?"
-        );
-        $stmtReceta->execute([$id]);
-        $producto['receta'] = $stmtReceta->fetchAll();
+        try {
+            $stmtReceta = $this->db->prepare(
+                "SELECT r.producto_id, r.insumo_id, r.cantidad, p.nombre as insumo_nombre, p.precio_costo, p.unidad_medida 
+                 FROM producto_recetas r 
+                 JOIN productos p ON p.id = r.insumo_id 
+                 WHERE r.producto_id = ?"
+            );
+            $stmtReceta->execute([$id]);
+            $producto['receta'] = $stmtReceta->fetchAll();
+        } catch (\Throwable $e) {
+            $producto['receta'] = [];
+        }
 
         return $producto;
     }

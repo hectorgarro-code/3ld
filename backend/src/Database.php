@@ -56,6 +56,17 @@ class Database
         } catch (\Throwable $e) {
             // Se ignora si la columna ya existe
         }
+        try {
+            $db->exec("CREATE TABLE IF NOT EXISTS producto_recetas (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                producto_id INT NOT NULL,
+                insumo_id INT NOT NULL,
+                cantidad DECIMAL(10,4) NOT NULL DEFAULT 1.0000,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        } catch (\Throwable $e) {
+            // Se ignora si ya existe
+        }
     }
 
     /**
