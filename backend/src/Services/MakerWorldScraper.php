@@ -41,31 +41,50 @@ class MakerWorldScraper
                 }
 
                 if (!empty($apiData['coverUrl'])) {
-                    $rawImages[] = $apiData['coverUrl'];
+                    $cover = (string)$apiData['coverUrl'];
+                    if (str_starts_with($cover, '//')) $cover = 'https:' . $cover;
+                    $rawImages[] = $cover;
                 }
 
-                if (!empty($apiData['pictures']) && is_array($apiData['pictures'])) {
-                    foreach ($apiData['pictures'] as $pic) {
-                        $pUrl = $pic['url'] ?? $pic['coverUrl'] ?? $pic['originUrl'] ?? '';
-                        if (!empty($pUrl)) {
-                            $rawImages[] = $pUrl;
+                $pictureSources = [
+                    $apiData['pictures'] ?? null,
+                    $apiData['designPictures'] ?? null,
+                    $apiData['slides'] ?? null,
+                    $apiData['images'] ?? null,
+                ];
+
+                foreach ($pictureSources as $source) {
+                    if (!empty($source) && is_array($source)) {
+                        foreach ($source as $pic) {
+                            $pUrl = is_string($pic)
+                                ? $pic
+                                : ($pic['url'] ?? $pic['coverUrl'] ?? $pic['originUrl'] ?? $pic['path'] ?? '');
+                            if (is_string($pUrl) && !empty($pUrl)) {
+                                if (str_starts_with($pUrl, '//')) $pUrl = 'https:' . $pUrl;
+                                $rawImages[] = $pUrl;
+                            }
                         }
                     }
                 }
 
-                if (!empty($apiData['designPictures']) && is_array($apiData['designPictures'])) {
-                    foreach ($apiData['designPictures'] as $pic) {
-                        $pUrl = $pic['url'] ?? $pic['coverUrl'] ?? $pic['originUrl'] ?? '';
-                        if (!empty($pUrl)) {
-                            $rawImages[] = $pUrl;
+                if (!empty($apiData['instances']) && is_array($apiData['instances'])) {
+                    foreach ($apiData['instances'] as $inst) {
+                        if (is_array($inst)) {
+                            $pUrl = is_string($inst['coverUrl'] ?? null)
+                                ? $inst['coverUrl']
+                                : (is_string($inst['url'] ?? null) ? $inst['url'] : '');
+                            if (!empty($pUrl)) {
+                                if (str_starts_with($pUrl, '//')) $pUrl = 'https:' . $pUrl;
+                                $rawImages[] = $pUrl;
+                            }
                         }
                     }
                 }
             }
         }
 
-        // 2. Fallback: Scraping HTML si la API no devolvió título/imágenes
-        if (empty($title) || empty($rawImages)) {
+        // 2. Scraping HTML para obtener título/descripción faltantes o más fotos de la página
+        if (empty($title) || count($rawImages) < 5) {
             $html = '';
             try {
                 $html = $this->fetchUrl($url);
@@ -91,8 +110,11 @@ class MakerWorldScraper
                     }
                 }
 
-                preg_match_all('/https?:\/\/[^\s"\'\`]+\.(?:png|jpg|jpeg|webp)/i', $html, $allMatches);
+                preg_match_all('/(?:https?:)?\/\/[^\s"\'\`]+?\.(?:png|jpg|jpeg|webp)(?:\?[^\s"\'\`]*)?/i', $html, $allMatches);
                 foreach ($allMatches[0] as $imgUrl) {
+                    if (str_starts_with($imgUrl, '//')) {
+                        $imgUrl = 'https:' . $imgUrl;
+                    }
                     if (
                         (str_contains($imgUrl, 'makerworld') || str_contains($imgUrl, 'bblmw') || str_contains($imgUrl, 'bambulab') || str_contains($imgUrl, 'cloudfront')) &&
                         !str_contains($imgUrl, 'avatar') && !str_contains($imgUrl, 'icon') && !str_contains($imgUrl, 'logo') && !str_contains($imgUrl, 'plate_')
@@ -119,9 +141,9 @@ class MakerWorldScraper
             }
         }
 
-        // 3. Descargar imágenes remotas directamente al servidor en /uploads/productos/
+        // 3. Descargar imágenes remotas directamente al servidor en /uploads/productos/ (hasta 10 fotos)
         $localImages = [];
-        foreach (array_slice($uniqueRaw, 0, 8) as $remoteUrl) {
+        foreach (array_slice($uniqueRaw, 0, 10) as $remoteUrl) {
             $localPath = $this->downloadImageToServer($remoteUrl);
             if (!empty($localPath)) {
                 $localImages[] = $localPath;
@@ -175,12 +197,19 @@ class MakerWorldScraper
     private function downloadImageToServer(string $imgUrl): ?string
     {
         try {
+            if (str_starts_with($imgUrl, '//')) {
+                $imgUrl = 'https:' . $imgUrl;
+            } elseif (!str_starts_with($imgUrl, 'http')) {
+                $imgUrl = 'https://' . ltrim($imgUrl, '/');
+            }
+
             $uploadDir = __DIR__ . '/../../public/uploads/productos/';
             if (!is_dir($uploadDir)) {
                 mkdir($uploadDir, 0777, true);
             }
 
-            $ext = strtolower(pathinfo(parse_url($imgUrl, PHP_URL_PATH), PATHINFO_EXTENSION));
+            $parsedPath = parse_url($imgUrl, PHP_URL_PATH) ?? '';
+            $ext = strtolower(pathinfo($parsedPath, PATHINFO_EXTENSION));
             if (empty($ext) || !in_array($ext, ['jpg', 'jpeg', 'png', 'webp'])) {
                 $ext = 'jpg';
             }
@@ -190,7 +219,7 @@ class MakerWorldScraper
             $publicUrl = '/uploads/productos/' . $filename;
 
             // Si ya fue descargada previamente, retornar la URL directamente
-            if (file_exists($destPath) && filesize($destPath) > 5000) {
+            if (file_exists($destPath) && filesize($destPath) > 1000) {
                 return $publicUrl;
             }
 
@@ -206,12 +235,12 @@ class MakerWorldScraper
             $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
             curl_close($ch);
 
-            if ($httpCode === 200 && !empty($data)) {
+            if ($httpCode === 200 && !empty($data) && strlen($data) > 1000) {
                 file_put_contents($destPath, $data);
                 return $publicUrl;
             }
         } catch (\Throwable $e) {
-            // Si falla la descarga, retornar la URL remota
+            // Si falla la descarga, retornar la URL remota normalizada
         }
 
         return $imgUrl;
