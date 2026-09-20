@@ -66,7 +66,8 @@ class TiendaRepository
                            p.stock_actual, p.estado_stock AS stockStatus,
                            p.imagen_url AS image, p.imagenes, p.peso_gramos AS weightGrams,
                            p.dimensiones AS size, p.es_destacado,
-                           c.nombre AS category
+                           p.categoria_id,
+                           COALESCE(c.nombre, 'Sin categoría') AS category
                     FROM productos p
                     LEFT JOIN categorias_producto c ON c.id = p.categoria_id
                     {$where}
@@ -240,6 +241,48 @@ class TiendaRepository
             isset($data['es_destacado']) ? ($data['es_destacado'] ? 1 : 0) : 0,
             $id
         ]);
+    }
+
+    /**
+     * Obtener categorías públicas de la tienda con sus íconos y subcategorías
+     */
+    public function getCategoriasPublicas(): array
+    {
+        try {
+            $sql = "SELECT c.id, c.nombre AS name, COALESCE(c.icono, '✨') AS icon, c.es_destacada,
+                           (SELECT COUNT(*) FROM productos p WHERE p.categoria_id = c.id AND p.activo = 1 AND p.es_tienda = 1) AS productos_count
+                    FROM categorias_producto c
+                    ORDER BY c.es_destacada DESC, c.nombre ASC";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute();
+            $cats = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            $result = [];
+            foreach ($cats as $cat) {
+                $catId = (int)$cat['id'];
+                $subs = [];
+                try {
+                    $subStmt = $this->db->prepare("SELECT DISTINCT subcategoria FROM productos WHERE categoria_id = ? AND subcategoria IS NOT NULL AND subcategoria != '' AND activo = 1 AND es_tienda = 1");
+                    $subStmt->execute([$catId]);
+                    $subs = $subStmt->fetchAll(PDO::FETCH_COLUMN) ?: [];
+                } catch (\Throwable $e) {
+                    $subs = [];
+                }
+
+                $result[] = [
+                    'id' => $cat['name'],
+                    'categoria_id' => $catId,
+                    'name' => $cat['name'],
+                    'icon' => $cat['icon'] ?: '✨',
+                    'es_destacada' => (bool)$cat['es_destacada'],
+                    'subcategories' => !empty($subs) ? array_merge(['Todos'], $subs) : [],
+                    'productos_count' => (int)$cat['productos_count'],
+                ];
+            }
+            return $result;
+        } catch (\Throwable $e) {
+            return [];
+        }
     }
 }
 

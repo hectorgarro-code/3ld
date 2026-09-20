@@ -19,7 +19,9 @@ import {
   Zap,
   MapPin,
   ExternalLink,
-  Store
+  Store,
+  Menu,
+  Star
 } from 'lucide-react';
 import api from '@/lib/api';
 
@@ -28,6 +30,8 @@ export interface Category {
   name: string;
   icon: string;
   subcategories: string[];
+  es_destacada?: boolean;
+  productos_count?: number;
 }
 
 export interface StoreProduct {
@@ -176,6 +180,7 @@ export default function TiendaPage() {
   });
 
   // Navigation & Filtering
+  const [categories, setCategories] = useState<Category[]>(INITIAL_CATEGORIES);
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedSubcategory, setSelectedSubcategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -187,6 +192,7 @@ export default function TiendaPage() {
   const [activeProductModal, setActiveProductModal] = useState<StoreProduct | null>(null);
   const [modalActiveImage, setModalActiveImage] = useState<string | null>(null);
   const [isQuoteModalOpen, setIsQuoteModalOpen] = useState(false);
+  const [isMobileCatMenuOpen, setIsMobileCatMenuOpen] = useState(false);
   const [modalSelectedColor, setModalSelectedColor] = useState('Negro Mate');
   const [toastMessage, setToastMessage] = useState<{ text: string; type: string } | null>(null);
 
@@ -195,19 +201,51 @@ export default function TiendaPage() {
   const [shippingQuote, setShippingQuote] = useState<{ serviceName: string; price: number; estimatedDays: string; isFree: boolean } | null>(null);
   const [isCalculatingShipping, setIsCalculatingShipping] = useState(false);
 
-  // Fetch API products on load
+  // Fetch API products and dynamic categories on load
   useEffect(() => {
-    const fetchStoreProducts = async () => {
+    const fetchStoreData = async () => {
       try {
-        const res = await api.get('/tienda/productos');
-        if (res.data?.data && Array.isArray(res.data.data) && res.data.data.length > 0) {
-          setProducts(res.data.data);
+        const [prodRes, catRes] = await Promise.all([
+          api.get('/tienda/productos'),
+          api.get('/tienda/categorias').catch(() => ({ data: { data: [] } }))
+        ]);
+
+        if (prodRes.data?.data && Array.isArray(prodRes.data.data) && prodRes.data.data.length > 0) {
+          setProducts(prodRes.data.data);
+        }
+
+        const allCat: Category = { id: 'all', name: 'Todo el Catálogo', icon: '✨', subcategories: [] };
+        let dynamicCats: Category[] = [];
+
+        if (catRes.data?.data && Array.isArray(catRes.data.data) && catRes.data.data.length > 0) {
+          dynamicCats = catRes.data.data.map((c: any) => ({
+            id: c.name,
+            name: c.name,
+            icon: c.icon || '✨',
+            subcategories: c.subcategories || [],
+            es_destacada: Boolean(c.es_destacada),
+            productos_count: c.productos_count || 0
+          }));
+        } else if (prodRes.data?.data && Array.isArray(prodRes.data.data)) {
+          const uniqueCats = Array.from(new Set(prodRes.data.data.map((p: any) => p.category).filter(Boolean))) as string[];
+          dynamicCats = uniqueCats.map((catName) => ({
+            id: catName,
+            name: catName,
+            icon: '📦',
+            subcategories: [],
+            es_destacada: false,
+            productos_count: prodRes.data.data.filter((p: any) => p.category === catName).length
+          }));
+        }
+
+        if (dynamicCats.length > 0) {
+          setCategories([allCat, ...dynamicCats]);
         }
       } catch (err) {
-        // Fallback to local items if endpoint is offline
+        // Fallback to local items if offline
       }
     };
-    fetchStoreProducts();
+    fetchStoreData();
   }, []);
 
   useEffect(() => {
@@ -278,14 +316,27 @@ export default function TiendaPage() {
   const freeShippingThreshold = 30000;
   const isFreeLocalShipping = cartSubtotal >= freeShippingThreshold;
 
+  const mobileFeaturedCategories = useMemo(() => {
+    const nonAll = categories.filter((c) => c.id !== 'all');
+    const destacadas = nonAll.filter((c) => c.es_destacada);
+    if (destacadas.length >= 3) {
+      return destacadas.slice(0, 3);
+    }
+    const rest = nonAll.filter((c) => !c.es_destacada);
+    return [...destacadas, ...rest].slice(0, 3);
+  }, [categories]);
+
   const currentCategoryData = useMemo(() => {
-    return INITIAL_CATEGORIES.find((c) => c.id === selectedCategory) || INITIAL_CATEGORIES[0];
-  }, [selectedCategory]);
+    return categories.find((c) => c.id === selectedCategory || c.name === selectedCategory) || categories[0] || INITIAL_CATEGORIES[0];
+  }, [categories, selectedCategory]);
 
   const filteredProducts = useMemo(() => {
     return products
       .filter((p) => {
-        if (selectedCategory !== 'all' && p.category !== selectedCategory) return false;
+        if (selectedCategory !== 'all') {
+          const catMatch = p.category === selectedCategory || p.category === currentCategoryData?.name;
+          if (!catMatch) return false;
+        }
         if (selectedSubcategory !== 'all' && p.subcategory !== selectedSubcategory) return false;
         if (stockFilter !== 'all' && p.stockStatus !== stockFilter) return false;
         if (searchQuery.trim()) {
@@ -303,7 +354,7 @@ export default function TiendaPage() {
         if (sortOption === 'name-asc') return a.title.localeCompare(b.title);
         return 0;
       });
-  }, [products, selectedCategory, selectedSubcategory, stockFilter, searchQuery, sortOption]);
+  }, [products, selectedCategory, currentCategoryData, selectedSubcategory, stockFilter, searchQuery, sortOption]);
 
   const handleCalculateShipping = (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -469,11 +520,61 @@ export default function TiendaPage() {
         </div>
       </header>
 
-      {/* Category Pills Bar */}
+      {/* Category Navigation Bar (Multi-line on PC, Top 3 + Menu on Mobile) */}
       <section className="bg-white border-b border-slate-200 sticky top-16 z-30 shadow-2xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-2 py-2.5 overflow-x-auto no-scrollbar scroll-smooth">
-            {INITIAL_CATEGORIES.map((cat) => {
+          
+          {/* PC / Desktop: En una o más líneas con wrap */}
+          <div className="hidden md:flex md:flex-wrap items-center gap-2 py-3">
+            {categories.map((cat) => {
+              const active = selectedCategory === cat.id || (selectedCategory === 'all' && cat.id === 'all');
+              return (
+                <button
+                  key={cat.id}
+                  onClick={() => {
+                    setSelectedCategory(cat.id);
+                    setSelectedSubcategory('all');
+                  }}
+                  className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold transition active:scale-95 ${
+                    active
+                      ? 'bg-[#6B66C8] text-white shadow-sm ring-2 ring-[#6B66C8] ring-offset-1'
+                      : 'bg-slate-100 text-slate-700 hover:bg-[#EFEBFC] hover:text-[#6B66C8]'
+                  }`}
+                >
+                  <span className="text-sm">{cat.icon}</span>
+                  <span>{cat.name}</span>
+                  {cat.productos_count !== undefined && cat.id !== 'all' && (
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ml-0.5 ${
+                      active ? 'bg-white/25 text-white' : 'bg-slate-200/80 text-slate-600'
+                    }`}>
+                      {cat.productos_count}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Mobile / Celular: Todo + 3 más utilizadas + Menú hamburguesa */}
+          <div className="flex md:hidden items-center gap-2 py-2.5 overflow-x-auto no-scrollbar scroll-smooth">
+            {/* Todo el Catálogo */}
+            <button
+              onClick={() => {
+                setSelectedCategory('all');
+                setSelectedSubcategory('all');
+              }}
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition shrink-0 ${
+                selectedCategory === 'all'
+                  ? 'bg-[#6B66C8] text-white shadow-sm ring-2 ring-[#6B66C8] ring-offset-1'
+                  : 'bg-slate-100 text-slate-700'
+              }`}
+            >
+              <span>✨</span>
+              <span>Todo</span>
+            </button>
+
+            {/* Las 3 más utilizadas */}
+            {mobileFeaturedCategories.map((cat) => {
               const active = selectedCategory === cat.id;
               return (
                 <button
@@ -482,18 +583,43 @@ export default function TiendaPage() {
                     setSelectedCategory(cat.id);
                     setSelectedSubcategory('all');
                   }}
-                  className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition active:scale-95 ${
+                  className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition shrink-0 ${
                     active
                       ? 'bg-[#6B66C8] text-white shadow-sm ring-2 ring-[#6B66C8] ring-offset-1'
-                      : 'bg-slate-100 text-slate-700 hover:bg-[#EFEBFC] hover:text-[#6B66C8]'
+                      : 'bg-slate-100 text-slate-700'
                   }`}
                 >
                   <span>{cat.icon}</span>
-                  <span>{cat.name}</span>
+                  <span className="truncate max-w-[120px]">{cat.name}</span>
                 </button>
               );
             })}
+
+            {/* Si la activa no es 'all' y no está en las 3, mostrarla también */}
+            {selectedCategory !== 'all' && !mobileFeaturedCategories.some((c) => c.id === selectedCategory) && (
+              <button
+                onClick={() => setSelectedSubcategory('all')}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition shrink-0 bg-[#6B66C8] text-white shadow-sm ring-2 ring-[#6B66C8] ring-offset-1"
+              >
+                <span>{currentCategoryData.icon}</span>
+                <span className="truncate max-w-[120px]">{currentCategoryData.name}</span>
+              </button>
+            )}
+
+            {/* Botón Menú Hamburguesa de Categorías */}
+            <button
+              type="button"
+              onClick={() => setIsMobileCatMenuOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition shrink-0 bg-white border border-slate-300 text-slate-800 hover:bg-slate-50 shadow-2xs active:scale-95"
+            >
+              <Menu className="w-3.5 h-3.5 text-[#6B66C8]" />
+              <span>Categorías</span>
+              <span className="bg-[#6B66C8]/10 text-[#6B66C8] text-[10px] font-black px-1.5 py-0.5 rounded-full">
+                {categories.length > 1 ? categories.length - 1 : ''}
+              </span>
+            </button>
           </div>
+
         </div>
       </section>
 
@@ -928,6 +1054,86 @@ export default function TiendaPage() {
               <MessageCircle className="w-4 h-4" />
               <span>Cotizar por WhatsApp</span>
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Mobile Categories Bottom Sheet Modal */}
+      {isMobileCatMenuOpen && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-150 p-0 sm:p-4">
+          <div className="w-full max-w-md bg-white rounded-t-3xl sm:rounded-3xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden border border-slate-200 animate-in slide-in-from-bottom duration-200">
+            {/* Drawer Header */}
+            <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/80">
+              <div className="flex items-center gap-2.5">
+                <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-[#6B66C8]/10 text-[#6B66C8]">
+                  <Layers className="w-4 h-4" />
+                </span>
+                <div>
+                  <h3 className="text-sm font-black text-slate-900">Categorías de la Tienda</h3>
+                  <p className="text-[11px] text-slate-500 font-medium">{categories.length - 1} categorías disponibles</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsMobileCatMenuOpen(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 rounded-full transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Categories List */}
+            <div className="p-3 overflow-y-auto space-y-1.5 flex-1 divide-y divide-slate-50">
+              {categories.map((cat) => {
+                const active = selectedCategory === cat.id || (selectedCategory === 'all' && cat.id === 'all');
+                return (
+                  <button
+                    key={cat.id}
+                    onClick={() => {
+                      setSelectedCategory(cat.id);
+                      setSelectedSubcategory('all');
+                      setIsMobileCatMenuOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between p-3 rounded-2xl border transition-all text-left ${
+                      active
+                        ? 'bg-[#EFEBFC] border-[#6B66C8] text-[#6B66C8] shadow-xs ring-1 ring-[#6B66C8]'
+                        : 'bg-white border-slate-100 hover:bg-slate-50 text-slate-800'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100/80 border border-slate-200 text-xl shadow-2xs">
+                        {cat.icon}
+                      </span>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <p className="text-xs font-black truncate">{cat.name}</p>
+                          {cat.es_destacada && (
+                            <span className="text-[9px] bg-amber-100 text-amber-800 border border-amber-300 px-1.5 py-0.2 rounded font-bold flex items-center gap-0.5">
+                              <Star className="w-2.5 h-2.5 fill-amber-500 text-amber-500" /> Top
+                            </span>
+                          )}
+                        </div>
+                        {cat.subcategories && cat.subcategories.length > 1 && (
+                          <p className="text-[10px] text-slate-400 truncate mt-0.5">
+                            {cat.subcategories.filter(s => s !== 'Todos').slice(0, 3).join(', ')}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0 ml-2">
+                      {cat.productos_count !== undefined && cat.id !== 'all' && (
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                          active ? 'bg-[#6B66C8] text-white' : 'bg-slate-100 text-slate-500'
+                        }`}>
+                          {cat.productos_count}
+                        </span>
+                      )}
+                      <ChevronRight className={`w-4 h-4 ${active ? 'text-[#6B66C8]' : 'text-slate-400'}`} />
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
       )}

@@ -9,7 +9,9 @@ import {
   AlertCircle,
   Check,
   Loader2,
-  Tags
+  Tags,
+  Star,
+  Smile
 } from 'lucide-react'
 import {
   useCategorias,
@@ -25,6 +27,13 @@ interface CategoriasModalProps {
   onClose: () => void
 }
 
+const POPULAR_EMOJIS = [
+  '✨', '🍪', '🏺', '🧩', '🪴', '🤖', '🏷️', '🎁',
+  '💡', '🐾', '⚽', '🎮', '🎨', '👓', '🏠', '🛠️',
+  '🌸', '💖', '🚀', '📦', '🍰', '☕', '🎄', '👑',
+  '🧸', '💍', '🎧', '🌟', '🦄', '🎯'
+]
+
 export function CategoriasModal({ isOpen, onClose }: CategoriasModalProps) {
   const { data: categorias, isLoading } = useCategorias()
   const createMutation = useCreateCategoria()
@@ -34,6 +43,8 @@ export function CategoriasModal({ isOpen, onClose }: CategoriasModalProps) {
   const [editingCat, setEditingCat] = useState<Categoria | null>(null)
   const [nombre, setNombre] = useState('')
   const [descripcion, setDescripcion] = useState('')
+  const [icono, setIcono] = useState('✨')
+  const [esDestacada, setEsDestacada] = useState(false)
 
   if (!isOpen) return null
 
@@ -41,12 +52,16 @@ export function CategoriasModal({ isOpen, onClose }: CategoriasModalProps) {
     setEditingCat(null)
     setNombre('')
     setDescripcion('')
+    setIcono('✨')
+    setEsDestacada(false)
   }
 
   const handleStartEdit = (cat: Categoria) => {
     setEditingCat(cat)
     setNombre(cat.nombre)
     setDescripcion(cat.descripcion || '')
+    setIcono(cat.icono || '✨')
+    setEsDestacada(Boolean(cat.es_destacada))
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -58,17 +73,21 @@ export function CategoriasModal({ isOpen, onClose }: CategoriasModalProps) {
     }
 
     try {
+      const payload = {
+        nombre: cleanNombre,
+        descripcion: descripcion.trim() || undefined,
+        icono: icono.trim() || '✨',
+        es_destacada: esDestacada ? 1 : 0
+      }
+
       if (editingCat) {
         await updateMutation.mutateAsync({
           id: editingCat.id,
-          payload: { nombre: cleanNombre, descripcion: descripcion.trim() || undefined }
+          payload
         })
         toast('Categoría actualizada exitosamente', 'success')
       } else {
-        await createMutation.mutateAsync({
-          nombre: cleanNombre,
-          descripcion: descripcion.trim() || undefined
-        })
+        await createMutation.mutateAsync(payload)
         toast('Categoría creada exitosamente', 'success')
       }
       handleStartCreate()
@@ -105,7 +124,7 @@ export function CategoriasModal({ isOpen, onClose }: CategoriasModalProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs animate-fadeIn">
-      <div className="relative w-full max-w-2xl rounded-3xl bg-white shadow-2xl overflow-hidden border border-slate-100 flex flex-col max-h-[90vh]">
+      <div className="relative w-full max-w-3xl rounded-3xl bg-white shadow-2xl overflow-hidden border border-slate-100 flex flex-col max-h-[92vh]">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4 bg-slate-50/50">
           <div className="flex items-center gap-3">
@@ -114,7 +133,7 @@ export function CategoriasModal({ isOpen, onClose }: CategoriasModalProps) {
             </div>
             <div>
               <h2 className="text-lg font-black text-slate-900 tracking-tight">ABM de Categorías de Producto</h2>
-              <p className="text-xs text-slate-500 font-medium">Creá, editá o eliminá categorías vacías</p>
+              <p className="text-xs text-slate-500 font-medium">Asigná íconos/emojis y destacá las más utilizadas en la tienda</p>
             </div>
           </div>
           <button
@@ -145,6 +164,43 @@ export function CategoriasModal({ isOpen, onClose }: CategoriasModalProps) {
                 )}
               </div>
 
+              {/* Selector de Icono / Emoji */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center gap-1.5">
+                  <Smile className="h-3.5 w-3.5 text-[#6B66C8]" />
+                  Ícono o Emoticono
+                </label>
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white border-2 border-[#6B66C8] text-2xl shadow-xs">
+                    {icono || '✨'}
+                  </div>
+                  <input
+                    type="text"
+                    value={icono}
+                    onChange={(e) => setIcono(e.target.value)}
+                    placeholder="Emoji o ícono..."
+                    maxLength={10}
+                    className="flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800 font-semibold focus:border-[#6B66C8] focus:outline-none focus:ring-2 focus:ring-[#6B66C8]/20 transition"
+                  />
+                </div>
+                {/* Grilla de emojis sugeridos */}
+                <div className="grid grid-cols-6 gap-1 bg-white p-2 rounded-xl border border-slate-200 shadow-2xs max-h-28 overflow-y-auto">
+                  {POPULAR_EMOJIS.map((emoji) => (
+                    <button
+                      key={emoji}
+                      type="button"
+                      onClick={() => setIcono(emoji)}
+                      className={`h-7 w-7 flex items-center justify-center text-sm rounded-lg transition-transform hover:scale-115 ${
+                        icono === emoji ? 'bg-[#6B66C8]/15 border border-[#6B66C8]' : 'hover:bg-slate-100'
+                      }`}
+                      title={`Elegir ${emoji}`}
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">Nombre de Categoría *</label>
                 <input
@@ -160,13 +216,30 @@ export function CategoriasModal({ isOpen, onClose }: CategoriasModalProps) {
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">Descripción (Opcional)</label>
                 <textarea
-                  rows={3}
+                  rows={2}
                   placeholder="Descripción breve..."
                   value={descripcion}
                   onChange={(e) => setDescripcion(e.target.value)}
                   className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs text-slate-800 focus:border-[#6B66C8] focus:outline-none focus:ring-2 focus:ring-[#6B66C8]/20 transition resize-none"
                 />
               </div>
+
+              {/* Destacar como más utilizada */}
+              <label className="flex items-center gap-2.5 p-2.5 bg-amber-50/70 border border-amber-200/80 rounded-xl cursor-pointer hover:bg-amber-50 transition">
+                <input
+                  type="checkbox"
+                  checked={esDestacada}
+                  onChange={(e) => setEsDestacada(e.target.checked)}
+                  className="w-4 h-4 rounded accent-amber-500 text-amber-500 cursor-pointer"
+                />
+                <div className="flex-1">
+                  <p className="text-xs font-bold text-amber-900 flex items-center gap-1">
+                    <Star className="h-3.5 w-3.5 fill-amber-500 text-amber-500" />
+                    Más utilizada / Destacada
+                  </p>
+                  <p className="text-[10px] text-amber-700">Se mostrará directamente en la barra rápida de la tienda en celular</p>
+                </div>
+              </label>
 
               <button
                 type="submit"
@@ -189,18 +262,18 @@ export function CategoriasModal({ isOpen, onClose }: CategoriasModalProps) {
               </button>
             </form>
 
-            <div className="mt-4 rounded-2xl bg-amber-50 border border-amber-200 p-3 text-[11px] text-amber-800 flex items-start gap-2">
-              <AlertCircle className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
+            <div className="mt-4 rounded-2xl bg-slate-50 border border-slate-200 p-2.5 text-[11px] text-slate-600 flex items-start gap-2">
+              <AlertCircle className="h-4 w-4 shrink-0 text-slate-400 mt-0.5" />
               <span>
-                <strong>Regla de Eliminación:</strong> Para poder eliminar una categoría, esta debe estar completamente vacía (0 productos asociados).
+                Las categorías con productos se reflejan automáticamente en el catálogo de la tienda web.
               </span>
             </div>
           </div>
 
           {/* List Side */}
-          <div className="md:col-span-7 p-5 overflow-y-auto max-h-[500px]">
+          <div className="md:col-span-7 p-5 overflow-y-auto max-h-[520px]">
             <span className="block text-xs font-black uppercase tracking-wider text-slate-400 mb-3">
-              Categorías Existentes ({categorias?.length || 0})
+              Categorías Registradas ({categorias?.length || 0})
             </span>
 
             {isLoading ? (
@@ -229,23 +302,34 @@ export function CategoriasModal({ isOpen, onClose }: CategoriasModalProps) {
                           : 'border-slate-100 bg-white hover:border-slate-200 hover:bg-slate-50/50'
                       }`}
                     >
-                      <div className="flex-1 min-w-0 pr-3">
-                        <div className="flex items-center gap-2">
-                          <h4 className="text-xs font-black text-slate-900 truncate">{cat.nombre}</h4>
-                          <span
-                            className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full flex items-center gap-1 ${
-                              pCount > 0
-                                ? 'bg-cyan-50 text-cyan-700 border border-cyan-200'
-                                : 'bg-slate-100 text-slate-500'
-                            }`}
-                          >
-                            <Package className="h-3 w-3" />
-                            {pCount} prod{pCount === 1 ? '' : 's'}
-                          </span>
+                      <div className="flex items-center gap-3 flex-1 min-w-0 pr-3">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-xl">
+                          {cat.icono || '✨'}
                         </div>
-                        {cat.descripcion && (
-                          <p className="text-[11px] text-slate-500 truncate mt-0.5">{cat.descripcion}</p>
-                        )}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h4 className="text-xs font-black text-slate-900 truncate">{cat.nombre}</h4>
+                            {cat.es_destacada ? (
+                              <span className="bg-amber-100 text-amber-800 border border-amber-300 text-[10px] font-bold px-1.5 py-0.5 rounded-md flex items-center gap-0.5 shadow-2xs">
+                                <Star className="h-2.5 w-2.5 fill-amber-500 text-amber-500" />
+                                Más utilizada
+                              </span>
+                            ) : null}
+                            <span
+                              className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full flex items-center gap-1 ${
+                                pCount > 0
+                                  ? 'bg-cyan-50 text-cyan-700 border border-cyan-200'
+                                  : 'bg-slate-100 text-slate-500'
+                              }`}
+                            >
+                              <Package className="h-3 w-3" />
+                              {pCount} prod{pCount === 1 ? '' : 's'}
+                            </span>
+                          </div>
+                          {cat.descripcion && (
+                            <p className="text-[11px] text-slate-500 truncate mt-0.5">{cat.descripcion}</p>
+                          )}
+                        </div>
                       </div>
 
                       <div className="flex items-center gap-1 shrink-0">

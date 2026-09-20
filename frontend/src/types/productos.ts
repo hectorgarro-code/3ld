@@ -4,6 +4,8 @@ export interface Categoria {
   id: number
   nombre: string
   descripcion?: string
+  icono?: string
+  es_destacada?: boolean | number
   productos_count?: number
   created_at: string
 }

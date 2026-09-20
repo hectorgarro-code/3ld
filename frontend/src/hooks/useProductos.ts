@@ -61,7 +61,7 @@ export function useCategorias() {
 
 export function useCreateCategoria() {
   const queryClient = useQueryClient()
-  return useMutation<Categoria, Error, { nombre: string; descripcion?: string }>({
+  return useMutation<Categoria, Error, { nombre: string; descripcion?: string; icono?: string; es_destacada?: boolean | number }>({
     mutationFn: async (payload) => {
       const { data } = await api.post<ApiResponse<Categoria>>('/categorias', payload)
       return data.data
@@ -74,7 +74,7 @@ export function useCreateCategoria() {
 
 export function useUpdateCategoria() {
   const queryClient = useQueryClient()
-  return useMutation<Categoria, Error, { id: number; payload: { nombre: string; descripcion?: string } }>({
+  return useMutation<Categoria, Error, { id: number; payload: { nombre: string; descripcion?: string; icono?: string; es_destacada?: boolean | number } }>({
     mutationFn: async ({ id, payload }) => {
       const { data } = await api.put<ApiResponse<Categoria>>(`/categorias/${id}`, payload)
       return data.data

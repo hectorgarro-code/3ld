@@ -35,6 +35,20 @@ class TiendaController
     }
 
     /**
+     * GET /api/v1/tienda/categorias
+     * Endpoint público para obtener las categorías de la tienda
+     */
+    public function getCategorias(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
+    {
+        try {
+            $categorias = $this->repository->getCategoriasPublicas();
+            return Response::success($categorias);
+        } catch (Throwable $e) {
+            return Response::error('Error al obtener categorías de tienda: ' . $e->getMessage(), 500);
+        }
+    }
+
+    /**
      * PUT /api/v1/tienda/productos/{id}
      * Endpoint admin para actualizar la publicación en tienda
      */

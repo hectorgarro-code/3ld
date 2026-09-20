@@ -437,6 +437,9 @@ $app->group('/api/v1', function (RouteCollectorProxy $api) use ($config, $auth, 
 $app->get('/api/v1/tienda/productos', function ($req, $res) use ($container) {
     return $container->get(TiendaController::class)->getProductos($req, $res);
 });
+$app->get('/api/v1/tienda/categorias', function ($req, $res) use ($container) {
+    return $container->get(TiendaController::class)->getCategorias($req, $res);
+});
 $app->get('/api/v1/tienda/config', function ($req, $res) use ($container) {
     return $container->get(TiendaController::class)->getConfig($req, $res);
 });
