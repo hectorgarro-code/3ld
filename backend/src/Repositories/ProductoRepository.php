@@ -48,23 +48,40 @@ class ProductoRepository
         $stmtCount->execute($binds);
         $total = (int) $stmtCount->fetchColumn();
 
-        // Fetch
-        $sql = "SELECT p.id, p.nombre, p.variante, p.sku, p.descripcion, p.tipo,
-                       p.precio_venta, p.precio_costo, p.stock_actual, p.stock_minimo,
-                       p.unidad_medida, p.imagen_url, p.imagenes, p.archivo_url, p.activo,
-                       p.es_vendible, p.es_insumo, p.horas_impresion, p.peso_gramos,
-                       p.alto_mm, p.ancho_mm, p.profundidad_mm, p.dimensiones,
-                       p.created_at, p.updated_at,
-                       c.id AS categoria_id, c.nombre AS categoria_nombre
-                FROM productos p
-                LEFT JOIN categorias_producto c ON c.id = p.categoria_id
-                {$where}
-                ORDER BY p.nombre ASC
-                LIMIT {$perPage} OFFSET {$offset}";
+        try {
+            $sql = "SELECT p.id, p.nombre, p.variante, p.sku, p.descripcion, p.tipo,
+                           p.precio_venta, p.precio_costo, p.stock_actual, p.stock_minimo,
+                           p.unidad_medida, p.imagen_url, p.imagenes, p.archivo_url, p.activo,
+                           p.es_vendible, p.es_insumo, p.horas_impresion, p.peso_gramos,
+                           p.alto_mm, p.ancho_mm, p.profundidad_mm, p.dimensiones,
+                           p.created_at, p.updated_at,
+                           c.id AS categoria_id, c.nombre AS categoria_nombre
+                    FROM productos p
+                    LEFT JOIN categorias_producto c ON c.id = p.categoria_id
+                    {$where}
+                    ORDER BY p.nombre ASC
+                    LIMIT {$perPage} OFFSET {$offset}";
 
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute($binds);
-        $productos = $stmt->fetchAll();
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute($binds);
+            $productos = $stmt->fetchAll();
+        } catch (\PDOException $e) {
+            $sql = "SELECT p.id, p.nombre, p.variante, p.sku, p.descripcion, p.tipo,
+                           p.precio_venta, p.precio_costo, p.stock_actual, p.stock_minimo,
+                           p.unidad_medida, p.imagen_url, p.imagenes, p.archivo_url, p.activo,
+                           p.es_vendible, p.es_insumo,
+                           p.created_at, p.updated_at,
+                           c.id AS categoria_id, c.nombre AS categoria_nombre
+                    FROM productos p
+                    LEFT JOIN categorias_producto c ON c.id = p.categoria_id
+                    {$where}
+                    ORDER BY p.nombre ASC
+                    LIMIT {$perPage} OFFSET {$offset}";
+
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute($binds);
+            $productos = $stmt->fetchAll();
+        }
 
         if (!empty($productos)) {
             $ids = array_column($productos, 'id');

@@ -112,6 +112,36 @@ class Database
         } catch (\Throwable $e) {
             // Se ignora si ya existe
         }
+        try {
+            $db->exec("ALTER TABLE productos ADD COLUMN dimensiones VARCHAR(255) NULL");
+        } catch (\Throwable $e) {
+            // Se ignora si ya existe
+        }
+        try {
+            $db->exec("ALTER TABLE productos ADD COLUMN es_tienda TINYINT(1) NOT NULL DEFAULT 0");
+        } catch (\Throwable $e) {
+            // Se ignora si ya existe
+        }
+        try {
+            $db->exec("ALTER TABLE productos ADD COLUMN subcategoria VARCHAR(255) NULL");
+        } catch (\Throwable $e) {
+            // Se ignora si ya existe
+        }
+        try {
+            $db->exec("ALTER TABLE productos ADD COLUMN precio_oferta DECIMAL(12,2) NULL");
+        } catch (\Throwable $e) {
+            // Se ignora si ya existe
+        }
+        try {
+            $db->exec("ALTER TABLE productos ADD COLUMN estado_stock VARCHAR(50) NOT NULL DEFAULT 'ready'");
+        } catch (\Throwable $e) {
+            // Se ignora si ya existe
+        }
+        try {
+            $db->exec("ALTER TABLE productos ADD COLUMN es_destacado TINYINT(1) NOT NULL DEFAULT 0");
+        } catch (\Throwable $e) {
+            // Se ignora si ya existe
+        }
     }
 
     /**
