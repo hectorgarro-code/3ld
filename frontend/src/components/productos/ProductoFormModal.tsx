@@ -872,11 +872,17 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
         onClose={() => setIsCostoModalOpen(false)}
         initialHoras={watch('horas_impresion') || 0}
         initialGramos={watch('peso_gramos') || 0}
-        onApply={(costoCalculado, h, g) => {
+        initialPrecioVenta={watch('precio_venta') || 0}
+        onApply={(costoCalculado, h, g, precioVentaCalculado) => {
           setValue('precio_costo', costoCalculado)
           setValue('horas_impresion', h)
           setValue('peso_gramos', g)
-          toast(`Precio de costo ($${costoCalculado}) aplicado`, 'success')
+          if (precioVentaCalculado && precioVentaCalculado > 0) {
+            setValue('precio_venta', precioVentaCalculado)
+            toast(`Costo ($${costoCalculado}) y Venta ($${precioVentaCalculado}) aplicados`, 'success')
+          } else {
+            toast(`Precio de costo ($${costoCalculado}) aplicado`, 'success')
+          }
         }}
       />
     </div>

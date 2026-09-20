@@ -579,11 +579,17 @@ export function MakerWorldImportModal({ isOpen, onClose, onSuccess }: Props) {
         onClose={() => setIsCostoModalOpen(false)}
         initialHoras={horasImpresion}
         initialGramos={pesoGramos}
-        onApply={(costo, h, g) => {
+        initialPrecioVenta={precioVenta}
+        onApply={(costo, h, g, venta) => {
           setPrecioCosto(costo)
           setHorasImpresion(h)
           setPesoGramos(g)
-          toast(`Precio de costo ($${costo}) aplicado`, 'success')
+          if (venta && venta > 0) {
+            setPrecioVenta(venta)
+            toast(`Costo ($${costo}) y Venta ($${venta}) aplicados`, 'success')
+          } else {
+            toast(`Precio de costo ($${costo}) aplicado`, 'success')
+          }
         }}
       />
     </div>
