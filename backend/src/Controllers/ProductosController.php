@@ -118,43 +118,39 @@ class ProductosController
         }
     }
 
-    private function handleImageUpload(array &$body): void
+    private function processSingleImage(string $img, string $uploadDir): ?string
     {
-        $uploadDir = __DIR__ . '/../../public/uploads/productos/';
-        if (!is_dir($uploadDir)) {
-            mkdir($uploadDir, 0777, true);
+        $img = trim($img);
+        if (empty($img)) {
+            return null;
         }
 
-        if (!empty($body['imagen_base64'])) {
-            $base64Data = $body['imagen_base64'];
-            if (preg_match('/^data:image\/(\w+);base64,/', $base64Data, $type)) {
-                $base64Data = substr($base64Data, strpos($base64Data, ',') + 1);
-                $ext = strtolower($type[1]);
-                if (!in_array($ext, ['jpg', 'jpeg', 'png', 'webp'])) {
-                    throw new \Exception('Formato de imagen inválido');
-                }
-                $decoded = base64_decode($base64Data);
-                if ($decoded === false) {
-                    throw new \Exception('Fallo al decodificar imagen Base64');
-                }
-                
-                $fileName = uniqid() . '.' . $ext;
+        // Caso 1: Imagen Base64
+        if (preg_match('/^data:image\/(\w+);base64,/', $img, $type)) {
+            $base64Data = substr($img, strpos($img, ',') + 1);
+            $ext = strtolower($type[1]);
+            if (!in_array($ext, ['jpg', 'jpeg', 'png', 'webp'])) {
+                $ext = 'jpg';
+            }
+            $decoded = base64_decode($base64Data);
+            if ($decoded !== false) {
+                $fileName = uniqid('prd_') . '.' . $ext;
                 $filePath = $uploadDir . $fileName;
-                
                 if (file_put_contents($filePath, $decoded)) {
-                    $body['imagen_url'] = '/backend/public/uploads/productos/' . $fileName;
-                } else {
-                    throw new \Exception('No se pudo guardar la imagen en disco');
+                    return '/backend/public/uploads/productos/' . $fileName;
                 }
             }
-        } elseif (!empty($body['imagen_url']) && str_contains($body['imagen_url'], 'proxy-image')) {
-            $parsed = parse_url($body['imagen_url']);
+        }
+
+        // Caso 2: Imagen desde Proxy MakerWorld
+        if (str_contains($img, 'proxy-image')) {
+            $parsed = parse_url($img);
             parse_str($parsed['query'] ?? '', $qParams);
             if (!empty($qParams['url'])) {
                 $rawUrl = $qParams['url'];
                 $hashName = 'mw_' . md5($rawUrl) . '.jpg';
                 $destPath = $uploadDir . $hashName;
-                if (!file_exists($destPath)) {
+                if (!file_exists($destPath) || filesize($destPath) < 500) {
                     $ch = curl_init();
                     curl_setopt($ch, CURLOPT_URL, $rawUrl);
                     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -168,10 +164,60 @@ class ProductosController
                         file_put_contents($destPath, $data);
                     }
                 }
-                if (file_exists($destPath)) {
-                    $body['imagen_url'] = '/backend/public/uploads/productos/' . $hashName;
+                if (file_exists($destPath) && filesize($destPath) > 500) {
+                    return '/backend/public/uploads/productos/' . $hashName;
                 }
             }
+        }
+
+        // Caso 3: URL ya existente o remota válida
+        return $img;
+    }
+
+    private function handleImageUpload(array &$body): void
+    {
+        $uploadDir = __DIR__ . '/../../public/uploads/productos/';
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0777, true);
+        }
+
+        $processedImages = [];
+
+        // Si se envió array de imágenes (hasta 5)
+        if (!empty($body['imagenes']) && is_array($body['imagenes'])) {
+            foreach (array_slice($body['imagenes'], 0, 5) as $imgItem) {
+                if (is_string($imgItem)) {
+                    $res = $this->processSingleImage($imgItem, $uploadDir);
+                    if ($res) {
+                        $processedImages[] = $res;
+                    }
+                }
+            }
+        }
+
+        // Si se envió imagen_base64 individual
+        if (!empty($body['imagen_base64'])) {
+            $single = $this->processSingleImage($body['imagen_base64'], $uploadDir);
+            if ($single && !in_array($single, $processedImages, true)) {
+                array_unshift($processedImages, $single);
+            }
+        }
+
+        // Si se envió imagen_url individual
+        if (!empty($body['imagen_url'])) {
+            $single = $this->processSingleImage($body['imagen_url'], $uploadDir);
+            if ($single && !in_array($single, $processedImages, true)) {
+                if (empty($processedImages)) {
+                    $processedImages[] = $single;
+                }
+            }
+        }
+
+        $processedImages = array_values(array_unique(array_slice($processedImages, 0, 5)));
+
+        if (!empty($processedImages)) {
+            $body['imagen_url'] = $processedImages[0];
+            $body['imagenes']   = $processedImages;
         }
     }
 }

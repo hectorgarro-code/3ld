@@ -38,7 +38,7 @@ export function MakerWorldImportModal({ isOpen, onClose, onSuccess }: Props) {
   } | null>(null)
 
   // Form Editing State for Confirmation
-  const [selectedImage, setSelectedImage] = useState<string>('')
+  const [selectedImages, setSelectedImages] = useState<string[]>([])
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [categoriaId, setCategoriaId] = useState<number | undefined>(undefined)
@@ -74,7 +74,7 @@ export function MakerWorldImportModal({ isOpen, onClose, onSuccess }: Props) {
         setPrecioCosto(Math.round((d.suggested_price || 8500) * 0.35))
         setArchivoUrl(d.source_url || url.trim())
         if (d.images && d.images.length > 0) {
-          setSelectedImage(d.images[0])
+          setSelectedImages(d.images.slice(0, 5))
         }
 
         // Matchear categoría si es posible
@@ -128,7 +128,8 @@ export function MakerWorldImportModal({ isOpen, onClose, onSuccess }: Props) {
         stock_actual: stockActual,
         stock_minimo: stockMinimo,
         categoria_id: categoriaId,
-        imagen_url: selectedImage || undefined,
+        imagen_url: selectedImages[0] || undefined,
+        imagenes: selectedImages,
         tipo: 'impresion_3d',
         es_vendible: 1,
         es_insumo: 0,
@@ -251,20 +252,41 @@ export function MakerWorldImportModal({ isOpen, onClose, onSuccess }: Props) {
 
               {/* Photo Selection Gallery */}
               <div>
-                <label className="font-bold text-slate-700 block mb-2">
-                  Seleccionar Foto Principal ({importedData.images.length} fotos encontradas):
-                </label>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="font-bold text-slate-700 block">
+                    Fotos del Producto ({selectedImages.length}/5 seleccionadas):
+                  </label>
+                  <span className="text-[11px] text-slate-500 font-medium">
+                    Elegí hasta 5 fotos (la Nº 1 es la portada principal)
+                  </span>
+                </div>
                 <div className="flex items-center gap-3 overflow-x-auto pb-2 no-scrollbar">
                   {importedData.images.map((imgUrl, idx) => {
-                    const isSelected = selectedImage === imgUrl
+                    const selIndex = selectedImages.indexOf(imgUrl)
+                    const isSelected = selIndex !== -1
+                    const isPrincipal = selIndex === 0
                     return (
                       <div
                         key={idx}
-                        onClick={() => setSelectedImage(imgUrl)}
+                        onClick={() => {
+                          if (isSelected) {
+                            if (selectedImages.length === 1) {
+                              toast('El producto debe tener al menos una foto', 'error')
+                              return
+                            }
+                            setSelectedImages(selectedImages.filter(u => u !== imgUrl))
+                          } else {
+                            if (selectedImages.length >= 5) {
+                              toast('Podés seleccionar hasta 5 fotos por artículo', 'error')
+                              return
+                            }
+                            setSelectedImages([...selectedImages, imgUrl])
+                          }
+                        }}
                         className={`relative h-20 w-20 rounded-xl overflow-hidden border-2 cursor-pointer shrink-0 transition ${
                           isSelected
                             ? 'border-cyan-500 ring-2 ring-cyan-500/30 shadow-md'
-                            : 'border-slate-200 opacity-70 hover:opacity-100'
+                            : 'border-slate-200 opacity-60 hover:opacity-100'
                         }`}
                       >
                         <img
@@ -274,9 +296,14 @@ export function MakerWorldImportModal({ isOpen, onClose, onSuccess }: Props) {
                           loading="lazy"
                         />
                         {isSelected && (
-                          <div className="absolute top-1 right-1 bg-cyan-500 text-white rounded-full p-0.5 shadow">
-                            <Check className="h-3 w-3" />
+                          <div className="absolute top-1 right-1 bg-cyan-500 text-white rounded-full h-5 w-5 flex items-center justify-center text-[10px] font-black shadow">
+                            {selIndex + 1}
                           </div>
+                        )}
+                        {isPrincipal && (
+                          <span className="absolute bottom-1 left-1 bg-slate-900/80 text-white text-[8px] font-extrabold px-1 py-0.5 rounded shadow uppercase">
+                            Principal
+                          </span>
                         )}
                       </div>
                     )

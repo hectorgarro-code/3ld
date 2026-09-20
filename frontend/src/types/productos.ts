@@ -23,6 +23,7 @@ export interface Producto {
   stock_actual: number
   stock_minimo: number
   imagen_url?: string
+  imagenes?: string[]
   activo: number // 1 o 0
   es_vendible: number
   es_insumo: number

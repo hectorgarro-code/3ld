@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { X, Loader2, ImagePlus, Trash2, Plus, Sparkles, ExternalLink } from 'lucide-react'
+import { X, Loader2, ImagePlus, Trash2, Plus, Sparkles, ExternalLink, Star } from 'lucide-react'
 import api from '@/lib/api'
 import type { Producto } from '@/types'
 import { compressImage } from '@/lib/imageUtils'
@@ -106,7 +106,10 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
         es_tienda: Boolean(p.es_tienda),
       })
       setReceta((producto as any).receta || [])
-      setImagesBase64([])
+      const existing = Array.isArray(p.imagenes) && p.imagenes.length > 0
+        ? p.imagenes
+        : (producto.imagen_url ? [producto.imagen_url] : [])
+      setImagesBase64(existing.slice(0, 5))
     } else if (isOpen && !producto) {
       reset({
         nombre: '',
@@ -126,7 +129,7 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
       })
       setReceta([])
       if (initialImages && initialImages.length > 0) {
-        setImagesBase64(initialImages)
+        setImagesBase64(initialImages.slice(0, 5))
       } else {
         setImagesBase64([])
       }
@@ -137,19 +140,34 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
   const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
     if (!files || files.length === 0) return
+    const remainingSlots = 5 - imagesBase64.length
+    if (remainingSlots <= 0) {
+      toast('Máximo 5 fotos por artículo', 'error')
+      return
+    }
     try {
       setIsCompressing(true)
       const compressedList: string[] = []
-      for (let i = 0; i < files.length; i++) {
-        const compressed = await compressImage(files[i])
+      const filesToProcess = Array.from(files).slice(0, remainingSlots)
+      for (const file of filesToProcess) {
+        const compressed = await compressImage(file)
         compressedList.push(compressed)
       }
-      setImagesBase64((prev) => [...prev, ...compressedList])
+      setImagesBase64((prev) => [...prev, ...compressedList].slice(0, 5))
     } catch (err) {
       toast('Error al procesar la imagen', 'error')
     } finally {
       setIsCompressing(false)
     }
+  }
+
+  const handleSetPrimary = (index: number) => {
+    if (index === 0) return
+    setImagesBase64((prev) => {
+      const copy = [...prev]
+      const [selected] = copy.splice(index, 1)
+      return [selected, ...copy]
+    })
   }
 
   const handleRemoveImage = (index: number) => {
@@ -196,11 +214,16 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
         (payload as any).receta = []
       }
 
+      const p: any = payload
+
       if (imagesBase64.length > 0) {
-        (payload as any).imagen_base64 = imagesBase64[0]
+        p.imagenes = imagesBase64.slice(0, 5)
+        p.imagen_base64 = imagesBase64[0]
+      } else {
+        p.imagenes = []
+        p.imagen_base64 = null
       }
 
-      const p = payload as any
       if (producto && !isDuplicate) {
         await updateMutation.mutateAsync({ id: producto.id, payload: p })
         toast('Producto actualizado', 'success')
@@ -267,58 +290,82 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
               
               {/* Fotos del producto */}
-              <div className="flex flex-col items-center justify-center space-y-3">
-                <div className="flex flex-wrap items-center justify-center gap-3">
-                  {imagesBase64.length > 0 ? (
-                    imagesBase64.map((img, idx) => (
-                      <div key={idx} className="relative group h-24 w-24 rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
-                        <img src={img} alt={`Foto ${idx + 1}`} className="h-full w-full object-cover" />
+              <div className="flex flex-col items-center justify-center space-y-3 bg-slate-50/70 p-4 rounded-2xl border border-slate-100">
+                <div className="flex items-center justify-between w-full mb-1">
+                  <span className="text-xs font-bold text-slate-700">Fotos del Producto ({imagesBase64.length}/5)</span>
+                  <span className="text-[11px] text-slate-400">Podés guardar hasta 5 fotos</span>
+                </div>
+
+                <div className="flex flex-wrap items-center justify-center gap-3 w-full">
+                  {imagesBase64.map((img, idx) => (
+                    <div key={idx} className={cn(
+                      "relative group h-24 w-24 rounded-2xl border overflow-hidden shadow-sm transition-all",
+                      idx === 0 ? "border-amber-400 ring-2 ring-amber-400/30" : "border-slate-200"
+                    )}>
+                      <img src={img} alt={`Foto ${idx + 1}`} className="h-full w-full object-cover" />
+                      
+                      {/* Acciones de la foto */}
+                      <div className="absolute top-1 right-1 flex items-center gap-1 opacity-90 group-hover:opacity-100 transition-opacity">
+                        {idx > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => handleSetPrimary(idx)}
+                            className="h-6 w-6 rounded-full bg-slate-900/80 hover:bg-amber-500 text-white flex items-center justify-center shadow-md transition-colors"
+                            title="Hacer foto principal"
+                          >
+                            <Star className="h-3 w-3" />
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={() => handleRemoveImage(idx)}
-                          className="absolute top-1 right-1 h-6 w-6 rounded-full bg-red-500 text-white flex items-center justify-center opacity-90 hover:opacity-100 transition-opacity shadow-md"
+                          className="h-6 w-6 rounded-full bg-red-500 text-white flex items-center justify-center shadow-md hover:bg-red-600 transition-colors"
                           title="Eliminar foto"
                         >
-                          <Trash2 className="h-3.5 w-3.5" />
+                          <Trash2 className="h-3 w-3" />
                         </button>
-                        {idx === 0 && (
-                          <span className="absolute bottom-1 left-1 bg-slate-900/70 text-white text-[9px] font-bold px-1.5 py-0.5 rounded uppercase">
-                            Principal
-                          </span>
-                        )}
                       </div>
-                    ))
-                  ) : (producto && producto.imagen_url && !isDuplicate) ? (
-                    <div className="relative h-24 w-24 rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
-                      <img src={producto.imagen_url} alt="Foto actual" className="h-full w-full object-cover" />
-                    </div>
-                  ) : null}
 
-                  {/* Botón para agregar más fotos */}
-                  <label className="relative group h-24 w-24 rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 flex flex-col items-center justify-center hover:border-primary transition-colors cursor-pointer">
-                    {isCompressing ? (
-                      <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                    ) : (
-                      <>
-                        <ImagePlus className="h-6 w-6 text-slate-400 group-hover:text-primary transition-colors" />
-                        <span className="text-[10px] font-bold text-slate-400 group-hover:text-primary uppercase tracking-wider mt-1">
-                          {imagesBase64.length > 0 ? 'Más fotos' : 'Agregar foto'}
+                      {/* Badge Principal / Orden */}
+                      {idx === 0 ? (
+                        <span className="absolute bottom-1 left-1 bg-amber-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded uppercase shadow-xs flex items-center gap-0.5">
+                          <Star className="h-2.5 w-2.5 fill-white" /> Principal
                         </span>
-                      </>
-                    )}
-                    <input
-                      type="file"
-                      accept="image/*"
-                      multiple
-                      className="hidden"
-                      onChange={handleImageSelect}
-                    />
-                  </label>
+                      ) : (
+                        <span className="absolute bottom-1 left-1 bg-slate-900/70 text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow-xs">
+                          Foto {idx + 1}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+
+                  {/* Botón para agregar más fotos (hasta 5) */}
+                  {imagesBase64.length < 5 && (
+                    <label className="relative group h-24 w-24 rounded-2xl border-2 border-dashed border-slate-300 bg-white hover:border-primary hover:bg-primary/5 flex flex-col items-center justify-center transition-colors cursor-pointer shadow-2xs">
+                      {isCompressing ? (
+                        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                      ) : (
+                        <>
+                          <ImagePlus className="h-6 w-6 text-slate-400 group-hover:text-primary transition-colors" />
+                          <span className="text-[10px] font-bold text-slate-500 group-hover:text-primary uppercase tracking-wider mt-1 text-center">
+                            {imagesBase64.length > 0 ? '+ Foto' : 'Subir'}
+                          </span>
+                        </>
+                      )}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        className="hidden"
+                        onChange={handleImageSelect}
+                      />
+                    </label>
+                  )}
                 </div>
-                <p className="text-xs text-slate-400 text-center">
-                  {imagesBase64.length > 0
-                    ? `${imagesBase64.length} foto(s) cargada(s)`
-                    : 'Toca para tomar o elegir fotos del producto'}
+                <p className="text-[11px] text-slate-400 text-center">
+                  {imagesBase64.length === 0
+                    ? 'Toca para elegir fotos desde tu dispositivo (JPG, PNG)'
+                    : `La foto con la estrella dorada es la portada que se ve en el catálogo.`}
                 </p>
               </div>
 

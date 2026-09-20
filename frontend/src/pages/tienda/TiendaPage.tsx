@@ -39,6 +39,7 @@ export interface StoreProduct {
   oldPrice?: number | null;
   stockStatus: 'ready' | 'custom' | string;
   image: string;
+  images?: string[];
   description: string;
   weightGrams?: number;
   size?: string;
@@ -184,6 +185,7 @@ export default function TiendaPage() {
   // Modals & Notifications
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [activeProductModal, setActiveProductModal] = useState<StoreProduct | null>(null);
+  const [modalActiveImage, setModalActiveImage] = useState<string | null>(null);
   const [isQuoteModalOpen, setIsQuoteModalOpen] = useState(false);
   const [modalSelectedColor, setModalSelectedColor] = useState('Negro Mate');
   const [toastMessage, setToastMessage] = useState<{ text: string; type: string } | null>(null);
@@ -355,6 +357,11 @@ export default function TiendaPage() {
     text += `\n¿Tienen disponibilidad para coordinar? ¡Muchas gracias!`;
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(text)}`, '_blank');
   };
+
+  const modalImages = (activeProductModal?.images && activeProductModal.images.length > 0)
+    ? activeProductModal.images
+    : (activeProductModal?.image ? [activeProductModal.image] : []);
+  const currentDisplayImage = modalActiveImage || modalImages[0] || activeProductModal?.image || '';
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans flex flex-col antialiased selection:bg-cyan-500 selection:text-white pb-20 md:pb-10">
@@ -587,7 +594,10 @@ export default function TiendaPage() {
               <div
                 key={product.id}
                 className="bg-white rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition overflow-hidden flex flex-col group cursor-pointer"
-                onClick={() => setActiveProductModal(product)}
+                onClick={() => {
+                  setActiveProductModal(product);
+                  setModalActiveImage(product.image);
+                }}
               >
                 {/* Product Image */}
                 <div className="relative aspect-square overflow-hidden bg-slate-100">
@@ -609,6 +619,12 @@ export default function TiendaPage() {
                       </span>
                     )}
                   </div>
+
+                  {product.images && product.images.length > 1 && (
+                    <span className="absolute bottom-2 right-2 bg-slate-900/75 backdrop-blur-xs text-white text-[10px] font-black px-2 py-0.5 rounded-md shadow-xs flex items-center gap-1">
+                      📷 {product.images.length}
+                    </span>
+                  )}
                 </div>
 
                 {/* Product Info */}
@@ -792,18 +808,38 @@ export default function TiendaPage() {
       {/* Product Detail Modal */}
       {activeProductModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs">
-          <div className="bg-white rounded-3xl max-w-md w-full overflow-hidden shadow-2xl animate-in zoom-in-95 duration-150 border border-slate-200">
-            <div className="relative aspect-square bg-slate-100">
-              <img src={activeProductModal.image} alt={activeProductModal.title} className="w-full h-full object-cover" />
+          <div className="bg-white rounded-3xl max-w-md w-full overflow-hidden shadow-2xl animate-in zoom-in-95 duration-150 border border-slate-200 max-h-[90vh] flex flex-col">
+            <div className="relative aspect-square bg-slate-100 shrink-0 overflow-hidden">
+              <img src={currentDisplayImage} alt={activeProductModal.title} className="w-full h-full object-cover transition-all duration-300" />
               <button
-                onClick={() => setActiveProductModal(null)}
+                onClick={() => {
+                  setActiveProductModal(null);
+                  setModalActiveImage(null);
+                }}
                 className="absolute top-3 right-3 p-2 bg-slate-900/80 text-white rounded-full hover:bg-slate-900 transition"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="p-5">
+            {/* Gallery Thumbnails */}
+            {modalImages.length > 1 && (
+              <div className="flex items-center gap-2 px-5 py-2.5 bg-slate-50 border-b border-slate-100 overflow-x-auto">
+                {modalImages.map((imgUrl, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setModalActiveImage(imgUrl)}
+                    className={`h-12 w-12 rounded-xl border-2 overflow-hidden shrink-0 transition-all ${
+                      currentDisplayImage === imgUrl ? 'border-cyan-500 ring-2 ring-cyan-500/30' : 'border-slate-200 opacity-60 hover:opacity-100'
+                    }`}
+                  >
+                    <img src={imgUrl} alt={`Foto ${idx + 1}`} className="h-full w-full object-cover" />
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <div className="p-5 overflow-y-auto">
               <span className="text-xs font-bold text-cyan-600 uppercase tracking-wide">
                 {activeProductModal.subcategory || activeProductModal.category}
               </span>

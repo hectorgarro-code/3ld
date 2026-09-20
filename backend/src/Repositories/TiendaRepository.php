@@ -64,7 +64,7 @@ class TiendaRepository
             $sql = "SELECT p.id, p.nombre AS title, p.subcategoria, p.descripcion,
                            p.precio_venta AS price, p.precio_oferta AS oldPrice,
                            p.stock_actual, p.estado_stock AS stockStatus,
-                           p.imagen_url AS image, p.peso_gramos AS weightGrams,
+                           p.imagen_url AS image, p.imagenes, p.peso_gramos AS weightGrams,
                            p.dimensiones AS size, p.es_destacado,
                            c.nombre AS category
                     FROM productos p
@@ -74,12 +74,21 @@ class TiendaRepository
 
             $stmt = $this->db->prepare($sql);
             $stmt->execute($binds);
-            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            foreach ($items as &$item) {
+                if (!empty($item['imagenes'])) {
+                    $dec = is_string($item['imagenes']) ? json_decode($item['imagenes'], true) : $item['imagenes'];
+                    $item['images'] = is_array($dec) ? $dec : (!empty($item['image']) ? [$item['image']] : []);
+                } else {
+                    $item['images'] = !empty($item['image']) ? [$item['image']] : [];
+                }
+            }
+            return $items;
         } catch (\PDOException $e) {
             $fallbackSql = "SELECT p.id, p.nombre AS title, '' AS subcategoria, p.descripcion,
                                    p.precio_venta AS price, NULL AS oldPrice,
                                    p.stock_actual, 'ready' AS stockStatus,
-                                   p.imagen_url AS image, 50 AS weightGrams,
+                                   p.imagen_url AS image, p.imagenes, 50 AS weightGrams,
                                    NULL AS size, 0 AS es_destacado,
                                    c.nombre AS category
                             FROM productos p
@@ -88,7 +97,16 @@ class TiendaRepository
                             ORDER BY p.id DESC";
             $stmt = $this->db->prepare($fallbackSql);
             $stmt->execute();
-            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            foreach ($items as &$item) {
+                if (!empty($item['imagenes'])) {
+                    $dec = is_string($item['imagenes']) ? json_decode($item['imagenes'], true) : $item['imagenes'];
+                    $item['images'] = is_array($dec) ? $dec : (!empty($item['image']) ? [$item['image']] : []);
+                } else {
+                    $item['images'] = !empty($item['image']) ? [$item['image']] : [];
+                }
+            }
+            return $items;
         }
     }
 

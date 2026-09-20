@@ -51,7 +51,7 @@ class ProductoRepository
         // Fetch
         $sql = "SELECT p.id, p.nombre, p.variante, p.sku, p.descripcion, p.tipo,
                        p.precio_venta, p.precio_costo, p.stock_actual, p.stock_minimo,
-                       p.unidad_medida, p.imagen_url, p.archivo_url, p.activo,
+                       p.unidad_medida, p.imagen_url, p.imagenes, p.archivo_url, p.activo,
                        p.es_vendible, p.es_insumo,
                        p.created_at, p.updated_at,
                        c.id AS categoria_id, c.nombre AS categoria_nombre
@@ -90,6 +90,15 @@ class ProductoRepository
                 foreach ($productos as &$p) {
                     $p['receta'] = [];
                 }
+            }
+        }
+
+        foreach ($productos as &$p) {
+            if (!empty($p['imagenes'])) {
+                $dec = is_string($p['imagenes']) ? json_decode($p['imagenes'], true) : $p['imagenes'];
+                $p['imagenes'] = is_array($dec) ? $dec : (!empty($p['imagen_url']) ? [$p['imagen_url']] : []);
+            } else {
+                $p['imagenes'] = !empty($p['imagen_url']) ? [$p['imagen_url']] : [];
             }
         }
 
@@ -132,20 +141,37 @@ class ProductoRepository
             $producto['receta'] = [];
         }
 
+        if (!empty($producto['imagenes'])) {
+            $dec = is_string($producto['imagenes']) ? json_decode($producto['imagenes'], true) : $producto['imagenes'];
+            $producto['imagenes'] = is_array($dec) ? $dec : (!empty($producto['imagen_url']) ? [$producto['imagen_url']] : []);
+        } else {
+            $producto['imagenes'] = !empty($producto['imagen_url']) ? [$producto['imagen_url']] : [];
+        }
+
         return $producto;
     }
 
     public function create(array $data): array
     {
         $sku = !empty(trim((string)($data['sku'] ?? ''))) ? trim($data['sku']) : null;
+        $imagenesJson = null;
+        if (isset($data['imagenes'])) {
+            $imgs = is_array($data['imagenes']) ? $data['imagenes'] : json_decode((string)$data['imagenes'], true);
+            if (is_array($imgs)) {
+                $imagenesJson = json_encode(array_values(array_slice($imgs, 0, 5)));
+                if (empty($data['imagen_url']) && !empty($imgs[0])) {
+                    $data['imagen_url'] = $imgs[0];
+                }
+            }
+        }
 
         try {
             $stmt = $this->db->prepare(
                 "INSERT INTO productos
                     (nombre, variante, sku, descripcion, tipo, categoria_id, precio_venta, precio_costo,
-                     stock_actual, stock_minimo, unidad_medida, imagen_url, archivo_url,
+                     stock_actual, stock_minimo, unidad_medida, imagen_url, imagenes, archivo_url,
                      es_vendible, es_insumo, es_tienda, subcategoria, precio_oferta, peso_gramos, dimensiones, estado_stock, es_destacado, activo, created_at, updated_at)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())"
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())"
             );
 
             $stmt->execute([
@@ -161,6 +187,7 @@ class ProductoRepository
                 (int)   ($data['stock_minimo']  ?? 0),
                 $data['unidad_medida'] ?? 'unidad',
                 $data['imagen_url']    ?? null,
+                $imagenesJson,
                 $data['archivo_url']   ?? null,
                 isset($data['es_vendible']) ? (int)$data['es_vendible'] : 1,
                 isset($data['es_insumo']) ? (int)$data['es_insumo'] : 0,
@@ -240,6 +267,7 @@ class ProductoRepository
             'stock_minimo'  => 'int',
             'unidad_medida' => 'string',
             'imagen_url'    => 'string',
+            'imagenes'      => 'string',
             'es_vendible'   => 'int',
             'es_insumo'     => 'int',
             'es_tienda'     => 'int',

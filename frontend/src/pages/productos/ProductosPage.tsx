@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useProductos, useCategorias, useDeleteProducto, useUpdateProducto } from '@/hooks/useProductos'
 import { formatARS } from '@/lib/cost-calculator'
 import { cn } from '@/lib/utils'
-import { Search, AlertTriangle, Package, Plus, Minus, Pencil, Copy, Trash2, Loader2, Bot, Sparkles, Tags, Download, ExternalLink } from 'lucide-react'
+import { Search, AlertTriangle, Package, Plus, Minus, Pencil, Copy, Trash2, Loader2, Bot, Sparkles, Tags, Download, ExternalLink, ChevronLeft, ChevronRight, Images } from 'lucide-react'
 import type { Producto, ProductoTipo } from '@/types'
 import { ProductoFormModal } from '@/components/productos/ProductoFormModal'
 import { MakerWorldImportModal } from '@/components/productos/MakerWorldImportModal'
@@ -42,6 +42,12 @@ function ProductoCard({
   const isBajStock = Number(producto.stock_actual) <= Number(producto.stock_minimo)
   const updateMutation = useUpdateProducto()
 
+  const images = (producto.imagenes && producto.imagenes.length > 0)
+    ? producto.imagenes
+    : (producto.imagen_url ? [producto.imagen_url] : [])
+  const [activeImgIdx, setActiveImgIdx] = useState(0)
+  const currentImg = images.length > 0 ? images[activeImgIdx % images.length] : null
+
   const handleStockChange = async (increment: number) => {
     const newStock = Number(producto.stock_actual) + increment
     if (newStock < 0) return
@@ -62,13 +68,13 @@ function ProductoCard({
   return (
     <div className="group relative rounded-2xl border border-slate-100 bg-white card-shadow p-4 transition-all hover:border-primary/30">
       {/* Action Buttons (visible on hover) */}
-      <div className="absolute right-2 top-2 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+      <div className="absolute right-2 top-2 z-10 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
         {producto.archivo_url && (
           <a
             href={producto.archivo_url}
             target="_blank"
             rel="noreferrer"
-            className="rounded-lg bg-blue-50/80 p-1.5 text-blue-600 hover:bg-blue-100 transition-colors"
+            className="rounded-lg bg-blue-50/80 p-1.5 text-blue-600 hover:bg-blue-100 transition-colors shadow-xs"
             title="Abrir Archivo / STL Original"
           >
             <Download className="h-4 w-4" />
@@ -76,34 +82,65 @@ function ProductoCard({
         )}
         <button
           onClick={() => onEdit(producto)}
-          className="rounded-lg bg-slate-50/50 p-1.5 text-slate-500 hover:bg-primary/20 hover:text-primary transition-colors"
+          className="rounded-lg bg-white/90 p-1.5 text-slate-600 hover:bg-primary/20 hover:text-primary transition-colors shadow-xs"
           title="Editar"
         >
           <Pencil className="h-4 w-4" />
         </button>
         <button
           onClick={() => onDuplicate(producto)}
-          className="rounded-lg bg-slate-50/50 p-1.5 text-slate-500 hover:bg-secondary/20 hover:text-secondary transition-colors"
+          className="rounded-lg bg-white/90 p-1.5 text-slate-600 hover:bg-secondary/20 hover:text-secondary transition-colors shadow-xs"
           title="Duplicar"
         >
           <Copy className="h-4 w-4" />
         </button>
         <button
           onClick={() => onDelete(producto)}
-          className="rounded-lg bg-slate-50/50 p-1.5 text-slate-500 hover:bg-red-500/20 hover:text-red-400 transition-colors"
+          className="rounded-lg bg-white/90 p-1.5 text-slate-600 hover:bg-red-500/20 hover:text-red-400 transition-colors shadow-xs"
           title="Eliminar"
         >
           <Trash2 className="h-4 w-4" />
         </button>
       </div>
 
-      {/* Image placeholder or uploaded image */}
-      {producto.imagen_url ? (
-        <div className="mb-3 flex h-24 items-center justify-center rounded-xl bg-slate-50 overflow-hidden">
-          <img src={producto.imagen_url} alt={producto.nombre} className="h-full w-full object-cover" />
+      {/* Image / Gallery */}
+      {currentImg ? (
+        <div className="relative mb-3 flex h-28 items-center justify-center rounded-xl bg-slate-50 overflow-hidden group/img">
+          <img src={currentImg} alt={producto.nombre} className="h-full w-full object-cover transition duration-300" />
+          
+          {/* Controls if multiple images */}
+          {images.length > 1 && (
+            <>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setActiveImgIdx((prev) => (prev - 1 + images.length) % images.length)
+                }}
+                className="absolute left-1 top-1/2 -translate-y-1/2 h-6 w-6 rounded-full bg-slate-900/70 hover:bg-slate-900 text-white flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity shadow-sm"
+                title="Foto anterior"
+              >
+                <ChevronLeft className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setActiveImgIdx((prev) => (prev + 1) % images.length)
+                }}
+                className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 rounded-full bg-slate-900/70 hover:bg-slate-900 text-white flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity shadow-sm"
+                title="Siguiente foto"
+              >
+                <ChevronRight className="h-3.5 w-3.5" />
+              </button>
+              <span className="absolute bottom-1 right-1 bg-slate-900/80 backdrop-blur-xs text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow-xs flex items-center gap-1">
+                <Images className="h-2.5 w-2.5" /> {((activeImgIdx % images.length) + 1)}/{images.length}
+              </span>
+            </>
+          )}
         </div>
       ) : (
-        <div className="mb-3 flex h-24 items-center justify-center rounded-xl bg-slate-50 text-4xl">
+        <div className="mb-3 flex h-28 items-center justify-center rounded-xl bg-slate-50 text-4xl">
           {cfg.emoji}
         </div>
       )}
