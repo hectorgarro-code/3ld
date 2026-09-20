@@ -11,7 +11,6 @@ const PAGE_TITLES: Record<string, string> = {
   '/produccion': 'Producción',
   '/produccion/filamentos': 'Filamentos',
   '/produccion/impresoras': 'Impresoras',
-  '/cotizador': 'Cotizador',
   '/compras': 'Compras',
   '/proveedores': 'Proveedores',
 }

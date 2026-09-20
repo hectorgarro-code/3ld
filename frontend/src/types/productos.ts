@@ -32,6 +32,12 @@ export interface Producto {
   es_tienda?: number | boolean
   subcategoria?: string
   precio_oferta?: number | null
+  peso_gramos?: number
+  horas_impresion?: number
+  alto_mm?: number
+  ancho_mm?: number
+  profundidad_mm?: number
+  dimensiones?: string
   archivo_url?: string
   created_at: string
   updated_at: string

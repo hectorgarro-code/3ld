@@ -76,30 +76,6 @@ export function BottomNav({ onOpenMenu, onOpenQuickCreate }: BottomNavProps) {
         </button>
       </div>
 
-      {/* Cotizar */}
-      <NavLink
-        to="/cotizador"
-        className={({ isActive }) =>
-          cn(
-            'flex flex-1 flex-col items-center justify-center gap-0.5 transition-colors',
-            isActive ? 'text-brand-green' : 'text-slate-400 hover:text-slate-600'
-          )
-        }
-      >
-        {({ isActive }) => (
-          <>
-            <div
-              className={cn(
-                'flex h-8 w-8 items-center justify-center rounded-xl transition-all',
-                isActive ? 'bg-brand-green/10 scale-105' : ''
-              )}
-            >
-              <Calculator className="h-5 w-5" />
-            </div>
-            <span className="text-[11px] font-semibold leading-none">Cotizar</span>
-          </>
-        )}
-      </NavLink>
 
       {/* Menú Drawer */}
       <button

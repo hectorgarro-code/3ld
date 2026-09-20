@@ -27,9 +27,11 @@ class MakerWorldScraper
             $slugTitle = ucwords(str_replace('-', ' ', $matches[1]));
         }
 
-        $title       = '';
-        $description = '';
-        $rawImages   = [];
+        $title          = '';
+        $description    = '';
+        $rawImages      = [];
+        $pesoGramos     = 0;
+        $horasImpresion = 0.0;
 
         // 1. Intentar consultar la API interna de MakerWorld design-service
         if (!empty($modelId)) {
@@ -38,6 +40,24 @@ class MakerWorldScraper
                 $title = trim((string)($apiData['title'] ?? $apiData['titleTranslated'] ?? ''));
                 if (!empty($apiData['summary'])) {
                     $description = trim(strip_tags((string)$apiData['summary']));
+                }
+
+                if (!empty($apiData['instances']) && is_array($apiData['instances'])) {
+                    $selectedInst = $apiData['instances'][0];
+                    foreach ($apiData['instances'] as $inst) {
+                        if (!empty($inst['isDefault'])) {
+                            $selectedInst = $inst;
+                            break;
+                        }
+                    }
+
+                    if (isset($selectedInst['weight']) && is_numeric($selectedInst['weight'])) {
+                        $pesoGramos = (int) $selectedInst['weight'];
+                    }
+
+                    if (isset($selectedInst['prediction']) && is_numeric($selectedInst['prediction'])) {
+                        $horasImpresion = round(((float) $selectedInst['prediction']) / 3600.0, 2);
+                    }
                 }
 
                 $this->collectAllImagesFromApi($apiData, $rawImages);
@@ -116,6 +136,8 @@ class MakerWorldScraper
             'raw_title'       => trim($title),
             'raw_description' => trim($description),
             'images'          => array_values(array_unique($proxyImages)),
+            'peso_gramos'     => $pesoGramos,
+            'horas_impresion' => $horasImpresion,
         ];
     }
 

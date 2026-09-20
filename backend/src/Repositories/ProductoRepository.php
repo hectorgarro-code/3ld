@@ -52,7 +52,8 @@ class ProductoRepository
         $sql = "SELECT p.id, p.nombre, p.variante, p.sku, p.descripcion, p.tipo,
                        p.precio_venta, p.precio_costo, p.stock_actual, p.stock_minimo,
                        p.unidad_medida, p.imagen_url, p.imagenes, p.archivo_url, p.activo,
-                       p.es_vendible, p.es_insumo,
+                       p.es_vendible, p.es_insumo, p.horas_impresion, p.peso_gramos,
+                       p.alto_mm, p.ancho_mm, p.profundidad_mm, p.dimensiones,
                        p.created_at, p.updated_at,
                        c.id AS categoria_id, c.nombre AS categoria_nombre
                 FROM productos p
@@ -170,8 +171,8 @@ class ProductoRepository
                 "INSERT INTO productos
                     (nombre, variante, sku, descripcion, tipo, categoria_id, precio_venta, precio_costo,
                      stock_actual, stock_minimo, unidad_medida, imagen_url, imagenes, archivo_url,
-                     es_vendible, es_insumo, es_tienda, subcategoria, precio_oferta, peso_gramos, dimensiones, estado_stock, es_destacado, activo, created_at, updated_at)
-                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())"
+                     es_vendible, es_insumo, es_tienda, subcategoria, precio_oferta, peso_gramos, horas_impresion, alto_mm, ancho_mm, profundidad_mm, dimensiones, estado_stock, es_destacado, activo, created_at, updated_at)
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())"
             );
 
             $stmt->execute([
@@ -194,7 +195,11 @@ class ProductoRepository
                 isset($data['es_tienda']) ? (int)$data['es_tienda'] : 0,
                 $data['subcategoria']  ?? null,
                 isset($data['precio_oferta']) ? (float)$data['precio_oferta'] : null,
-                (int) ($data['peso_gramos'] ?? 50),
+                (int) ($data['peso_gramos'] ?? 0),
+                (float) ($data['horas_impresion'] ?? 0),
+                (float) ($data['alto_mm'] ?? 0),
+                (float) ($data['ancho_mm'] ?? 0),
+                (float) ($data['profundidad_mm'] ?? 0),
                 $data['dimensiones']   ?? null,
                 $data['estado_stock']  ?? 'ready',
                 isset($data['es_destacado']) ? (int)$data['es_destacado'] : 0,
@@ -274,6 +279,10 @@ class ProductoRepository
             'subcategoria'  => 'string',
             'precio_oferta' => 'float',
             'peso_gramos'   => 'int',
+            'horas_impresion' => 'float',
+            'alto_mm'       => 'float',
+            'ancho_mm'      => 'float',
+            'profundidad_mm' => 'float',
             'dimensiones'   => 'string',
             'estado_stock'  => 'string',
             'es_destacado'  => 'int',

@@ -11,6 +11,8 @@ import { toast } from '@/store/toastStore'
 import { cn } from '@/lib/utils'
 import { StockHistory } from './StockHistory'
 
+import { CostoImpresionModal } from './CostoImpresionModal'
+
 const productoSchema = z.object({
   nombre: z.string().min(1, 'El nombre es requerido'),
   variante: z.string().optional(),
@@ -19,6 +21,11 @@ const productoSchema = z.object({
   categoria_id: z.number().optional().nullable(),
   precio_venta: z.number().min(0, 'El precio no puede ser negativo'),
   precio_costo: z.number().min(0).optional(),
+  horas_impresion: z.number().min(0).optional(),
+  peso_gramos: z.number().min(0).optional(),
+  alto_mm: z.number().min(0).optional(),
+  ancho_mm: z.number().min(0).optional(),
+  profundidad_mm: z.number().min(0).optional(),
   stock_actual: z.number().min(0),
   stock_minimo: z.number().min(0),
   descripcion: z.string().optional(),
@@ -48,6 +55,7 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
   const [isGeneratingAi, setIsGeneratingAi] = useState(false)
   const [receta, setReceta] = useState<{insumo_id: number, cantidad: number, insumo_nombre?: string, precio_costo?: number, unidad_medida?: string}[]>([])
   const [activeTab, setActiveTab] = useState<'detalles' | 'historial'>('detalles')
+  const [isCostoModalOpen, setIsCostoModalOpen] = useState(false)
 
   const { data: productosData } = useProductos({ per_page: 500 })
   const insumosDisponibles = productosData?.data?.filter(p => p.es_insumo === 1 && p.id !== producto?.id) || []
@@ -72,6 +80,11 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
       categoria_id: null,
       precio_venta: 0,
       precio_costo: 0,
+      horas_impresion: 0,
+      peso_gramos: 0,
+      alto_mm: 0,
+      ancho_mm: 0,
+      profundidad_mm: 0,
       stock_actual: 1,
       stock_minimo: 1,
       descripcion: '',
@@ -97,6 +110,11 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
         categoria_id: producto.categoria_id,
         precio_venta: producto.precio_venta,
         precio_costo: p.precio_costo ?? 0,
+        horas_impresion: p.horas_impresion ?? 0,
+        peso_gramos: p.peso_gramos ?? 0,
+        alto_mm: p.alto_mm ?? 0,
+        ancho_mm: p.ancho_mm ?? 0,
+        profundidad_mm: p.profundidad_mm ?? 0,
         stock_actual: isDuplicate ? 1 : producto.stock_actual,
         stock_minimo: producto.stock_minimo || 0,
         descripcion: producto.descripcion || '',
@@ -106,9 +124,20 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
         es_tienda: Boolean(p.es_tienda),
       })
       setReceta((producto as any).receta || [])
-      const existing = Array.isArray(p.imagenes) && p.imagenes.length > 0
-        ? p.imagenes
-        : (producto.imagen_url ? [producto.imagen_url] : [])
+      let existing: string[] = []
+      if (Array.isArray(p.imagenes) && p.imagenes.length > 0) {
+        existing = p.imagenes
+      } else if (typeof p.imagenes === 'string' && p.imagenes.trim()) {
+        try {
+          const parsed = JSON.parse(p.imagenes)
+          if (Array.isArray(parsed)) existing = parsed
+        } catch (e) {
+          existing = [p.imagenes]
+        }
+      }
+      if (existing.length === 0 && producto.imagen_url) {
+        existing = [producto.imagen_url]
+      }
       setImagesBase64(existing.slice(0, 5))
     } else if (isOpen && !producto) {
       reset({
@@ -119,6 +148,11 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
         categoria_id: null,
         precio_venta: 0,
         precio_costo: 0,
+        horas_impresion: 0,
+        peso_gramos: 0,
+        alto_mm: 0,
+        ancho_mm: 0,
+        profundidad_mm: 0,
         stock_actual: 1,
         stock_minimo: 1,
         descripcion: '',
@@ -136,6 +170,21 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
     }
     setActiveTab('detalles')
   }, [isOpen, producto, isDuplicate, initialImages, reset])
+
+  // Recálculo automático de costo según gramos y horas ingresadas
+  const watchedGramos = watch('peso_gramos')
+  const watchedHoras = watch('horas_impresion')
+
+  const handleRecalculateAutoCost = (g?: number, h?: number) => {
+    const gramos = g ?? (getValues('peso_gramos') || 0)
+    const horas = h ?? (getValues('horas_impresion') || 0)
+    if (gramos > 0 || horas > 0) {
+      const savedFil = parseFloat(localStorage.getItem('costo_filamento_kg_default') || '15000')
+      const savedHora = parseFloat(localStorage.getItem('costo_hora_maquina_default') || '500')
+      const autoCost = Math.round((gramos / 1000) * savedFil + horas * savedHora)
+      setValue('precio_costo', autoCost)
+    }
+  }
 
   const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
@@ -428,15 +477,118 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
                 </div>
 
                 <div>
-                  <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-500">
-                    Costo ($)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    {...register('precio_costo', { valueAsNumber: true })}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition-colors focus:border-primary focus:bg-white"
-                  />
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                      Costo ($)
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setIsCostoModalOpen(true)}
+                      className="text-[11px] font-extrabold text-amber-800 bg-amber-100 hover:bg-amber-200 px-2.5 py-1 rounded-lg flex items-center gap-1 transition border border-amber-300 shadow-2xs"
+                    >
+                      ⚡ Cotizar Costo
+                    </button>
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      type="number"
+                      step="0.01"
+                      {...register('precio_costo', { valueAsNumber: true })}
+                      className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition-colors focus:border-primary focus:bg-white"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setIsCostoModalOpen(true)}
+                      className="px-3.5 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-black text-xs rounded-xl shadow-sm flex items-center gap-1.5 transition shrink-0"
+                    >
+                      ⚡ Cotizar
+                    </button>
+                  </div>
+                </div>
+
+                {/* Sección de Dimensiones, Peso y Horas */}
+                <div className="md:col-span-2 bg-amber-50/50 p-4 rounded-2xl border border-amber-200/80 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-black uppercase tracking-wider text-amber-900 flex items-center gap-1.5">
+                      📐 Especificaciones Técnicas (3D)
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setIsCostoModalOpen(true)}
+                      className="text-[11px] font-extrabold text-amber-900 bg-amber-200/80 hover:bg-amber-300 px-2.5 py-1 rounded-lg transition"
+                    >
+                      Calculadora de Costo 3D ⚡
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
+                    <div>
+                      <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-600">
+                        Alto (mm)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        {...register('alto_mm', { valueAsNumber: true })}
+                        className="w-full rounded-xl border border-amber-200 bg-white px-3 py-2 text-xs font-bold text-slate-800 outline-none focus:border-amber-500"
+                        placeholder="0"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-600">
+                        Ancho (mm)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        {...register('ancho_mm', { valueAsNumber: true })}
+                        className="w-full rounded-xl border border-amber-200 bg-white px-3 py-2 text-xs font-bold text-slate-800 outline-none focus:border-amber-500"
+                        placeholder="0"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-600">
+                        Profundidad (mm)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        {...register('profundidad_mm', { valueAsNumber: true })}
+                        className="w-full rounded-xl border border-amber-200 bg-white px-3 py-2 text-xs font-bold text-slate-800 outline-none focus:border-amber-500"
+                        placeholder="0"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-600">
+                        Peso (gramos)
+                      </label>
+                      <input
+                        type="number"
+                        step="1"
+                        {...register('peso_gramos', {
+                          valueAsNumber: true,
+                          onChange: (e) => handleRecalculateAutoCost(parseFloat(e.target.value) || 0, undefined)
+                        })}
+                        className="w-full rounded-xl border border-amber-200 bg-white px-3 py-2 text-xs font-bold text-slate-800 outline-none focus:border-amber-500"
+                        placeholder="0"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-600">
+                        Horas (h)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        {...register('horas_impresion', {
+                          valueAsNumber: true,
+                          onChange: (e) => handleRecalculateAutoCost(undefined, parseFloat(e.target.value) || 0)
+                        })}
+                        className="w-full rounded-xl border border-amber-200 bg-white px-3 py-2 text-xs font-bold text-slate-800 outline-none focus:border-amber-500"
+                        placeholder="0"
+                      />
+                    </div>
+                  </div>
                 </div>
 
                 <div>
@@ -664,6 +816,19 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
           )}
         </div>
       </div>
+
+      <CostoImpresionModal
+        isOpen={isCostoModalOpen}
+        onClose={() => setIsCostoModalOpen(false)}
+        initialHoras={watch('horas_impresion') || 0}
+        initialGramos={watch('peso_gramos') || 0}
+        onApply={(costoCalculado, h, g) => {
+          setValue('precio_costo', costoCalculado)
+          setValue('horas_impresion', h)
+          setValue('peso_gramos', g)
+          toast(`Precio de costo ($${costoCalculado}) aplicado`, 'success')
+        }}
+      />
     </div>
   )
 }

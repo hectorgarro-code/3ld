@@ -15,6 +15,7 @@ import {
 import api from '@/lib/api'
 import { useCreateProducto, useCategorias } from '@/hooks/useProductos'
 import { toast } from '@/store/toastStore'
+import { CostoImpresionModal } from './CostoImpresionModal'
 
 interface Props {
   isOpen: boolean
@@ -44,11 +45,17 @@ export function MakerWorldImportModal({ isOpen, onClose, onSuccess }: Props) {
   const [categoriaId, setCategoriaId] = useState<number | undefined>(undefined)
   const [precioVenta, setPrecioVenta] = useState<number>(0)
   const [precioCosto, setPrecioCosto] = useState<number>(0)
+  const [horasImpresion, setHorasImpresion] = useState<number>(0)
+  const [pesoGramos, setPesoGramos] = useState<number>(0)
+  const [altoMm, setAltoMm] = useState<number>(0)
+  const [anchoMm, setAnchoMm] = useState<number>(0)
+  const [profundidadMm, setProfundidadMm] = useState<number>(0)
   const [stockActual, setStockActual] = useState<number>(5)
   const [stockMinimo, setStockMinimo] = useState<number>(1)
   const [esTienda, setEsTienda] = useState<boolean>(true)
   const [archivoUrl, setArchivoUrl] = useState<string>('')
   const [saving, setSaving] = useState(false)
+  const [isCostoModalOpen, setIsCostoModalOpen] = useState(false)
 
   const { data: categorias } = useCategorias()
   const createMutation = useCreateProducto()
@@ -71,7 +78,21 @@ export function MakerWorldImportModal({ isOpen, onClose, onSuccess }: Props) {
         setTitle(d.title || '')
         setDescription(d.description || '')
         setPrecioVenta(d.suggested_price || 8500)
-        setPrecioCosto(Math.round((d.suggested_price || 8500) * 0.35))
+        
+        const h = parseFloat(d.horas_impresion || 0)
+        const g = parseInt(d.peso_gramos || 0)
+        setHorasImpresion(h)
+        setPesoGramos(g)
+
+        const savedFilamento = parseFloat(localStorage.getItem('costo_filamento_kg_default') || '15000')
+        const savedHora = parseFloat(localStorage.getItem('costo_hora_maquina_default') || '500')
+        if (g > 0 || h > 0) {
+          const calcCost = Math.round((g / 1000) * savedFilamento + h * savedHora)
+          if (calcCost > 0) setPrecioCosto(calcCost)
+        } else {
+          setPrecioCosto(Math.round((d.suggested_price || 8500) * 0.35))
+        }
+
         setArchivoUrl(d.source_url || url.trim())
         if (d.images && d.images.length > 0) {
           setSelectedImages(d.images.slice(0, 5))
@@ -125,6 +146,11 @@ export function MakerWorldImportModal({ isOpen, onClose, onSuccess }: Props) {
         descripcion: description.trim(),
         precio_venta: precioVenta,
         precio_costo: precioCosto,
+        horas_impresion: horasImpresion,
+        peso_gramos: pesoGramos,
+        alto_mm: altoMm,
+        ancho_mm: anchoMm,
+        profundidad_mm: profundidadMm,
         stock_actual: stockActual,
         stock_minimo: stockMinimo,
         categoria_id: categoriaId,
@@ -344,13 +370,24 @@ export function MakerWorldImportModal({ isOpen, onClose, onSuccess }: Props) {
                     />
                   </div>
                   <div>
-                    <label className="font-bold text-slate-700 block mb-1">Costo ($)</label>
-                    <input
-                      type="number"
-                      value={precioCosto}
-                      onChange={(e) => setPrecioCosto(parseFloat(e.target.value) || 0)}
-                      className="w-full p-2 bg-white border border-slate-200 rounded-xl font-bold text-slate-900"
-                    />
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="font-bold text-slate-700 block">Costo ($)</label>
+                      <button
+                        type="button"
+                        onClick={() => setIsCostoModalOpen(true)}
+                        className="text-[10px] font-black text-amber-800 bg-amber-100 hover:bg-amber-200 px-2 py-0.5 rounded flex items-center gap-1 transition border border-amber-300"
+                      >
+                        ⚡ Cotizar
+                      </button>
+                    </div>
+                    <div className="flex gap-1.5">
+                      <input
+                        type="number"
+                        value={precioCosto}
+                        onChange={(e) => setPrecioCosto(parseFloat(e.target.value) || 0)}
+                        className="w-full p-2 bg-white border border-slate-200 rounded-xl font-bold text-slate-900"
+                      />
+                    </div>
                   </div>
                   <div>
                     <label className="font-bold text-slate-700 block mb-1">Stock Actual</label>
@@ -369,6 +406,90 @@ export function MakerWorldImportModal({ isOpen, onClose, onSuccess }: Props) {
                       onChange={(e) => setStockMinimo(parseInt(e.target.value) || 0)}
                       className="w-full p-2 bg-white border border-slate-200 rounded-xl font-bold text-slate-900"
                     />
+                  </div>
+                </div>
+
+                {/* Sección de Especificaciones Técnicas 3D */}
+                <div className="bg-amber-50/50 p-4 rounded-2xl border border-amber-200/80 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-black uppercase tracking-wider text-amber-900 flex items-center gap-1.5">
+                      📐 Especificaciones Técnicas (3D)
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setIsCostoModalOpen(true)}
+                      className="text-[11px] font-extrabold text-amber-900 bg-amber-200/80 hover:bg-amber-300 px-2.5 py-1 rounded-lg transition"
+                    >
+                      Calculadora de Costo 3D ⚡
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
+                    <div>
+                      <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-600">
+                        Alto (mm)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        value={altoMm}
+                        onChange={(e) => setAltoMm(parseFloat(e.target.value) || 0)}
+                        className="w-full rounded-xl border border-amber-200 bg-white px-3 py-2 text-xs font-bold text-slate-800 outline-none focus:border-amber-500"
+                        placeholder="0"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-600">
+                        Ancho (mm)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        value={anchoMm}
+                        onChange={(e) => setAnchoMm(parseFloat(e.target.value) || 0)}
+                        className="w-full rounded-xl border border-amber-200 bg-white px-3 py-2 text-xs font-bold text-slate-800 outline-none focus:border-amber-500"
+                        placeholder="0"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-600">
+                        Profundidad (mm)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        value={profundidadMm}
+                        onChange={(e) => setProfundidadMm(parseFloat(e.target.value) || 0)}
+                        className="w-full rounded-xl border border-amber-200 bg-white px-3 py-2 text-xs font-bold text-slate-800 outline-none focus:border-amber-500"
+                        placeholder="0"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-600">
+                        Peso (gramos)
+                      </label>
+                      <input
+                        type="number"
+                        step="1"
+                        value={pesoGramos}
+                        onChange={(e) => setPesoGramos(parseInt(e.target.value) || 0)}
+                        className="w-full rounded-xl border border-amber-200 bg-white px-3 py-2 text-xs font-bold text-slate-800 outline-none focus:border-amber-500"
+                        placeholder="0"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-600">
+                        Horas (h)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        value={horasImpresion}
+                        onChange={(e) => setHorasImpresion(parseFloat(e.target.value) || 0)}
+                        className="w-full rounded-xl border border-amber-200 bg-white px-3 py-2 text-xs font-bold text-slate-800 outline-none focus:border-amber-500"
+                        placeholder="0"
+                      />
+                    </div>
                   </div>
                 </div>
 
@@ -452,6 +573,19 @@ export function MakerWorldImportModal({ isOpen, onClose, onSuccess }: Props) {
           </div>
         )}
       </div>
+
+      <CostoImpresionModal
+        isOpen={isCostoModalOpen}
+        onClose={() => setIsCostoModalOpen(false)}
+        initialHoras={horasImpresion}
+        initialGramos={pesoGramos}
+        onApply={(costo, h, g) => {
+          setPrecioCosto(costo)
+          setHorasImpresion(h)
+          setPesoGramos(g)
+          toast(`Precio de costo ($${costo}) aplicado`, 'success')
+        }}
+      />
     </div>
   )
 }

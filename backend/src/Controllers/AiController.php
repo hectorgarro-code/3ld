@@ -60,6 +60,8 @@ class AiController
                 'description'     => $aiResult['description'] ?? $scraped['raw_description'],
                 'category'        => $aiResult['category'] ?? 'accesorio',
                 'suggested_price' => $aiResult['suggested_price'] ?? 8500,
+                'peso_gramos'     => $scraped['peso_gramos'] ?? 0,
+                'horas_impresion' => $scraped['horas_impresion'] ?? 0,
                 'raw_title'       => $scraped['raw_title'],
                 'raw_description' => $scraped['raw_description'],
                 'images'          => $scraped['images'],

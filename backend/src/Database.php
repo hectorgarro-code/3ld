@@ -87,6 +87,31 @@ class Database
         } catch (\Throwable $e) {
             // Se ignora si ya existe
         }
+        try {
+            $db->exec("ALTER TABLE productos ADD COLUMN horas_impresion DECIMAL(8,2) NOT NULL DEFAULT 0.00");
+        } catch (\Throwable $e) {
+            // Se ignora si ya existe
+        }
+        try {
+            $db->exec("ALTER TABLE productos ADD COLUMN peso_gramos INT NOT NULL DEFAULT 0");
+        } catch (\Throwable $e) {
+            // Se ignora si ya existe
+        }
+        try {
+            $db->exec("ALTER TABLE productos ADD COLUMN alto_mm DECIMAL(8,2) NOT NULL DEFAULT 0.00");
+        } catch (\Throwable $e) {
+            // Se ignora si ya existe
+        }
+        try {
+            $db->exec("ALTER TABLE productos ADD COLUMN ancho_mm DECIMAL(8,2) NOT NULL DEFAULT 0.00");
+        } catch (\Throwable $e) {
+            // Se ignora si ya existe
+        }
+        try {
+            $db->exec("ALTER TABLE productos ADD COLUMN profundidad_mm DECIMAL(8,2) NOT NULL DEFAULT 0.00");
+        } catch (\Throwable $e) {
+            // Se ignora si ya existe
+        }
     }
 
     /**
