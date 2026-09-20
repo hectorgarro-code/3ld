@@ -9,9 +9,9 @@ interface Props {
 }
 
 export function EntregasPanel({ alertas }: Props) {
-  const { entregas_pendientes } = alertas
+  const entregas_pendientes = alertas?.entregas_pendientes || []
 
-  if (!entregas_pendientes || entregas_pendientes.length === 0) {
+  if (entregas_pendientes.length === 0) {
     return (
       <div className="flex h-32 flex-col items-center justify-center rounded-2xl bg-white card-shadow text-slate-400">
         <CalendarClock className="mb-2 h-6 w-6 opacity-50" />

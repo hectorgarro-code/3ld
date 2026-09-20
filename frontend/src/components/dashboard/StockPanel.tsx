@@ -7,9 +7,13 @@ interface Props {
 }
 
 export function StockPanel({ alertas }: Props) {
-  const hayFilamentos = alertas.filamentos_bajos.length > 0
-  const hayInsumos = alertas.insumos_bajos.length > 0
-  const hayProductos = alertas.productos_bajos.length > 0
+  const filamentosBajos = alertas?.filamentos_bajos || []
+  const insumosBajos = alertas?.insumos_bajos || []
+  const productosBajos = alertas?.productos_bajos || []
+
+  const hayFilamentos = filamentosBajos.length > 0
+  const hayInsumos = insumosBajos.length > 0
+  const hayProductos = productosBajos.length > 0
 
   if (!hayFilamentos && !hayInsumos && !hayProductos) {
     return (
@@ -31,11 +35,11 @@ export function StockPanel({ alertas }: Props) {
           <Layers className="h-5 w-5 text-red-500" />
           <h3 className="text-xs font-bold uppercase tracking-widest text-slate-800">Filamentos Críticos</h3>
           <span className="ml-auto rounded-full bg-red-50 px-2.5 py-0.5 text-xs font-bold text-red-500">
-            {alertas.filamentos_bajos.length}
+            {filamentosBajos.length}
           </span>
         </div>
         <div className="flex-1 p-2 space-y-1 bg-slate-50/30">
-          {alertas.filamentos_bajos.map((f) => (
+          {filamentosBajos.map((f) => (
             <div key={f.id} className="flex items-center justify-between rounded-xl px-3 py-2 hover:bg-white transition-colors">
               <div>
                 <p className="text-xs font-bold text-slate-800">{f.nombre} ({f.color})</p>
@@ -59,11 +63,11 @@ export function StockPanel({ alertas }: Props) {
           <Package className="h-5 w-5 text-accent" />
           <h3 className="text-xs font-bold uppercase tracking-widest text-slate-800">Insumos a Reponer</h3>
           <span className="ml-auto rounded-full bg-accent/10 px-2.5 py-0.5 text-xs font-bold text-accent">
-            {alertas.insumos_bajos.length}
+            {insumosBajos.length}
           </span>
         </div>
         <div className="flex-1 p-2 space-y-1 bg-slate-50/30">
-          {alertas.insumos_bajos.map((i) => (
+          {insumosBajos.map((i) => (
             <div key={i.id} className="flex items-center justify-between rounded-xl px-3 py-2 hover:bg-white transition-colors">
               <div>
                 <p className="text-xs font-bold text-slate-800">{i.nombre}</p>
@@ -87,11 +91,11 @@ export function StockPanel({ alertas }: Props) {
           <AlertCircle className="h-5 w-5 text-secondary" />
           <h3 className="text-xs font-bold uppercase tracking-widest text-slate-800">Productos Faltantes</h3>
           <span className="ml-auto rounded-full bg-secondary/10 px-2.5 py-0.5 text-xs font-bold text-secondary">
-            {alertas.productos_bajos.length}
+            {productosBajos.length}
           </span>
         </div>
         <div className="flex-1 p-2 space-y-1 bg-slate-50/30">
-          {alertas.productos_bajos.map((p) => (
+          {productosBajos.map((p) => (
             <div key={p.id} className="flex items-center justify-between rounded-xl px-3 py-2 hover:bg-white transition-colors">
               <div>
                 <p className="text-xs font-bold text-slate-800">{p.nombre}</p>

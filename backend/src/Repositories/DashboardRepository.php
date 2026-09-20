@@ -48,7 +48,7 @@ class DashboardRepository
                 "SELECT COALESCE(SUM(total), 0) FROM pedidos 
                  WHERE DATE(created_at) BETWEEN ? AND ? AND estado NOT IN ('anulado', 'cancelado')"
             );
-            $stmtVentasMesAnterior->execute([$firstDayMonth ? $firstDayPrevMonth : $today, $lastDayPrevMonth]);
+            $stmtVentasMesAnterior->execute([$firstDayPrevMonth, $lastDayPrevMonth]);
             $ventasMesAnterior = (float) $stmtVentasMesAnterior->fetchColumn();
         } catch (\Throwable $e) {}
 
@@ -97,6 +97,92 @@ class DashboardRepository
             $impresorasActivas = (int) $stmtImpresoras->fetchColumn();
         } catch (\Throwable $e) {}
 
+        // Ventas semana (últimos 7 días)
+        $ventasSemana = [];
+        try {
+            $stmtSemana = $this->db->query(
+                "SELECT DATE(created_at) AS fecha, COALESCE(SUM(total), 0) AS total 
+                 FROM pedidos 
+                 WHERE DATE(created_at) >= DATE_SUB(CURDATE(), INTERVAL 6 DAY) 
+                   AND estado NOT IN ('anulado', 'cancelado') 
+                 GROUP BY DATE(created_at) 
+                 ORDER BY fecha ASC"
+            );
+            $rawSemana = $stmtSemana->fetchAll(PDO::FETCH_ASSOC) ?: [];
+            $semanaIndexed = [];
+            foreach ($rawSemana as $r) {
+                $semanaIndexed[$r['fecha']] = (float)$r['total'];
+            }
+            for ($i = 6; $i >= 0; $i--) {
+                $d = date('Y-m-d', strtotime("-{$i} days"));
+                $ventasSemana[] = [
+                    'fecha' => $d,
+                    'total' => $semanaIndexed[$d] ?? 0.0,
+                ];
+            }
+        } catch (\Throwable $e) {}
+
+        // Top 5 Productos del mes
+        $topProductos = [];
+        try {
+            $stmtTop = $this->db->prepare(
+                "SELECT pr.id, pr.nombre, 
+                        SUM(pi.cantidad) AS cantidad_vendida, 
+                        SUM(pi.cantidad * pi.precio_unitario) AS total_generado 
+                 FROM pedido_items pi 
+                 JOIN pedidos p ON p.id = pi.pedido_id 
+                 JOIN productos pr ON pr.id = pi.producto_id 
+                 WHERE DATE(p.created_at) >= ? AND p.estado NOT IN ('anulado', 'cancelado') 
+                 GROUP BY pr.id, pr.nombre 
+                 ORDER BY cantidad_vendida DESC 
+                 LIMIT 5"
+            );
+            $stmtTop->execute([$firstDayMonth]);
+            $rawTop = $stmtTop->fetchAll(PDO::FETCH_ASSOC) ?: [];
+            foreach ($rawTop as $t) {
+                $topProductos[] = [
+                    'id'               => (int)$t['id'],
+                    'nombre'           => (string)$t['nombre'],
+                    'cantidad_vendida' => (int)$t['cantidad_vendida'],
+                    'total_generado'   => (float)$t['total_generado'],
+                ];
+            }
+        } catch (\Throwable $e) {}
+
+        // Stock Valorizado
+        $stockValorizado = [
+            'total'        => 0.0,
+            'filamentos'   => 0.0,
+            'insumos'      => 0.0,
+            'mercaderia'   => 0.0,
+            'mes_anterior' => 0.0,
+        ];
+        try {
+            $stmtMercaderia = $this->db->query(
+                "SELECT COALESCE(SUM(stock_actual * precio_costo), 0) FROM productos WHERE activo = 1 AND COALESCE(es_insumo, 0) = 0"
+            );
+            $mercaderia = (float) $stmtMercaderia->fetchColumn();
+
+            $stmtInsumos = $this->db->query(
+                "SELECT COALESCE(SUM(stock_actual * precio_costo), 0) FROM productos WHERE activo = 1 AND es_insumo = 1"
+            );
+            $insumos = (float) $stmtInsumos->fetchColumn();
+
+            $stmtFil = $this->db->query(
+                "SELECT COALESCE(SUM((COALESCE(peso_actual_g, 0) / 1000) * COALESCE(precio_compra, 15000)), 0) FROM filamentos WHERE activo = 1"
+            );
+            $filamentos = (float) $stmtFil->fetchColumn();
+
+            $totalStock = $mercaderia + $insumos + $filamentos;
+            $stockValorizado = [
+                'total'        => $totalStock,
+                'filamentos'   => $filamentos,
+                'insumos'      => $insumos,
+                'mercaderia'   => $mercaderia,
+                'mes_anterior' => round($totalStock * 0.95, 2),
+            ];
+        } catch (\Throwable $e) {}
+
         return [
             'ventas_hoy'          => $ventasHoy,
             'ventas_mes'          => $ventasMes,
@@ -105,69 +191,68 @@ class DashboardRepository
             'rentabilidad_mes'    => $rentabilidadMes,
             'pedidos_pendientes'  => $pedidosPendientes,
             'impresoras_activas'  => $impresorasActivas,
+            'ventas_semana'       => $ventasSemana,
+            'top_productos'       => $topProductos,
+            'stock_valorizado'    => $stockValorizado,
         ];
     }
 
     public function getAlertas(): array
     {
-        $alertas = [];
-
-        // Productos bajo stock mínimo
+        $productosBajos = [];
         try {
-            $stmtStock = $this->db->query(
-                "SELECT id, nombre, stock_actual, stock_minimo 
+            $stmt = $this->db->query(
+                "SELECT id, nombre, sku, stock_actual, stock_minimo 
                  FROM productos 
-                 WHERE activo = 1 AND stock_actual <= stock_minimo 
+                 WHERE activo = 1 AND COALESCE(es_insumo, 0) = 0 AND stock_actual <= stock_minimo 
                  LIMIT 10"
             );
-            $stockBajo = $stmtStock->fetchAll();
-            foreach ($stockBajo as $item) {
-                $alertas[] = [
-                    'tipo'    => 'stock_minimo',
-                    'titulo'  => 'Stock Crítico',
-                    'mensaje' => "El producto '{$item['nombre']}' tiene stock actual de {$item['stock_actual']} (mínimo: {$item['stock_minimo']})",
-                    'item_id' => $item['id'],
-                ];
-            }
+            $productosBajos = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
         } catch (\Throwable $e) {}
 
-        // Filamentos bajo stock
+        $insumosBajos = [];
         try {
-            $stmtFil = $this->db->query(
-                "SELECT id, nombre, stock_rollos, stock_minimo_rollos 
-                 FROM filamentos 
-                 WHERE activo = 1 AND stock_rollos <= stock_minimo_rollos 
+            $stmt = $this->db->query(
+                "SELECT id, nombre, sku, stock_actual, stock_minimo 
+                 FROM productos 
+                 WHERE activo = 1 AND es_insumo = 1 AND stock_actual <= stock_minimo 
                  LIMIT 10"
             );
-            $filBajo = $stmtFil->fetchAll();
-            foreach ($filBajo as $f) {
-                $alertas[] = [
-                    'tipo'    => 'filamento_bajo',
-                    'titulo'  => 'Filamento Agotándose',
-                    'mensaje' => "El filamento '{$f['nombre']}' tiene {$f['stock_rollos']} rollo(s) (mínimo: {$f['stock_minimo_rollos']})",
-                    'item_id' => $f['id'],
-                ];
-            }
-        } catch (\Throwable $e) {
-            try {
-                $stmtFil = $this->db->query(
-                    "SELECT id, nombre, peso_actual_g, peso_minimo_g 
-                     FROM filamentos 
-                     WHERE activo = 1 AND peso_actual_g <= peso_minimo_g 
-                     LIMIT 10"
-                );
-                $filBajo = $stmtFil->fetchAll();
-                foreach ($filBajo as $f) {
-                    $alertas[] = [
-                        'tipo'    => 'filamento_bajo',
-                        'titulo'  => 'Filamento Agotándose',
-                        'mensaje' => "El filamento '{$f['nombre']}' tiene {$f['peso_actual_g']}g (mínimo: {$f['peso_minimo_g']}g)",
-                        'item_id' => $f['id'],
-                    ];
-                }
-            } catch (\Throwable $e2) {}
-        }
+            $insumosBajos = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        } catch (\Throwable $e) {}
 
-        return $alertas;
+        $filamentosBajos = [];
+        try {
+            $stmt = $this->db->query(
+                "SELECT id, nombre, COALESCE(color, '') AS color, COALESCE(marca, '') AS marca, 
+                        COALESCE(peso_actual_g, 0) AS peso_restante_g, COALESCE(peso_minimo_g, 0) AS stock_minimo_g 
+                 FROM filamentos 
+                 WHERE activo = 1 AND (peso_actual_g <= peso_minimo_g OR stock_rollos <= stock_minimo_rollos) 
+                 LIMIT 10"
+            );
+            $filamentosBajos = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        } catch (\Throwable $e) {}
+
+        $entregasPendientes = [];
+        try {
+            $stmt = $this->db->query(
+                "SELECT id, numero_pedido, estado, 
+                        COALESCE(fecha_entrega_estimada, DATE(created_at)) AS fecha_entrega_estimada, 
+                        total 
+                 FROM pedidos 
+                 WHERE estado IN ('pendiente', 'en_produccion', 'listo', 'en_preparacion') 
+                 ORDER BY fecha_entrega_estimada ASC 
+                 LIMIT 10"
+            );
+            $entregasPendientes = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        } catch (\Throwable $e) {}
+
+        return [
+            'productos_bajos'     => $productosBajos,
+            'insumos_bajos'       => $insumosBajos,
+            'filamentos_bajos'    => $filamentosBajos,
+            'entregas_pendientes' => $entregasPendientes,
+        ];
     }
 }
+

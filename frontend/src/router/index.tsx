@@ -15,6 +15,29 @@ function PageLoader() {
   )
 }
 
+// Error fallback component
+function RootErrorFallback() {
+  return (
+    <div className="flex h-screen flex-col items-center justify-center bg-slate-50 p-6 text-center">
+      <div className="max-w-md bg-white p-8 rounded-3xl border border-slate-200 shadow-xl space-y-4">
+        <div className="p-3 bg-red-100 text-red-600 rounded-2xl w-fit mx-auto">
+          <span className="text-3xl">⚠️</span>
+        </div>
+        <h2 className="text-xl font-black text-slate-900 tracking-tight">Ocurrió un inconveniente inesperado</h2>
+        <p className="text-xs text-slate-500">
+          La aplicación experimentó un problema temporal al cargar los datos de esta vista.
+        </p>
+        <button
+          onClick={() => window.location.reload()}
+          className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-xs rounded-xl shadow-md transition"
+        >
+          Reintentar Cargar la Página
+        </button>
+      </div>
+    </div>
+  )
+}
+
 // Protected route wrapper
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
@@ -58,6 +81,7 @@ export const router = createBrowserRouter([
   },
   {
     path: '/',
+    errorElement: <RootErrorFallback />,
     element: (
       <ProtectedRoute>
         <AppShell />
