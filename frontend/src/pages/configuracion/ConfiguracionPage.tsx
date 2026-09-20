@@ -109,7 +109,7 @@ export default function ConfiguracionPage() {
                 <span className="absolute left-3.5 top-3 font-black text-slate-400">$</span>
                 <input
                   type="number"
-                  step="100"
+                  step="any"
                   min="0"
                   value={precioFilamentoKg}
                   onChange={(e) => setPrecioFilamentoKg(parseFloat(e.target.value) || 0)}
@@ -139,7 +139,7 @@ export default function ConfiguracionPage() {
                 <span className="absolute left-3.5 top-3 font-black text-slate-400">$</span>
                 <input
                   type="number"
-                  step="50"
+                  step="any"
                   min="0"
                   value={valorHoraMaquina}
                   onChange={(e) => setValorHoraMaquina(parseFloat(e.target.value) || 0)}

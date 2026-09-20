@@ -136,7 +136,7 @@ export function CostoImpresionModal({
                   <span className="absolute left-3 top-2.5 font-extrabold text-slate-400">$</span>
                   <input
                     type="number"
-                    step="500"
+                    step="any"
                     min="0"
                     value={costoFilamentoKg}
                     onChange={(e) => setCostoFilamentoKg(parseFloat(e.target.value) || 0)}
@@ -153,7 +153,7 @@ export function CostoImpresionModal({
                   <span className="absolute left-3 top-2.5 font-extrabold text-slate-400">$</span>
                   <input
                     type="number"
-                    step="100"
+                    step="any"
                     min="0"
                     value={costoHoraMaquina}
                     onChange={(e) => setCostoHoraMaquina(parseFloat(e.target.value) || 0)}
