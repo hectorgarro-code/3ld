@@ -21,6 +21,9 @@ const productoSchema = z.object({
   categoria_id: z.number().optional().nullable(),
   precio_venta: z.number().min(0, 'El precio no puede ser negativo'),
   precio_costo: z.number().min(0).optional(),
+  precio_oferta: z.number().min(0).optional().nullable(),
+  subcategoria: z.string().optional().nullable(),
+  estado_stock: z.string().optional(),
   horas_impresion: z.number().min(0).optional(),
   peso_gramos: z.number().min(0).optional(),
   alto_mm: z.number().min(0).optional(),
@@ -80,6 +83,9 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
       categoria_id: null,
       precio_venta: 0,
       precio_costo: 0,
+      precio_oferta: null,
+      subcategoria: '',
+      estado_stock: 'ready',
       horas_impresion: 0,
       peso_gramos: 0,
       alto_mm: 0,
@@ -110,6 +116,9 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
         categoria_id: producto.categoria_id,
         precio_venta: producto.precio_venta,
         precio_costo: p.precio_costo ?? 0,
+        precio_oferta: p.precio_oferta ?? null,
+        subcategoria: p.subcategoria || '',
+        estado_stock: p.stock_actual > 0 ? 'ready' : 'custom',
         horas_impresion: p.horas_impresion ?? 0,
         peso_gramos: p.peso_gramos ?? 0,
         alto_mm: p.alto_mm ?? 0,
@@ -148,6 +157,9 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
         categoria_id: null,
         precio_venta: 0,
         precio_costo: 0,
+        precio_oferta: null,
+        subcategoria: '',
+        estado_stock: 'custom',
         horas_impresion: 0,
         peso_gramos: 0,
         alto_mm: 0,
@@ -255,6 +267,9 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
         es_vendible: data.es_vendible ? 1 : 0,
         es_insumo: data.es_insumo ? 1 : 0,
         es_tienda: data.es_tienda ? 1 : 0,
+        subcategoria: data.subcategoria?.trim() || null,
+        precio_oferta: data.precio_oferta || null,
+        estado_stock: (data.stock_actual > 0) ? 'ready' : 'custom',
       }
 
       if (receta.length > 0) {
@@ -447,7 +462,7 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
 
                 <div>
                   <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-500">
-                    Categoría
+                    Categoría Principal
                   </label>
                   <select
                     {...register('categoria_id', { setValueAs: v => v === "" ? null : parseInt(v, 10) })}
@@ -458,6 +473,17 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
                       <option key={c.id} value={c.id}>{c.nombre}</option>
                     ))}
                   </select>
+                </div>
+
+                <div>
+                  <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-500">
+                    Subcategoría (Tienda Web)
+                  </label>
+                  <input
+                    {...register('subcategoria')}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition-colors focus:border-primary focus:bg-white"
+                    placeholder="Ej. Navidad, Pokémon"
+                  />
                 </div>
 
                 <div>
@@ -474,6 +500,19 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
                     )}
                   />
                   {errors.precio_venta && <p className="mt-1 text-xs text-red-400">{errors.precio_venta.message}</p>}
+                </div>
+
+                <div>
+                  <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-500">
+                    Precio Oferta / Tachado ($)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    {...register('precio_oferta', { setValueAs: v => v === "" || isNaN(v) ? null : parseFloat(v) })}
+                    placeholder="Opcional (Ej. 12000)"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition-colors focus:border-primary focus:bg-white"
+                  />
                 </div>
 
                 <div>
@@ -592,9 +631,20 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
                 </div>
 
                 <div>
-                  <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-500">
-                    Stock Actual
-                  </label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                      Stock Actual
+                    </label>
+                    {(watch('stock_actual') || 0) > 0 ? (
+                      <span className="text-[10px] font-black bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full flex items-center gap-1">
+                        ⚡ En Stock
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-black bg-cyan-100 text-cyan-800 px-2 py-0.5 rounded-full flex items-center gap-1">
+                        🛠️ A Pedido
+                      </span>
+                    )}
+                  </div>
                   <input
                     type="number"
                     {...register('stock_actual', { valueAsNumber: true })}

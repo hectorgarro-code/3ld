@@ -20,6 +20,7 @@ import {
   Sliders,
 } from 'lucide-react'
 import api from '@/lib/api'
+import { ProductoFormModal } from '@/components/productos/ProductoFormModal'
 
 export interface AdminProduct {
   id: number
@@ -863,133 +864,16 @@ export default function TiendaAdminPage() {
         </div>
       )}
 
-      {/* Edit Modal */}
+      {/* Edit Modal Unificado */}
       {editingProduct && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 animate-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100">
-              <h3 className="font-extrabold text-base text-slate-900">Editar Publicación en Tienda</h3>
-              <button onClick={() => setEditingProduct(null)} className="p-1 text-slate-400 hover:text-slate-600">
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveProduct} className="mt-4 space-y-4 text-xs">
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">Nombre del Producto</label>
-                <p className="font-bold text-slate-900 p-2.5 bg-slate-50 rounded-xl border border-slate-200">
-                  {editingProduct.nombre}
-                </p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="font-bold text-slate-700 block mb-1">Precio Venta ($)</label>
-                  <input
-                    type="number"
-                    value={editingProduct.precio_venta}
-                    onChange={(e) =>
-                      setEditingProduct({ ...editingProduct, precio_venta: parseFloat(e.target.value) || 0 })
-                    }
-                    className="w-full p-2.5 bg-white border border-slate-200 rounded-xl font-bold text-slate-900"
-                  />
-                </div>
-                <div>
-                  <label className="font-bold text-slate-700 block mb-1">Precio Oferta / Tachado ($)</label>
-                  <input
-                    type="number"
-                    value={editingProduct.precio_oferta || ''}
-                    onChange={(e) =>
-                      setEditingProduct({
-                        ...editingProduct,
-                        precio_oferta: e.target.value ? parseFloat(e.target.value) : null,
-                      })
-                    }
-                    placeholder="Opcional"
-                    className="w-full p-2.5 bg-white border border-slate-200 rounded-xl font-bold text-slate-900"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="font-bold text-slate-700 block mb-1">Subcategoría</label>
-                  <input
-                    type="text"
-                    value={editingProduct.subcategoria || ''}
-                    onChange={(e) => setEditingProduct({ ...editingProduct, subcategoria: e.target.value })}
-                    placeholder="Ej: Navidad, Pokémon"
-                    className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-slate-900 font-semibold"
-                  />
-                </div>
-                <div>
-                  <label className="font-bold text-slate-700 block mb-1">Medidas / Tamaño</label>
-                  <input
-                    type="text"
-                    value={editingProduct.dimensiones || ''}
-                    onChange={(e) => setEditingProduct({ ...editingProduct, dimensiones: e.target.value })}
-                    placeholder="Ej: 8 x 5 cm"
-                    className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-slate-900 font-semibold"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="font-bold text-slate-700 block mb-1">Peso (Gramos)</label>
-                  <input
-                    type="number"
-                    value={editingProduct.peso_gramos || 50}
-                    onChange={(e) =>
-                      setEditingProduct({ ...editingProduct, peso_gramos: parseInt(e.target.value) || 50 })
-                    }
-                    className="w-full p-2.5 bg-white border border-slate-200 rounded-xl font-bold text-slate-900"
-                  />
-                </div>
-                <div>
-                  <label className="font-bold text-slate-700 block mb-1">Disponibilidad Stock</label>
-                  <select
-                    value={editingProduct.estado_stock || 'ready'}
-                    onChange={(e) => setEditingProduct({ ...editingProduct, estado_stock: e.target.value })}
-                    className="w-full p-2.5 bg-white border border-slate-200 rounded-xl font-bold text-slate-900"
-                  >
-                    <option value="ready">⚡ En Stock (Entrega Inmediata)</option>
-                    <option value="custom">🛠️ A Pedido (Impresión 24-48hs)</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-4 pt-2">
-                <label className="flex items-center gap-2 cursor-pointer font-bold text-slate-800">
-                  <input
-                    type="checkbox"
-                    checked={!!editingProduct.es_tienda}
-                    onChange={(e) => setEditingProduct({ ...editingProduct, es_tienda: e.target.checked })}
-                    className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary"
-                  />
-                  <span>Publicado en Tienda Web</span>
-                </label>
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-4 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setEditingProduct(null)}
-                  className="px-4 py-2.5 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 transition"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="px-5 py-2.5 bg-primary text-white font-bold rounded-xl hover:bg-primary-dark transition shadow-md disabled:opacity-50"
-                >
-                  {saving ? 'Guardando...' : 'Guardar Cambios'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <ProductoFormModal
+          isOpen={!!editingProduct}
+          onClose={() => {
+            setEditingProduct(null)
+            fetchProducts()
+          }}
+          producto={editingProduct as any}
+        />
       )}
     </div>
   )
