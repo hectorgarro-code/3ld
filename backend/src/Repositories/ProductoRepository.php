@@ -267,7 +267,7 @@ class ProductoRepository
             'stock_minimo'  => 'int',
             'unidad_medida' => 'string',
             'imagen_url'    => 'string',
-            'imagenes'      => 'string',
+            'imagenes'      => 'json',
             'es_vendible'   => 'int',
             'es_insumo'     => 'int',
             'es_tienda'     => 'int',
@@ -290,6 +290,7 @@ class ProductoRepository
                     $binds[] = match ($type) {
                         'int'   => (int) $val,
                         'float' => (float) $val,
+                        'json'  => is_array($val) ? json_encode(array_values(array_slice($val, 0, 5))) : (empty($val) ? null : (string)$val),
                         default => (string) $val,
                     };
                 }

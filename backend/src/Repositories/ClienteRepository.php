@@ -78,15 +78,31 @@ class ClienteRepository
             return null;
         }
 
-        $stmtPedidos = $this->db->prepare(
-            "SELECT id, numero_pedido, estado, total, saldo_pendiente, created_at
-             FROM pedidos
-             WHERE cliente_id = ?
-             ORDER BY created_at DESC
-             LIMIT 10"
-        );
-        $stmtPedidos->execute([$id]);
-        $cliente['ultimos_pedidos'] = $stmtPedidos->fetchAll();
+        try {
+            $stmtPedidos = $this->db->prepare(
+                "SELECT id, numero_pedido, estado, total, saldo_pendiente, created_at
+                 FROM pedidos
+                 WHERE cliente_id = ?
+                 ORDER BY created_at DESC
+                 LIMIT 10"
+            );
+            $stmtPedidos->execute([$id]);
+            $cliente['ultimos_pedidos'] = $stmtPedidos->fetchAll();
+        } catch (\Throwable $e) {
+            try {
+                $stmtPedidos = $this->db->prepare(
+                    "SELECT id, numero_pedido, estado, total, 0 AS saldo_pendiente, created_at
+                     FROM pedidos
+                     WHERE cliente_id = ?
+                     ORDER BY created_at DESC
+                     LIMIT 10"
+                );
+                $stmtPedidos->execute([$id]);
+                $cliente['ultimos_pedidos'] = $stmtPedidos->fetchAll();
+            } catch (\Throwable $e2) {
+                $cliente['ultimos_pedidos'] = [];
+            }
+        }
 
         return $cliente;
     }

@@ -82,6 +82,11 @@ class Database
         } catch (\Throwable $e) {
             // Se ignora si ya existe
         }
+        try {
+            $db->exec("ALTER TABLE pedidos ADD COLUMN saldo_pendiente DECIMAL(12,2) NOT NULL DEFAULT 0.00");
+        } catch (\Throwable $e) {
+            // Se ignora si ya existe
+        }
     }
 
     /**
