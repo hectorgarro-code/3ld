@@ -65,7 +65,7 @@ class TiendaRepository
                            p.precio_venta AS price, p.precio_oferta AS oldPrice,
                            p.stock_actual, p.estado_stock AS stockStatus,
                            p.imagen_url AS image, p.imagenes, p.peso_gramos AS weightGrams,
-                           p.dimensiones AS size, p.es_destacado,
+                           p.dimensiones AS size, p.alto_mm, p.ancho_mm, p.profundidad_mm, p.es_destacado,
                            p.categoria_id,
                            COALESCE(c.nombre, 'Sin categoría') AS category
                     FROM productos p
@@ -82,6 +82,19 @@ class TiendaRepository
                     $item['images'] = is_array($dec) ? $dec : (!empty($item['image']) ? [$item['image']] : []);
                 } else {
                     $item['images'] = !empty($item['image']) ? [$item['image']] : [];
+                }
+
+                if (empty($item['size']) || trim((string)$item['size']) === '' || trim((string)$item['size']) === '0') {
+                    $alto = isset($item['alto_mm']) ? (float)$item['alto_mm'] : 0;
+                    $ancho = isset($item['ancho_mm']) ? (float)$item['ancho_mm'] : 0;
+                    $prof = isset($item['profundidad_mm']) ? (float)$item['profundidad_mm'] : 0;
+                    if ($alto > 0 || $ancho > 0 || $prof > 0) {
+                        $parts = [];
+                        if ($alto > 0) $parts[] = ($alto >= 10 && $alto == round($alto) ? round($alto / 10, 1) : $alto) . ($alto >= 10 ? ' cm' : ' mm');
+                        if ($ancho > 0) $parts[] = ($ancho >= 10 && $ancho == round($ancho) ? round($ancho / 10, 1) : $ancho) . ($ancho >= 10 ? ' cm' : ' mm');
+                        if ($prof > 0) $parts[] = ($prof >= 10 && $prof == round($prof) ? round($prof / 10, 1) : $prof) . ($prof >= 10 ? ' cm' : ' mm');
+                        $item['size'] = implode(' x ', $parts);
+                    }
                 }
             }
             return $items;

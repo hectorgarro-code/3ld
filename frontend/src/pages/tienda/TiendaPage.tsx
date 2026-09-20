@@ -160,6 +160,13 @@ export interface CartItem {
   qty: number;
 }
 
+const hasValidSize = (size?: string | null) => {
+  if (!size) return false;
+  const s = String(size).trim().toLowerCase();
+  if (!s || s === '0' || s === '0x0' || s === '0x0x0' || s === '0 x 0 x 0' || s === '0 x 0' || s === '0.0 x 0.0 x 0.0') return false;
+  return true;
+};
+
 export default function TiendaPage() {
   const [products, setProducts] = useState<StoreProduct[]>(() => {
     try {
@@ -762,6 +769,12 @@ export default function TiendaPage() {
                     <h3 className="text-xs font-bold text-slate-800 line-clamp-2 mt-0.5 leading-snug group-hover:text-cyan-600 transition">
                       {product.title}
                     </h3>
+                    {hasValidSize(product.size) && (
+                      <p className="text-[11px] font-medium text-slate-500 mt-1 flex items-center gap-1">
+                        <span>📏</span>
+                        <span className="truncate">{product.size}</span>
+                      </p>
+                    )}
                   </div>
 
                   <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between">
@@ -995,9 +1008,10 @@ export default function TiendaPage() {
               </div>
 
               {/* Specs */}
-              {activeProductModal.size && (
-                <div className="mt-3 text-xs text-slate-500 font-medium">
-                  📏 Medidas: <span className="text-slate-800 font-bold">{activeProductModal.size}</span>
+              {hasValidSize(activeProductModal.size) && (
+                <div className="mt-3 text-xs text-slate-600 font-medium bg-slate-50 p-2.5 rounded-xl border border-slate-200/80 flex items-center gap-1.5">
+                  <span>📏</span>
+                  <span>Medidas: <strong className="text-slate-900">{activeProductModal.size}</strong></span>
                 </div>
               )}
 
