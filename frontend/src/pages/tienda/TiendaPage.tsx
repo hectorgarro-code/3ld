@@ -21,7 +21,10 @@ import {
   ExternalLink,
   Store,
   Menu,
-  Star
+  Star,
+  Share2,
+  Printer,
+  Download
 } from 'lucide-react';
 import api from '@/lib/api';
 
@@ -255,13 +258,71 @@ export default function TiendaPage() {
     fetchStoreData();
   }, []);
 
+  // Sync URL search params on load (category, subcategory, search, product)
   useEffect(() => {
-    try {
-      localStorage.setItem('3ld_react_cart', JSON.stringify(cart));
-    } catch (e) {
-      console.error(e);
+    const params = new URLSearchParams(window.location.search);
+    const catParam = params.get('categoria');
+    const subcatParam = params.get('subcategoria');
+    const searchParam = params.get('buscar');
+    const prodParam = params.get('producto');
+
+    if (catParam) setSelectedCategory(catParam);
+    if (subcatParam) setSelectedSubcategory(subcatParam);
+    if (searchParam) setSearchQuery(searchParam);
+
+    if (prodParam && products.length > 0) {
+      const found = products.find((p) => String(p.id) === String(prodParam));
+      if (found) {
+        setActiveProductModal(found);
+        setModalActiveImage(found.image);
+      }
     }
-  }, [cart]);
+  }, [products]);
+
+  const handleShareCatalog = () => {
+    const url = new URL(window.location.href);
+    if (selectedCategory !== 'all') url.searchParams.set('categoria', selectedCategory);
+    else url.searchParams.delete('categoria');
+
+    if (selectedSubcategory !== 'all') url.searchParams.set('subcategoria', selectedSubcategory);
+    else url.searchParams.delete('subcategoria');
+
+    if (searchQuery.trim()) url.searchParams.set('buscar', searchQuery.trim());
+    else url.searchParams.delete('buscar');
+
+    url.searchParams.delete('producto');
+
+    const shareUrl = url.toString();
+    const catName = currentCategoryData?.name || selectedCategory;
+    const shareTitle = selectedCategory !== 'all' ? `Catálogo 3LD - ${catName}` : 'Catálogo de Productos 3LD';
+
+    if (navigator.share) {
+      navigator.share({ title: shareTitle, url: shareUrl }).catch(() => {});
+    } else {
+      navigator.clipboard.writeText(shareUrl);
+      showToast('¡Enlace del catálogo copiado al portapapeles!', 'success');
+    }
+  };
+
+  const handleShareProduct = (e: React.MouseEvent | null, product: StoreProduct) => {
+    if (e) e.stopPropagation();
+    const url = new URL(window.location.href);
+    url.searchParams.set('producto', String(product.id));
+    url.searchParams.set('categoria', product.category);
+    const shareUrl = url.toString();
+    const shareTitle = `${product.title} - 3LD Impresión 3D`;
+
+    if (navigator.share) {
+      navigator.share({ title: shareTitle, text: product.description, url: shareUrl }).catch(() => {});
+    } else {
+      navigator.clipboard.writeText(shareUrl);
+      showToast(`¡Enlace de "${product.title}" copiado al portapapeles!`, 'success');
+    }
+  };
+
+  const handlePrintCatalog = () => {
+    window.print();
+  };
 
   const showToast = (msg: string, type = 'info') => {
     setToastMessage({ text: msg, type });
@@ -703,6 +764,24 @@ export default function TiendaPage() {
               <option value="price-desc">Precio: Mayor a Menor</option>
               <option value="name-asc">Nombre: A - Z</option>
             </select>
+
+            <button
+              onClick={handleShareCatalog}
+              className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition shrink-0 active:scale-95"
+              title="Compartir catálogo con los filtros actuales"
+            >
+              <Share2 className="w-3.5 h-3.5 text-cyan-600" />
+              <span className="hidden sm:inline">Compartir</span>
+            </button>
+
+            <button
+              onClick={handlePrintCatalog}
+              className="flex items-center gap-1.5 px-3.5 py-2 bg-gradient-to-r from-cyan-600 to-cyan-500 hover:from-cyan-500 hover:to-cyan-400 text-white text-xs font-black rounded-xl shadow-xs transition shrink-0 active:scale-95"
+              title="Descargar o imprimir catálogo formal en PDF"
+            >
+              <Printer className="w-3.5 h-3.5" />
+              <span>Descargar Catálogo PDF</span>
+            </button>
           </div>
         </div>
 
@@ -789,16 +868,25 @@ export default function TiendaPage() {
                       </span>
                     </div>
 
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        addToCart(product);
-                      }}
-                      className="p-2 bg-slate-900 hover:bg-cyan-600 text-white rounded-xl transition active:scale-90"
-                      title="Agregar al Carrito"
-                    >
-                      <Plus className="w-4 h-4" />
-                    </button>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={(e) => handleShareProduct(e, product)}
+                        className="p-2 text-slate-400 hover:text-cyan-600 hover:bg-slate-100 rounded-xl transition active:scale-90"
+                        title="Compartir producto"
+                      >
+                        <Share2 className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          addToCart(product);
+                        }}
+                        className="p-2 bg-slate-900 hover:bg-cyan-600 text-white rounded-xl transition active:scale-90"
+                        title="Agregar al Carrito"
+                      >
+                        <Plus className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1054,16 +1142,27 @@ export default function TiendaPage() {
                   </span>
                 </div>
 
-                <button
-                  onClick={() => {
-                    addToCart(activeProductModal, 1, modalSelectedColor);
-                    setActiveProductModal(null);
-                  }}
-                  className="px-5 py-2.5 bg-slate-900 hover:bg-cyan-600 text-white font-bold text-xs rounded-2xl shadow-md transition active:scale-95 flex items-center gap-2"
-                >
-                  <ShoppingCart className="w-4 h-4" />
-                  <span>Agregar al Carrito</span>
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={(e) => handleShareProduct(e, activeProductModal)}
+                    className="px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-2xl transition active:scale-95 flex items-center gap-1.5"
+                    title="Compartir enlace de este producto"
+                  >
+                    <Share2 className="w-4 h-4 text-cyan-600" />
+                    <span>Compartir</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      addToCart(activeProductModal, 1, modalSelectedColor);
+                      setActiveProductModal(null);
+                    }}
+                    className="px-5 py-2.5 bg-slate-900 hover:bg-cyan-600 text-white font-bold text-xs rounded-2xl shadow-md transition active:scale-95 flex items-center gap-2"
+                  >
+                    <ShoppingCart className="w-4 h-4" />
+                    <span>Agregar al Carrito</span>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -1220,6 +1319,104 @@ export default function TiendaPage() {
           <span className="text-[10px] font-semibold mt-0.5">Carrito</span>
         </button>
       </nav>
+
+      {/* Styles for Window Print / PDF Export */}
+      <style>{`
+        @media print {
+          @page {
+            size: A4 portrait;
+            margin: 8mm;
+          }
+          body {
+            background: white !important;
+            color: black !important;
+          }
+          .print\\:hidden {
+            display: none !important;
+          }
+          .print\\:block {
+            display: block !important;
+          }
+        }
+      `}</style>
+
+      {/* Printable 2-Column Catalog Container (visible ONLY during window.print()) */}
+      <div className="hidden print:block p-4 bg-white text-slate-900 font-sans">
+        {/* Catalog Formal Header */}
+        <div className="border-b-2 border-slate-900 pb-3 mb-4 flex items-start justify-between">
+          <div>
+            <h1 className="text-2xl font-black text-slate-900 tracking-tight">3LD IMPRESIÓN 3D</h1>
+            <p className="text-xs font-bold text-slate-700">Catálogo de Productos & Soluciones 3D</p>
+            <p className="text-[10px] text-slate-500 mt-0.5">
+              🌐 sistema.3ld.com.ar | 📱 WhatsApp: +54 9 2257 55-9540 | ✉️ ventas@3ld.com.ar
+            </p>
+          </div>
+          <div className="text-right">
+            <span className="inline-block bg-slate-100 text-slate-900 font-black text-xs px-3 py-1 rounded-full border border-slate-300 uppercase">
+              {selectedCategory !== 'all' ? (currentCategoryData?.name || selectedCategory) : 'Catálogo Completo'}
+            </span>
+            {selectedSubcategory !== 'all' && (
+              <p className="text-xs font-bold text-cyan-800 mt-0.5">Subcategoría: {selectedSubcategory}</p>
+            )}
+            <p className="text-[10px] text-slate-400 mt-1">
+              Fecha: {new Date().toLocaleDateString('es-AR')} | {filteredProducts.length} artículos
+            </p>
+          </div>
+        </div>
+
+        {/* 2-Column Product Cards Grid */}
+        <div className="grid grid-cols-2 gap-3">
+          {filteredProducts.map((p) => (
+            <div
+              key={p.id}
+              className="border border-slate-300 rounded-xl p-3 flex flex-col justify-between break-inside-avoid bg-white shadow-none text-slate-900"
+            >
+              <div>
+                <div className="h-36 w-full bg-slate-100 rounded-lg overflow-hidden mb-2 border border-slate-200">
+                  <img src={p.image} alt={p.title} className="w-full h-full object-cover" />
+                </div>
+                <div className="flex items-center justify-between gap-1 mb-1">
+                  <span className="text-[9px] font-extrabold text-cyan-800 uppercase tracking-wide">
+                    {p.subcategory || p.category}
+                  </span>
+                  <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded ${p.stockStatus === 'ready' ? 'bg-emerald-100 text-emerald-900 border border-emerald-200' : 'bg-slate-100 text-slate-700 border border-slate-200'}`}>
+                    {p.stockStatus === 'ready' ? 'En Stock' : 'A Pedido'}
+                  </span>
+                </div>
+                <h3 className="text-xs font-bold text-slate-900 leading-tight">{p.title}</h3>
+                <p className="text-[10px] text-slate-600 mt-1 leading-snug line-clamp-2">
+                  {p.description}
+                </p>
+                {hasValidSize(p.size) && (
+                  <p className="text-[9px] font-semibold text-slate-500 mt-1.5">
+                    📏 Medidas: {p.size}
+                  </p>
+                )}
+              </div>
+
+              <div className="mt-3 pt-2 border-t border-slate-200 flex items-center justify-between">
+                <div>
+                  {p.oldPrice && (
+                    <span className="text-[9px] text-slate-400 line-through mr-1 font-semibold">
+                      ${p.oldPrice.toLocaleString('es-AR')}
+                    </span>
+                  )}
+                  <span className="text-xs font-black text-slate-900">
+                    ${p.price.toLocaleString('es-AR')}
+                  </span>
+                </div>
+                <span className="text-[9px] font-bold text-slate-400">3LD Taller 3D</span>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Footer */}
+        <div className="mt-6 pt-3 border-t border-slate-300 flex items-center justify-between text-[9px] text-slate-500">
+          <p>3LD Impresión 3D - Fabricación Digital & Piezas a Pedido</p>
+          <p>Pedidos y cotizaciones vía WhatsApp (+54 9 2257 55-9540)</p>
+        </div>
+      </div>
     </div>
   );
 }
