@@ -370,24 +370,13 @@ export function MakerWorldImportModal({ isOpen, onClose, onSuccess }: Props) {
                     />
                   </div>
                   <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="font-bold text-slate-700 block">Costo ($)</label>
-                      <button
-                        type="button"
-                        onClick={() => setIsCostoModalOpen(true)}
-                        className="text-[10px] font-black text-amber-800 bg-amber-100 hover:bg-amber-200 px-2 py-0.5 rounded flex items-center gap-1 transition border border-amber-300"
-                      >
-                        ⚡ Cotizar
-                      </button>
-                    </div>
-                    <div className="flex gap-1.5">
-                      <input
-                        type="number"
-                        value={precioCosto}
-                        onChange={(e) => setPrecioCosto(parseFloat(e.target.value) || 0)}
-                        className="w-full p-2 bg-white border border-slate-200 rounded-xl font-bold text-slate-900"
-                      />
-                    </div>
+                    <label className="font-bold text-slate-700 block mb-1">Costo ($)</label>
+                    <input
+                      type="number"
+                      value={precioCosto}
+                      onChange={(e) => setPrecioCosto(parseFloat(e.target.value) || 0)}
+                      className="w-full p-2 bg-white border border-slate-200 rounded-xl font-bold text-slate-900"
+                    />
                   </div>
                   <div>
                     <label className="font-bold text-slate-700 block mb-1">Stock Actual</label>

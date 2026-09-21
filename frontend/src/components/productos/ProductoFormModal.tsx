@@ -519,21 +519,12 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
                   <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-500">
                     Costo ($)
                   </label>
-                  <div className="flex gap-2">
-                    <input
-                      type="number"
-                      step="0.01"
-                      {...register('precio_costo', { valueAsNumber: true })}
-                      className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition-colors focus:border-primary focus:bg-white"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setIsCostoModalOpen(true)}
-                      className="px-3.5 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-black text-xs rounded-xl shadow-sm flex items-center gap-1.5 transition shrink-0"
-                    >
-                      ⚡ Cotizar
-                    </button>
-                  </div>
+                  <input
+                    type="number"
+                    step="0.01"
+                    {...register('precio_costo', { valueAsNumber: true })}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition-colors focus:border-primary focus:bg-white"
+                  />
                 </div>
 
                 {/* Sección de Dimensiones, Peso y Horas */}
