@@ -22,6 +22,7 @@ import {
   ArrowUp,
   ArrowDown,
   Printer,
+  ChevronDown,
 } from 'lucide-react'
 import api from '@/lib/api'
 import { ProductoFormModal } from '@/components/productos/ProductoFormModal'
@@ -86,6 +87,18 @@ export default function TiendaAdminPage() {
 
   const [bulkStockMode, setBulkStockMode] = useState<'add' | 'fixed'>('fixed')
   const [bulkStockValue, setBulkStockValue] = useState<number>(0)
+
+  // Report Printing State
+  const [reportType, setReportType] = useState<'costos' | 'completo'>('costos')
+  const [printDropdownOpen, setPrintDropdownOpen] = useState(false)
+
+  const handlePrintReport = (type: 'costos' | 'completo') => {
+    setReportType(type)
+    setPrintDropdownOpen(false)
+    setTimeout(() => {
+      window.print()
+    }, 100)
+  }
 
   const fetchProducts = async () => {
     setLoading(true)
@@ -349,14 +362,48 @@ export default function TiendaAdminPage() {
         </div>
 
         <div className="flex items-center gap-3">
-          <button
-            onClick={() => window.print()}
-            className="flex items-center gap-2 px-4 py-2.5 bg-[#6B66C8] hover:bg-[#5752B3] text-white text-xs font-bold rounded-xl shadow-md transition active:scale-95 cursor-pointer"
-            title="Imprimir informe evaluativo de costos, dimensiones y tiempos de impresión"
-          >
-            <Printer className="h-4 w-4" />
-            <span>Imprimir Informe Costos/Precios</span>
-          </button>
+          {/* Menu Desplegable de Informes */}
+          <div className="relative">
+            <button
+              onClick={() => setPrintDropdownOpen(!printDropdownOpen)}
+              className="flex items-center gap-2 px-4 py-2.5 bg-[#6B66C8] hover:bg-[#5752B3] text-white text-xs font-bold rounded-xl shadow-md transition active:scale-95 cursor-pointer"
+              title="Seleccionar tipo de informe a imprimir"
+            >
+              <Printer className="h-4 w-4" />
+              <span>Imprimir Informe</span>
+              <ChevronDown className="h-3.5 w-3.5 ml-0.5" />
+            </button>
+
+            {printDropdownOpen && (
+              <div className="absolute right-0 mt-2 w-72 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 p-2 animate-in zoom-in-95 duration-150">
+                <button
+                  onClick={() => handlePrintReport('costos')}
+                  className="w-full text-left p-2.5 hover:bg-slate-50 rounded-xl transition flex flex-col gap-0.5 cursor-pointer"
+                >
+                  <span className="text-xs font-black text-slate-800 flex items-center gap-1.5">
+                    📋 Informe de Costos y Dimensiones
+                  </span>
+                  <span className="text-[10px] text-slate-500 leading-tight">
+                    Planilla de evaluación: Foto, Medidas, Peso, Tiempo 3D y Costo.
+                  </span>
+                </button>
+
+                <div className="my-1 border-t border-slate-100"></div>
+
+                <button
+                  onClick={() => handlePrintReport('completo')}
+                  className="w-full text-left p-2.5 hover:bg-indigo-50/60 rounded-xl transition flex flex-col gap-0.5 cursor-pointer"
+                >
+                  <span className="text-xs font-black text-indigo-700 flex items-center gap-1.5">
+                    📊 Informe Completo (Precios y Margen)
+                  </span>
+                  <span className="text-[10px] text-slate-500 leading-tight">
+                    Incluye Costo, Precio Venta y Margen comercial en la misma columna.
+                  </span>
+                </button>
+              </div>
+            )}
+          </div>
           <Link
             to="/tienda-builder"
             className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-cyan-600 to-cyan-500 hover:from-cyan-500 hover:to-cyan-400 text-white text-xs font-extrabold rounded-xl shadow-md transition"
@@ -1203,9 +1250,15 @@ export default function TiendaAdminPage() {
         {/* Report Header */}
         <div className="border-b-2 border-slate-900 pb-2 mb-3 flex items-start justify-between">
           <div>
-            <h1 className="text-xl font-black text-slate-900 tracking-tight">3LD IMPRESIÓN 3D — INFORME DE COSTOS Y DIMENSIONES</h1>
+            <h1 className="text-xl font-black text-slate-900 tracking-tight">
+              {reportType === 'completo'
+                ? '3LD IMPRESIÓN 3D — INFORME COMPLETO (PRECIOS Y MARGEN)'
+                : '3LD IMPRESIÓN 3D — INFORME DE COSTOS Y DIMENSIONES'}
+            </h1>
             <p className="text-[11px] text-slate-600 mt-0.5">
-              Planilla de evaluación: Foto, Dimensiones, Peso, Tiempo de Impresión 3D y Precio de Costo.
+              {reportType === 'completo'
+                ? 'Planilla de catálogo: Foto, Medidas, Peso, Tiempo 3D, Costo, Precio Venta y Margen Comercial.'
+                : 'Planilla de evaluación: Foto, Dimensiones, Peso, Tiempo de Impresión 3D y Precio de Costo.'}
             </p>
           </div>
           <div className="text-right">
@@ -1226,12 +1279,16 @@ export default function TiendaAdminPage() {
               <th className="p-2">Producto / Referencia</th>
               <th className="p-2 w-44">Dimensiones / Peso</th>
               <th className="p-2 text-center w-24">Tiempo 3D</th>
-              <th className="p-2 text-right w-28">Precio Costo</th>
+              <th className={`p-2 text-right ${reportType === 'completo' ? 'w-40' : 'w-28'}`}>
+                {reportType === 'completo' ? 'Precios y Margen' : 'Precio Costo'}
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-200">
             {printProducts.map((p) => {
               const costo = p.precio_costo || 0
+              const venta = p.precio_venta || 0
+              const margenPct = costo > 0 ? Math.round(((venta - costo) / costo) * 100) : null
               const dimensionsStr = formatDimensions(p)
               const printTimeStr = formatPrintTime(p)
 
@@ -1260,8 +1317,26 @@ export default function TiendaAdminPage() {
                   <td className="p-2 text-center align-middle font-bold text-slate-900 text-sm">
                     {printTimeStr}
                   </td>
-                  <td className="p-2 text-right align-middle font-black text-slate-900 text-base">
-                    {'$' + costo.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  <td className="p-2 text-right align-middle text-xs">
+                    {reportType === 'completo' ? (
+                      <div className="space-y-1">
+                        <p className="font-black text-slate-900 text-sm">
+                          Venta: {'$' + venta.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </p>
+                        <p className="text-xs font-bold text-slate-600">
+                          Costo: {'$' + costo.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </p>
+                        {margenPct !== null && (
+                          <p className={`text-xs font-black ${margenPct >= 100 ? 'text-emerald-700' : 'text-amber-700'}`}>
+                            Margen: +{margenPct}%
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="font-black text-slate-900 text-base">
+                        {'$' + costo.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </p>
+                    )}
                   </td>
                 </tr>
               )
