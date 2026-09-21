@@ -1152,7 +1152,7 @@ export default function TiendaAdminPage() {
             @media print {
               @page {
                 size: A4 portrait;
-                margin: 8mm;
+                margin: 4mm;
               }
               html, body {
                 background: white !important;
@@ -1169,12 +1169,12 @@ export default function TiendaAdminPage() {
       />
 
       {/* Printable Evaluation & Costing Report Container (Visible ONLY during window.print()) */}
-      <div className="hidden print:block p-4 bg-white text-slate-900 font-sans">
+      <div className="hidden print:block p-2 bg-white text-slate-900 font-sans">
         {/* Report Header */}
-        <div className="border-b-2 border-slate-900 pb-3 mb-4 flex items-start justify-between">
+        <div className="border-b-2 border-slate-900 pb-2 mb-3 flex items-start justify-between">
           <div>
-            <h1 className="text-2xl font-black text-slate-900 tracking-tight">3LD IMPRESIÓN 3D — INFORME DE COSTOS Y DIMENSIONES</h1>
-            <p className="text-xs text-slate-600 mt-0.5">
+            <h1 className="text-xl font-black text-slate-900 tracking-tight">3LD IMPRESIÓN 3D — INFORME DE COSTOS Y DIMENSIONES</h1>
+            <p className="text-[11px] text-slate-600 mt-0.5">
               Planilla de evaluación: Foto, Dimensiones, Peso, Tiempo de Impresión 3D y Precio de Costo.
             </p>
           </div>
@@ -1182,7 +1182,7 @@ export default function TiendaAdminPage() {
             <span className="text-xs font-bold text-slate-800 block">
               Fecha: {new Date().toLocaleDateString('es-AR')}
             </span>
-            <span className="text-xs font-semibold text-slate-500">
+            <span className="text-[11px] font-semibold text-slate-500">
               {printProducts.length} artículo(s) en lista
             </span>
           </div>
@@ -1192,11 +1192,11 @@ export default function TiendaAdminPage() {
         <table className="w-full border-collapse text-left text-sm">
           <thead>
             <tr className="border-b-2 border-slate-800 bg-slate-100 text-slate-900 font-black uppercase text-xs">
-              <th className="p-3 w-24 text-center">Foto</th>
-              <th className="p-3">Producto / Referencia</th>
-              <th className="p-3">Dimensiones / Peso</th>
-              <th className="p-3 text-center w-28">Tiempo 3D</th>
-              <th className="p-3 text-right w-32">Precio Costo</th>
+              <th className="p-2 w-40 text-center">Foto</th>
+              <th className="p-2">Producto / Referencia</th>
+              <th className="p-2 w-44">Dimensiones / Peso</th>
+              <th className="p-2 text-center w-24">Tiempo 3D</th>
+              <th className="p-2 text-right w-28">Precio Costo</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-200">
@@ -1207,30 +1207,30 @@ export default function TiendaAdminPage() {
 
               return (
                 <tr key={p.id} className="break-inside-avoid border-b border-slate-200 text-slate-800">
-                  <td className="p-3 text-center align-middle">
+                  <td className="p-2 text-center align-middle">
                     {p.imagen_url ? (
-                      <img src={p.imagen_url} alt={p.nombre} className="h-20 w-20 object-cover rounded-xl border border-slate-300 mx-auto shadow-xs" />
+                      <img src={p.imagen_url} alt={p.nombre} className="h-36 w-36 object-cover rounded-2xl border border-slate-300 mx-auto shadow-xs" />
                     ) : (
-                      <div className="h-20 w-20 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400 font-bold text-xs mx-auto">
+                      <div className="h-36 w-36 rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400 font-bold text-xs mx-auto">
                         Sin foto
                       </div>
                     )}
                   </td>
-                  <td className="p-3 align-middle">
-                    <p className="font-black text-slate-900 text-sm leading-snug">{p.nombre}</p>
-                    {p.variante && <p className="text-xs text-slate-600 font-semibold mt-0.5">Variante: {p.variante}</p>}
+                  <td className="p-2 align-middle">
+                    <p className="font-black text-slate-900 text-base leading-snug">{p.nombre}</p>
+                    {p.variante && <p className="text-xs text-slate-600 font-bold mt-0.5">Variante: {p.variante}</p>}
                     <p className="text-xs text-slate-500 font-mono mt-1">
                       SKU: {p.sku || '-'} · {p.categoria_nombre || 'Sin cat.'} {p.subcategoria ? '(' + p.subcategoria + ')' : ''}
                     </p>
                   </td>
-                  <td className="p-3 align-middle text-xs">
+                  <td className="p-2 align-middle text-xs">
                     <p className="font-bold text-slate-800 text-sm">{dimensionsStr}</p>
                     {p.peso_gramos ? <p className="text-xs text-slate-500 font-semibold mt-0.5">Peso: {p.peso_gramos} g</p> : null}
                   </td>
-                  <td className="p-3 text-center align-middle font-bold text-slate-900 text-sm">
+                  <td className="p-2 text-center align-middle font-bold text-slate-900 text-sm">
                     {printTimeStr}
                   </td>
-                  <td className="p-3 text-right align-middle font-black text-slate-900 text-base">
+                  <td className="p-2 text-right align-middle font-black text-slate-900 text-base">
                     {'$' + costo.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </td>
                 </tr>
