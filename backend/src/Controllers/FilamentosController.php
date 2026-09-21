@@ -100,21 +100,23 @@ class FilamentosController
 
             $stmt = $db->prepare(
                 "INSERT INTO filamentos
-                    (nombre, color, material_id, diametro_mm,
+                    (nombre, tipo, color, color_hex, material_id, diametro_mm,
                      stock_rollos, stock_minimo_rollos,
                      precio_compra, proveedor, activo, created_at, updated_at)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())"
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())"
             );
 
-            $stockRollos = (int) ($body['stock_rollos'] ?? 1);
+            $stockRollos = (int) ($body['stock_rollos'] ?? 0);
 
             $stmt->execute([
                 trim($body['nombre']),
-                $body['color']          ?? null,
+                $body['tipo']           ?? 'PLA',
+                $body['color']          ?? 'Natural',
+                $body['color_hex']      ?? '#808080',
                 $body['material_id']    ?? null,
                 (float) ($body['diametro_mm']    ?? 1.75),
                 $stockRollos,
-                (int) ($body['stock_minimo_rollos'] ?? 0),
+                (int) ($body['stock_minimo_rollos'] ?? 1),
                 (float) ($body['precio_compra']  ?? 0),
                 $body['proveedor']      ?? null,
             ]);
@@ -150,7 +152,9 @@ class FilamentosController
 
             $map = [
                 'nombre'             => 'string',
+                'tipo'               => 'string',
                 'color'              => 'string',
+                'color_hex'          => 'string',
                 'material_id'        => 'int',
                 'diametro_mm'        => 'float',
                 'stock_rollos'       => 'int',

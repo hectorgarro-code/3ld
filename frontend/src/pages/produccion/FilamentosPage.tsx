@@ -24,6 +24,30 @@ type FilamentoForm = z.infer<typeof filamentoSchema>
 
 const TIPOS = ['PLA', 'PETG', 'ABS', 'TPU', 'ASA', 'Resina', 'Nylon']
 
+const PRESET_COLORS = [
+  { name: 'Verde', hex: '#22C55E' },
+  { name: 'Hueso', hex: '#F5F5DC' },
+  { name: 'Amarillo', hex: '#FACC15' },
+  { name: 'Amarillo Fluo', hex: '#CCFF00' },
+  { name: 'Dorado', hex: '#C59B27' },
+  { name: 'Naranja', hex: '#F97316' },
+  { name: 'Rosa', hex: '#F472B6' },
+  { name: 'Fucsia', hex: '#D946EF' },
+  { name: 'Rojo', hex: '#EF4444' },
+  { name: 'Bronce', hex: '#8C6239' },
+  { name: 'Cobre', hex: '#B45309' },
+  { name: 'Rústico', hex: '#A0522D' },
+  { name: 'Habano', hex: '#5C4033' },
+  { name: 'Violeta', hex: '#8B5CF6' },
+  { name: 'Celeste', hex: '#38BDF8' },
+  { name: 'Azul', hex: '#2563EB' },
+  { name: 'Verde Fluo', hex: '#00FF66' },
+  { name: 'Blanco', hex: '#FFFFFF' },
+  { name: 'Gris Plomo', hex: '#475569' },
+  { name: 'Gris Acero', hex: '#94A3B8' },
+  { name: 'Negro', hex: '#0F172A' },
+]
+
 function FilamentoCard({
   filamento,
   onEdit,
@@ -139,6 +163,7 @@ function FilamentoModal({
   const {
     register,
     handleSubmit,
+    setValue,
     watch,
     formState: { errors },
   } = useForm({
@@ -149,15 +174,16 @@ function FilamentoModal({
           tipo:                filamento.tipo,
           color:               filamento.color ?? filamento.color_nombre ?? '',
           color_hex:           filamento.color_hex,
-          stock_rollos:        isDuplicate ? 1 : filamento.stock_rollos,
+          stock_rollos:        isDuplicate ? 0 : filamento.stock_rollos,
           stock_minimo_rollos: filamento.stock_minimo_rollos,
           precio_compra:       filamento.precio_compra ?? 0,
           proveedor:           filamento.proveedor ?? '',
         }
-      : { color_hex: '#FF6B35', tipo: 'PLA', stock_rollos: 1, stock_minimo_rollos: 0, precio_compra: 0 },
+      : { color_hex: '#2563EB', color: 'Azul', tipo: 'PLA', stock_rollos: 0, stock_minimo_rollos: 1, precio_compra: 19000 },
   })
 
   const colorHex = watch('color_hex')
+  const colorName = watch('color')
 
   const onSubmit = async (data: FilamentoForm) => {
     try {
@@ -204,6 +230,7 @@ function FilamentoModal({
                   <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-500">Nombre *</label>
                   <input
                     {...register('nombre')}
+                    placeholder="Ej: PLA 3N3 Rojo, PLA LITE Bambu Lab..."
                     className={cn(
                       "w-full rounded-xl border bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition-colors",
                       errors.nombre ? "border-red-500/50" : "border-slate-200 focus:border-primary focus:bg-white"
@@ -224,34 +251,65 @@ function FilamentoModal({
                   <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-500">Proveedor</label>
                   <input
                     {...register('proveedor')}
-                    placeholder="Grilon3, Printalot..."
+                    placeholder="3N3, BAMBULAB, GRYLON..."
                     className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition-colors focus:border-primary focus:bg-white"
                   />
                 </div>
               </div>
             </div>
 
-            {/* Sección: Color */}
+            {/* Sección: Color con Paleta Rápida */}
             <div className="md:col-span-2 space-y-4">
               <h3 className="text-sm font-black text-slate-800 border-b border-slate-100 pb-2">Color</h3>
+              
+              <div>
+                <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500">Paleta de Colores 3N3 / Estándar</label>
+                <div className="flex flex-wrap gap-1.5 p-2.5 bg-slate-50 rounded-2xl border border-slate-200 max-h-36 overflow-y-auto">
+                  {PRESET_COLORS.map((c) => {
+                    const isSelected = colorName === c.name || colorHex?.toUpperCase() === c.hex.toUpperCase()
+                    return (
+                      <button
+                        key={c.name}
+                        type="button"
+                        onClick={() => {
+                          setValue('color', c.name, { shouldValidate: true })
+                          setValue('color_hex', c.hex, { shouldValidate: true })
+                        }}
+                        className={cn(
+                          "flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold transition-all border shadow-2xs hover:scale-105 active:scale-95 cursor-pointer",
+                          isSelected
+                            ? "border-[#6B66C8] ring-2 ring-[#6B66C8]/30 bg-white text-slate-900 shadow-sm"
+                            : "border-slate-200 bg-white text-slate-700 hover:bg-slate-100"
+                        )}
+                      >
+                        <span className="h-3.5 w-3.5 rounded-full border border-black/10 shadow-2xs shrink-0" style={{ backgroundColor: c.hex }} />
+                        <span>{c.name}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-500">Nombre del Color *</label>
                   <input
                     {...register('color')}
-                    placeholder="Ej: Rojo Pasión, Blanco..."
+                    placeholder="Ej: Rojo, Verde Fluo, Hueso..."
                     className={cn(
                       "w-full rounded-xl border bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition-colors",
                       errors.color ? "border-red-500/50" : "border-slate-200 focus:border-primary focus:bg-white"
                     )}
                   />
+                  {errors.color && <p className="mt-1 text-xs text-red-400">{errors.color.message}</p>}
                 </div>
                 <div>
                   <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-500">Color Hexadecimal *</label>
                   <div className="flex gap-2 items-center">
                     <input
                       type="color"
-                      {...register('color_hex')}
+                      value={colorHex || '#2563EB'}
+                      onChange={(e) => setValue('color_hex', e.target.value, { shouldValidate: true })}
                       className="h-12 w-16 rounded-xl border-none p-0 cursor-pointer overflow-hidden bg-transparent shadow-sm"
                     />
                     <input
