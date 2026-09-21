@@ -122,20 +122,20 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
         nombre: isDuplicate ? `${producto.nombre} (Copia)` : producto.nombre,
         variante: producto.variante || '',
         sku: isDuplicate ? generateSKU() : (p.sku || ''),
-        tipo: producto.tipo,
-        categoria_id: producto.categoria_id,
-        precio_venta: producto.precio_venta,
-        precio_costo: p.precio_costo ?? 0,
-        precio_oferta: p.precio_oferta ?? null,
+        tipo: producto.tipo || 'impresion_3d',
+        categoria_id: producto.categoria_id ? Number(producto.categoria_id) : null,
+        precio_venta: Number(producto.precio_venta) || 0,
+        precio_costo: Number(p.precio_costo) || 0,
+        precio_oferta: p.precio_oferta != null && p.precio_oferta !== '' ? Number(p.precio_oferta) : null,
         subcategoria: p.subcategoria || '',
-        estado_stock: p.stock_actual > 0 ? 'ready' : 'custom',
-        horas_impresion: p.horas_impresion ?? 0,
-        peso_gramos: p.peso_gramos ?? 0,
-        alto_mm: p.alto_mm ?? 0,
-        ancho_mm: p.ancho_mm ?? 0,
-        profundidad_mm: p.profundidad_mm ?? 0,
-        stock_actual: isDuplicate ? 1 : producto.stock_actual,
-        stock_minimo: producto.stock_minimo || 0,
+        estado_stock: (Number(p.stock_actual) > 0) ? 'ready' : 'custom',
+        horas_impresion: Number(p.horas_impresion) || 0,
+        peso_gramos: Number(p.peso_gramos) || 0,
+        alto_mm: Number(p.alto_mm) || 0,
+        ancho_mm: Number(p.ancho_mm) || 0,
+        profundidad_mm: Number(p.profundidad_mm) || 0,
+        stock_actual: isDuplicate ? 1 : (Number(producto.stock_actual) || 0),
+        stock_minimo: Number(producto.stock_minimo) || 0,
         descripcion: producto.descripcion || '',
         archivo_url: p.archivo_url || '',
         es_vendible: producto.es_vendible !== 0,
@@ -157,6 +157,8 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
       if (existing.length === 0 && producto.imagen_url) {
         existing = [producto.imagen_url]
       }
+      setImagesBase64(existing)
+
       let existingCol: string[] = []
       if (Array.isArray(p.colores)) {
         existingCol = p.colores
