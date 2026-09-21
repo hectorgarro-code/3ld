@@ -516,18 +516,9 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
                 </div>
 
                 <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                      Costo ($)
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => setIsCostoModalOpen(true)}
-                      className="text-[11px] font-extrabold text-amber-800 bg-amber-100 hover:bg-amber-200 px-2.5 py-1 rounded-lg flex items-center gap-1 transition border border-amber-300 shadow-2xs"
-                    >
-                      ⚡ Cotizar Costo
-                    </button>
-                  </div>
+                  <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-500">
+                    Costo ($)
+                  </label>
                   <div className="flex gap-2">
                     <input
                       type="number"
