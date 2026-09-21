@@ -501,7 +501,9 @@ export default function TiendaPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans flex flex-col antialiased selection:bg-cyan-500 selection:text-white pb-20 md:pb-10">
-      {/* Toast Notification */}
+      {/* Web Store View (Hidden during window.print()) */}
+      <div className="print:hidden flex flex-col flex-1">
+        {/* Toast Notification */}
       {toastMessage && (
         <div className="fixed bottom-20 md:bottom-6 right-4 z-50 animate-bounce transition-all">
           <div
@@ -1353,6 +1355,7 @@ export default function TiendaPage() {
           <span className="text-[10px] font-semibold mt-0.5">Carrito</span>
         </button>
       </nav>
+      </div>
 
       {/* Styles for Window Print / PDF Export */}
       <style>{`
@@ -1361,11 +1364,19 @@ export default function TiendaPage() {
             size: A4 portrait;
             margin: 8mm;
           }
-          body {
+          html, body {
             background: white !important;
             color: black !important;
+            margin: 0 !important;
+            padding: 0 !important;
           }
-          .print\\:hidden {
+          .print\\:hidden,
+          header,
+          footer,
+          nav,
+          section,
+          main,
+          aside {
             display: none !important;
           }
           .print\\:block {
