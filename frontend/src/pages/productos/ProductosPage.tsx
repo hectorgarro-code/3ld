@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useProductos, useCategorias, useDeleteProducto, useUpdateProducto } from '@/hooks/useProductos'
 import { formatARS } from '@/lib/cost-calculator'
 import { cn } from '@/lib/utils'
@@ -207,6 +207,13 @@ export default function ProductosPage() {
   const [isCategoriasModalOpen, setIsCategoriasModalOpen] = useState(false)
   const [selectedProducto, setSelectedProducto] = useState<Producto | null>(null)
   const [isDuplicate, setIsDuplicate] = useState(false)
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('importMakerWorld') === 'true' || params.get('ia') === 'true') {
+      setIsMakerWorldModalOpen(true)
+    }
+  }, [])
 
   const { data: productosData, isLoading } = useProductos({
     search: search || undefined,

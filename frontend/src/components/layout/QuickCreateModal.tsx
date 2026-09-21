@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { X, PackagePlus, ShoppingBag, Camera, ImagePlus, Loader2, ArrowLeft, Sparkles, CreditCard } from 'lucide-react'
+import { X, ShoppingBag, Camera, ImagePlus, Loader2, ArrowLeft, Sparkles, CreditCard, Truck, Bot } from 'lucide-react'
 import { compressImage } from '@/lib/imageUtils'
 import { toast } from '@/store/toastStore'
 
@@ -27,13 +27,18 @@ export function QuickCreateModal({ isOpen, onClose, onOpenProductForm }: QuickCr
     onClose()
   }
 
-  const handleSelectPedido = () => {
+  const handleSelectCompra = () => {
     handleClose()
-    navigate('/pedidos/nuevo')
+    navigate('/compras/nueva')
   }
 
   const handleSelectProducto = () => {
     setStep('product-image')
+  }
+
+  const handleSelectIA = () => {
+    handleClose()
+    navigate('/productos?importMakerWorld=true')
   }
 
   const handleFilesSelected = async (files: FileList | null) => {
@@ -110,64 +115,82 @@ export function QuickCreateModal({ isOpen, onClose, onOpenProductForm }: QuickCr
         {/* Content */}
         <div className="p-6">
           {step === 'select-type' ? (
-            <div className="space-y-4">
+            <div className="space-y-3">
               <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
                 ¿Qué deseas registrar hoy?
               </p>
 
-              {/* Option 0: Venta POS */}
+              {/* Option 1: Venta POS */}
               <button
                 onClick={() => {
                   handleClose()
                   navigate('/pos')
                 }}
-                className="w-full flex items-center gap-4 p-4 rounded-2xl border-2 border-slate-100 bg-slate-50/50 hover:bg-teal-50 hover:border-teal-400 transition-all text-left group"
+                className="w-full flex items-center gap-4 p-3.5 rounded-2xl border-2 border-slate-100 bg-slate-50/50 hover:bg-teal-50 hover:border-teal-400 transition-all text-left group"
               >
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-teal-500 to-teal-700 text-white shadow-md shadow-teal-500/20 group-hover:scale-105 transition-transform">
-                  <CreditCard className="h-6 w-6" />
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-teal-500 to-teal-700 text-white shadow-md shadow-teal-500/20 group-hover:scale-105 transition-transform">
+                  <CreditCard className="h-5 w-5" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="text-base font-black text-slate-800 group-hover:text-teal-600 transition-colors">
+                  <h3 className="text-sm font-black text-slate-800 group-hover:text-teal-600 transition-colors">
                     Venta Rápida POS
                   </h3>
-                  <p className="text-xs text-slate-500 truncate">
+                  <p className="text-[11px] text-slate-500 truncate">
                     Cobro en mostrador / facturar desde el celular
                   </p>
                 </div>
               </button>
 
-              {/* Option 1: Nuevo Pedido */}
+              {/* Option 2: Registrar Compra */}
               <button
-                onClick={handleSelectPedido}
-                className="w-full flex items-center gap-4 p-4 rounded-2xl border-2 border-slate-100 bg-slate-50/50 hover:bg-primary/5 hover:border-primary/40 transition-all text-left group"
+                onClick={handleSelectCompra}
+                className="w-full flex items-center gap-4 p-3.5 rounded-2xl border-2 border-slate-100 bg-slate-50/50 hover:bg-amber-50 hover:border-amber-400 transition-all text-left group"
               >
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary-dark text-white shadow-md shadow-primary/20 group-hover:scale-105 transition-transform">
-                  <PackagePlus className="h-6 w-6" />
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-amber-700 text-white shadow-md shadow-amber-500/20 group-hover:scale-105 transition-transform">
+                  <Truck className="h-5 w-5" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="text-base font-black text-slate-800 group-hover:text-primary transition-colors">
-                    Nuevo Pedido
+                  <h3 className="text-sm font-black text-slate-800 group-hover:text-amber-600 transition-colors">
+                    Registrar Compra
                   </h3>
-                  <p className="text-xs text-slate-500 truncate">
-                    Registrar una nueva venta o pedido de cliente
+                  <p className="text-[11px] text-slate-500 truncate">
+                    Cargar compra de insumos, materiales o reposición
                   </p>
                 </div>
               </button>
 
-              {/* Option 2: Nuevo Producto */}
+              {/* Option 3: Nuevo Producto */}
               <button
                 onClick={handleSelectProducto}
-                className="w-full flex items-center gap-4 p-4 rounded-2xl border-2 border-slate-100 bg-slate-50/50 hover:bg-secondary/5 hover:border-secondary/40 transition-all text-left group"
+                className="w-full flex items-center gap-4 p-3.5 rounded-2xl border-2 border-slate-100 bg-slate-50/50 hover:bg-secondary/5 hover:border-secondary/40 transition-all text-left group"
               >
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-secondary to-brand-purple text-white shadow-md shadow-secondary/20 group-hover:scale-105 transition-transform">
-                  <ShoppingBag className="h-6 w-6" />
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-secondary to-brand-purple text-white shadow-md shadow-secondary/20 group-hover:scale-105 transition-transform">
+                  <ShoppingBag className="h-5 w-5" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="text-base font-black text-slate-800 group-hover:text-secondary transition-colors">
+                  <h3 className="text-sm font-black text-slate-800 group-hover:text-secondary transition-colors">
                     Nuevo Producto
                   </h3>
-                  <p className="text-xs text-slate-500 truncate">
+                  <p className="text-[11px] text-slate-500 truncate">
                     Agregar producto escaneando o sacando fotos
+                  </p>
+                </div>
+              </button>
+
+              {/* Option 4: Cargar con IA */}
+              <button
+                onClick={handleSelectIA}
+                className="w-full flex items-center gap-4 p-3.5 rounded-2xl border-2 border-cyan-200 bg-cyan-50/50 hover:bg-cyan-100 hover:border-cyan-400 transition-all text-left group"
+              >
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-600 to-cyan-500 text-white shadow-md shadow-cyan-500/20 group-hover:scale-105 transition-transform">
+                  <Bot className="h-5 w-5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-sm font-black text-slate-800 group-hover:text-cyan-700 transition-colors">
+                    Cargar con IA (MakerWorld)
+                  </h3>
+                  <p className="text-[11px] text-slate-500 truncate">
+                    Importar datos y fotos automáticamente con IA
                   </p>
                 </div>
               </button>
@@ -182,7 +205,7 @@ export function QuickCreateModal({ isOpen, onClose, onOpenProductForm }: QuickCr
                   Comencemos con las fotos
                 </h3>
                 <p className="text-xs text-slate-500 mt-1 max-w-xs mx-auto">
-                  Selecciona o tomá una o varias fotos del producto. Luego completarás el resto de los datos.
+                  Seleccioná o tomá fotos del producto, o utilizá nuestra IA para importar.
                 </p>
               </div>
 
@@ -192,33 +215,45 @@ export function QuickCreateModal({ isOpen, onClose, onOpenProductForm }: QuickCr
                   <p className="text-xs font-bold text-slate-600">Procesando y optimizando imágenes...</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {/* Button: Camera */}
-                  <button
-                    onClick={() => cameraInputRef.current?.click()}
-                    className="flex flex-col items-center justify-center p-5 rounded-2xl border-2 border-slate-100 bg-slate-50 hover:bg-primary/5 hover:border-primary transition-all group"
-                  >
-                    <div className="h-12 w-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
-                      <Camera className="h-6 w-6" />
-                    </div>
-                    <span className="text-xs font-bold text-slate-800 group-hover:text-primary">
-                      Abrir Cámara
-                    </span>
-                    <span className="text-[10px] text-slate-400 mt-0.5">Tomar foto ahora</span>
-                  </button>
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    {/* Button: Camera */}
+                    <button
+                      onClick={() => cameraInputRef.current?.click()}
+                      className="flex flex-col items-center justify-center p-4 rounded-2xl border-2 border-slate-100 bg-slate-50 hover:bg-primary/5 hover:border-primary transition-all group"
+                    >
+                      <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center mb-1.5 group-hover:scale-110 transition-transform">
+                        <Camera className="h-5 w-5" />
+                      </div>
+                      <span className="text-xs font-bold text-slate-800 group-hover:text-primary">
+                        Abrir Cámara
+                      </span>
+                      <span className="text-[10px] text-slate-400 mt-0.5">Tomar foto</span>
+                    </button>
 
-                  {/* Button: Gallery */}
+                    {/* Button: Gallery */}
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      className="flex flex-col items-center justify-center p-4 rounded-2xl border-2 border-slate-100 bg-slate-50 hover:bg-secondary/5 hover:border-secondary transition-all group"
+                    >
+                      <div className="h-10 w-10 rounded-xl bg-secondary/10 text-secondary flex items-center justify-center mb-1.5 group-hover:scale-110 transition-transform">
+                        <ImagePlus className="h-5 w-5" />
+                      </div>
+                      <span className="text-xs font-bold text-slate-800 group-hover:text-secondary">
+                        Galería
+                      </span>
+                      <span className="text-[10px] text-slate-400 mt-0.5">Seleccionar varias</span>
+                    </button>
+                  </div>
+
+                  {/* Button: Importar con IA */}
                   <button
-                    onClick={() => fileInputRef.current?.click()}
-                    className="flex flex-col items-center justify-center p-5 rounded-2xl border-2 border-slate-100 bg-slate-50 hover:bg-secondary/5 hover:border-secondary transition-all group"
+                    type="button"
+                    onClick={handleSelectIA}
+                    className="w-full flex items-center justify-center gap-2 p-3 rounded-xl border-2 border-cyan-200 bg-gradient-to-r from-cyan-600 to-cyan-500 text-white font-bold text-xs shadow-md hover:brightness-110 transition-all active:scale-98"
                   >
-                    <div className="h-12 w-12 rounded-xl bg-secondary/10 text-secondary flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
-                      <ImagePlus className="h-6 w-6" />
-                    </div>
-                    <span className="text-xs font-bold text-slate-800 group-hover:text-secondary">
-                      Galería / Archivo
-                    </span>
-                    <span className="text-[10px] text-slate-400 mt-0.5">Seleccionar varias</span>
+                    <Bot className="h-4 w-4" />
+                    <span>Cargar / Importar con IA (MakerWorld)</span>
                   </button>
                 </div>
               )}
