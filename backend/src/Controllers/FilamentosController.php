@@ -50,10 +50,10 @@ class FilamentosController
                     FROM v_filamentos f
                     {$where}
                     ORDER BY f.nombre ASC
-                    LIMIT ? OFFSET ?";
+                    LIMIT {$perPage} OFFSET {$offset}";
 
             $stmt = $db->prepare($sql);
-            $stmt->execute(array_merge($binds, [$perPage, $offset]));
+            $stmt->execute($binds);
             $filamentos = $stmt->fetchAll();
 
             return Response::paginated($filamentos, $total, $page, $perPage);

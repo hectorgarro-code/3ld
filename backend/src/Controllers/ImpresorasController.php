@@ -56,10 +56,10 @@ class ImpresorasController
                     FROM impresoras
                     {$where}
                     ORDER BY nombre ASC
-                    LIMIT ? OFFSET ?";
+                    LIMIT {$perPage} OFFSET {$offset}";
 
             $stmt = $db->prepare($sql);
-            $stmt->execute(array_merge($binds, [$perPage, $offset]));
+            $stmt->execute($binds);
             $impresoras = $stmt->fetchAll();
 
             return Response::paginated($impresoras, $total, $page, $perPage);

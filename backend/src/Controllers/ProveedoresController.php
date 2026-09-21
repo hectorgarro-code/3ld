@@ -43,9 +43,9 @@ class ProveedoresController
             $stmtCount->execute($binds);
             $total = (int) $stmtCount->fetchColumn();
 
-            $sql = "SELECT * FROM proveedores {$where} ORDER BY nombre ASC LIMIT ? OFFSET ?";
+            $sql = "SELECT * FROM proveedores {$where} ORDER BY nombre ASC LIMIT {$perPage} OFFSET {$offset}";
             $stmt = $db->prepare($sql);
-            $stmt->execute(array_merge($binds, [$perPage, $offset]));
+            $stmt->execute($binds);
             $proveedores = $stmt->fetchAll();
 
             return Response::paginated($proveedores, $total, $page, $perPage);

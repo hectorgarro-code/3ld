@@ -48,9 +48,9 @@ class ComprasController
                     LEFT JOIN usuarios u ON u.id = c.created_by
                     {$where}
                     ORDER BY c.fecha DESC, c.id DESC
-                    LIMIT ? OFFSET ?";
+                    LIMIT {$perPage} OFFSET {$offset}";
             $stmt = $db->prepare($sql);
-            $stmt->execute(array_merge($binds, [$perPage, $offset]));
+            $stmt->execute($binds);
             $compras = $stmt->fetchAll();
 
             return Response::paginated($compras, $total, $page, $perPage);

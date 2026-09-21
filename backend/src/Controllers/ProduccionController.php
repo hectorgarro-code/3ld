@@ -81,10 +81,10 @@ class ProduccionController
                     LEFT JOIN filamentos f  ON f.id  = op.filamento_id
                     {$where}
                     ORDER BY op.prioridad DESC, op.created_at ASC
-                    LIMIT ? OFFSET ?";
+                    LIMIT {$perPage} OFFSET {$offset}";
 
             $stmt = $db->prepare($sql);
-            $stmt->execute(array_merge($binds, [$perPage, $offset]));
+            $stmt->execute($binds);
             $ordenes = $stmt->fetchAll();
 
             return Response::paginated($ordenes, $total, $page, $perPage);
