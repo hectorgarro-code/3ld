@@ -11,7 +11,8 @@ import {
   Loader2,
   Tags,
   Star,
-  Smile
+  Smile,
+  Search
 } from 'lucide-react'
 import {
   useCategorias,
@@ -27,11 +28,88 @@ interface CategoriasModalProps {
   onClose: () => void
 }
 
-const POPULAR_EMOJIS = [
-  '✨', '🍪', '🏺', '🧩', '🪴', '🤖', '🏷️', '🎁',
-  '💡', '🐾', '⚽', '🎮', '🎨', '👓', '🏠', '🛠️',
-  '🌸', '💖', '🚀', '📦', '🍰', '☕', '🎄', '👑',
-  '🧸', '💍', '🎧', '🌟', '🦄', '🎯'
+interface EmojiCategory {
+  name: string
+  icon: string
+  emojis: string[]
+}
+
+const EMOJI_CATEGORIES: EmojiCategory[] = [
+  {
+    name: 'Populares',
+    icon: '✨',
+    emojis: [
+      '✨', '🍪', '🏺', '🧩', '🪴', '🤖', '🏷️', '🎁', '💡', '🐾', '⚽', '🎮',
+      '🎨', '👓', '🏠', '🛠️', '🌸', '💖', '🚀', '📦', '🍰', '☕', '🎄', '👑',
+      '🧸', '💍', '🎧', '🌟', '🦄', '🎯'
+    ]
+  },
+  {
+    name: 'Caritas',
+    icon: '😃',
+    emojis: [
+      '😀', '😃', '😄', '😁', '😆', '😅', '🤣', '😂', '🙂', '🙃', '😉', '😊',
+      '😇', '🥰', '😍', '🤩', '😘', '😗', '😚', '😋', '😛', '😜', '🤪', '😝',
+      '🤑', '🤗', '🤭', '🤫', '🤔', '🤐', '🤨', '😐', '😑', '😶', '😏', '😒',
+      '🙄', '😬', '🤥', '😌', '😔', '😪', '🤤', '😴', '😷', '🤒', '🤕', '🤢',
+      '🤮', '🤧', '🥵', '🥶', '🥴', '😵', '🤯', '🤠', '🥳', '😎', '🤓', '🧐'
+    ]
+  },
+  {
+    name: 'Objetos',
+    icon: '🛍️',
+    emojis: [
+      '📦', '🏷️', '🎁', '🛒', '🛍️', '🎉', '🎊', '✨', '💡', '👑', '💍', '💎',
+      '🕶️', '👓', '🧦', '🎒', '🎓', '🎩', '🏆', '🏅', '🎖️', '📌', '📍', '🔍',
+      '🔎', '📕', '📗', '📘', '📓', '📱', '💻', '⌨️', '🖥️', '🖨️', '📸', '🎥',
+      '📺', '⏰', '⌚', '🔮', '🔑', '🗝️', '💰', '💵', '💳'
+    ]
+  },
+  {
+    name: 'Comida',
+    icon: '🍪',
+    emojis: [
+      '🍪', '🍰', '🧁', '🥧', '🎂', '🍮', '🍭', '🍬', '🍫', '🍿', '🍩', '🍞',
+      '🥖', '🥨', '🥞', '🧀', '🍕', '🍔', '🍟', '🌭', '🥪', '☕', '🍵',
+      '🥤', '🧃', '🍺', '🍻', '🥂', '🍹', '🍾', '🍇', '🍎', '🍓', '🍒', '🍑'
+    ]
+  },
+  {
+    name: 'Herramientas',
+    icon: '🛠️',
+    emojis: [
+      '🛠️', '🔧', '🔨', '⚒️', '⛏️', '🔩', '⚙️', '🧱', '🎨', '🖌️', '✏️', '✒️',
+      '📐', '📏', '✂️', '📍', '🗑️', '🧰', '⛓️', '🧲', '🧪', '🔬', '🔭', '🧵',
+      '🪡', '🪢', '🧹', '🧺', '🕯️'
+    ]
+  },
+  {
+    name: 'Juegos',
+    icon: '🧩',
+    emojis: [
+      '🧩', '🤖', '🧸', '🎲', '🎯', '🎮', '🕹️', '🎰', '♟️', '🎳', '🏎️', '🚀',
+      '🚗', '🛵', '🚲', '🪁', '🎠', '🎡', '🎢', '🔮', '🪀', '⚽', '🏀',
+      '🏈', '🎾', '🏐', '🏓', '🏸'
+    ]
+  },
+  {
+    name: 'Hogar',
+    icon: '🪴',
+    emojis: [
+      '🏠', '🏡', '🪴', '🌸', '🌹', '🌻', '🌺', '🌾', '🌿', '🍃', '🌱', '☘️',
+      '🍀', '🍁', '🍂', '🐶', '🐱', '🐰', '🦊', '🐻', '🐼', '🦁', '🐮', '🐷',
+      '🐵', '🐙', '🦑', '🦀', '🦄', '🐾', '🦋', '🐝', '🐞'
+    ]
+  },
+  {
+    name: 'Corazones & Símbolos',
+    icon: '💖',
+    emojis: [
+      '💖', '💗', '💓', '💞', '💕', '❣️', '❤️', '🧡', '💛', '💚', '💙', '💜',
+      '🖤', '🤍', '🤎', '💯', '⭐', '🌟', '💥', '🔥', '⚡', '💫', '☀️', '🌙',
+      '🌈', '✅', '❌', '⭕', '🔴', '🔵', '🟠', '🟡', '🟢', '🟣'
+    ]
+  }
 ]
 
 export function CategoriasModal({ isOpen, onClose }: CategoriasModalProps) {
@@ -45,6 +123,9 @@ export function CategoriasModal({ isOpen, onClose }: CategoriasModalProps) {
   const [descripcion, setDescripcion] = useState('')
   const [icono, setIcono] = useState('✨')
   const [esDestacada, setEsDestacada] = useState(false)
+
+  const [activeEmojiCategory, setActiveEmojiCategory] = useState(0)
+  const [emojiSearch, setEmojiSearch] = useState('')
 
   if (!isOpen) return null
 
@@ -164,7 +245,7 @@ export function CategoriasModal({ isOpen, onClose }: CategoriasModalProps) {
                 )}
               </div>
 
-              {/* Selector de Icono / Emoji */}
+              {/* Selector de Icono / Emoji estilo WhatsApp */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center gap-1.5">
                   <Smile className="h-3.5 w-3.5 text-[#6B66C8]" />
@@ -178,26 +259,93 @@ export function CategoriasModal({ isOpen, onClose }: CategoriasModalProps) {
                     type="text"
                     value={icono}
                     onChange={(e) => setIcono(e.target.value)}
-                    placeholder="Emoji o ícono..."
+                    placeholder="Escribí o seleccioná abajo..."
                     maxLength={10}
                     className="flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800 font-semibold focus:border-[#6B66C8] focus:outline-none focus:ring-2 focus:ring-[#6B66C8]/20 transition"
                   />
                 </div>
-                {/* Grilla de emojis sugeridos */}
-                <div className="grid grid-cols-6 gap-1 bg-white p-2 rounded-xl border border-slate-200 shadow-2xs max-h-28 overflow-y-auto">
-                  {POPULAR_EMOJIS.map((emoji) => (
-                    <button
-                      key={emoji}
-                      type="button"
-                      onClick={() => setIcono(emoji)}
-                      className={`h-7 w-7 flex items-center justify-center text-sm rounded-lg transition-transform hover:scale-115 ${
-                        icono === emoji ? 'bg-[#6B66C8]/15 border border-[#6B66C8]' : 'hover:bg-slate-100'
-                      }`}
-                      title={`Elegir ${emoji}`}
-                    >
-                      {emoji}
-                    </button>
-                  ))}
+
+                {/* Panel selector estilo WhatsApp */}
+                <div className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden">
+                  {/* Categorías de pestañas */}
+                  <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/80 px-1 py-1 overflow-x-auto no-scrollbar">
+                    {EMOJI_CATEGORIES.map((cat, idx) => (
+                      <button
+                        key={cat.name}
+                        type="button"
+                        onClick={() => {
+                          setActiveEmojiCategory(idx)
+                          setEmojiSearch('')
+                        }}
+                        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-sm transition ${
+                          activeEmojiCategory === idx && !emojiSearch
+                            ? 'bg-white shadow-2xs text-base border border-slate-200 scale-105'
+                            : 'opacity-70 hover:opacity-100 hover:bg-slate-200/50'
+                        }`}
+                        title={cat.name}
+                      >
+                        {cat.icon}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Buscador rápido de emojis */}
+                  <div className="px-2 pt-1.5 pb-1 bg-white border-b border-slate-100 flex items-center gap-1.5">
+                    <Search className="h-3 w-3 text-slate-400 shrink-0" />
+                    <input
+                      type="text"
+                      value={emojiSearch}
+                      onChange={(e) => setEmojiSearch(e.target.value)}
+                      placeholder="Buscar emoticones..."
+                      className="w-full text-[11px] text-slate-700 bg-transparent focus:outline-none"
+                    />
+                    {emojiSearch && (
+                      <button
+                        type="button"
+                        onClick={() => setEmojiSearch('')}
+                        className="text-[10px] text-slate-400 hover:text-slate-600 px-1"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Grilla de Emojis */}
+                  <div className="grid grid-cols-7 gap-1 p-2 max-h-36 overflow-y-auto custom-scrollbar bg-slate-50/20">
+                    {emojiSearch ? (
+                      (() => {
+                        const allEmojis = EMOJI_CATEGORIES.flatMap((c) => c.emojis)
+                        const filtered = Array.from(new Set(allEmojis))
+                        return filtered.map((emoji, idx) => (
+                          <button
+                            key={`${emoji}-${idx}`}
+                            type="button"
+                            onClick={() => setIcono(emoji)}
+                            className={`h-7 w-7 flex items-center justify-center text-lg rounded-lg transition-transform hover:scale-120 hover:bg-white hover:shadow-2xs ${
+                              icono === emoji ? 'bg-[#6B66C8]/20 border border-[#6B66C8]' : ''
+                            }`}
+                            title={`Elegir ${emoji}`}
+                          >
+                            {emoji}
+                          </button>
+                        ))
+                      })()
+                    ) : (
+                      EMOJI_CATEGORIES[activeEmojiCategory].emojis.map((emoji, idx) => (
+                        <button
+                          key={`${emoji}-${idx}`}
+                          type="button"
+                          onClick={() => setIcono(emoji)}
+                          className={`h-7 w-7 flex items-center justify-center text-lg rounded-lg transition-transform hover:scale-120 hover:bg-white hover:shadow-2xs ${
+                            icono === emoji ? 'bg-[#6B66C8]/20 border border-[#6B66C8]' : ''
+                          }`}
+                          title={`Elegir ${emoji}`}
+                        >
+                          {emoji}
+                        </button>
+                      ))
+                    )}
+                  </div>
                 </div>
               </div>
 
