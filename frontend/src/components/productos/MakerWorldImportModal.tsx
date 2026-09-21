@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   X,
   Sparkles,
@@ -42,7 +42,10 @@ export function MakerWorldImportModal({ isOpen, onClose, onSuccess }: Props) {
   const [selectedImages, setSelectedImages] = useState<string[]>([])
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
-  const [categoriaId, setCategoriaId] = useState<number | undefined>(undefined)
+  const [categoriaId, setCategoriaId] = useState<number | undefined>(() => {
+    const saved = localStorage.getItem('last_categoria_id')
+    return saved ? parseInt(saved, 10) : undefined
+  })
   const [precioVenta, setPrecioVenta] = useState<number>(0)
   const [precioCosto, setPrecioCosto] = useState<number>(0)
   const [horasImpresion, setHorasImpresion] = useState<number>(0)
@@ -59,6 +62,15 @@ export function MakerWorldImportModal({ isOpen, onClose, onSuccess }: Props) {
 
   const { data: categorias } = useCategorias()
   const createMutation = useCreateProducto()
+
+  useEffect(() => {
+    if (isOpen) {
+      const saved = localStorage.getItem('last_categoria_id')
+      if (saved) {
+        setCategoriaId(parseInt(saved, 10))
+      }
+    }
+  }, [isOpen])
 
   if (!isOpen) return null
 
@@ -486,7 +498,13 @@ export function MakerWorldImportModal({ isOpen, onClose, onSuccess }: Props) {
                   <label className="font-bold text-slate-700 block mb-1">Categoría</label>
                   <select
                     value={categoriaId || ''}
-                    onChange={(e) => setCategoriaId(e.target.value ? parseInt(e.target.value) : undefined)}
+                    onChange={(e) => {
+                      const val = e.target.value ? parseInt(e.target.value) : undefined
+                      setCategoriaId(val)
+                      if (val) {
+                        localStorage.setItem('last_categoria_id', String(val))
+                      }
+                    }}
                     className="w-full p-2.5 bg-white border border-slate-200 rounded-xl font-semibold text-slate-800"
                   >
                     <option value="">Ninguna</option>

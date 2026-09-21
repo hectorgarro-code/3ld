@@ -149,16 +149,18 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
       }
       setImagesBase64(existing.slice(0, 5))
     } else if (isOpen && !producto) {
+      const savedCatId = localStorage.getItem('last_categoria_id')
+      const savedSubcat = localStorage.getItem('last_subcategoria')
       reset({
         nombre: '',
         variante: '',
         sku: generateSKU(),
         tipo: 'impresion_3d',
-        categoria_id: null,
+        categoria_id: savedCatId ? parseInt(savedCatId, 10) : null,
         precio_venta: 0,
         precio_costo: 0,
         precio_oferta: null,
-        subcategoria: '',
+        subcategoria: savedSubcat || '',
         estado_stock: 'custom',
         horas_impresion: 0,
         peso_gramos: 0,
@@ -259,6 +261,13 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
 
   const onSubmit = async (data: ProductoForm) => {
     try {
+      if (data.categoria_id) {
+        localStorage.setItem('last_categoria_id', String(data.categoria_id))
+      }
+      if (data.subcategoria) {
+        localStorage.setItem('last_subcategoria', data.subcategoria)
+      }
+
       const payload = {
         ...data,
         categoria_id: data.categoria_id || undefined,
@@ -465,7 +474,12 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
                     Categoría Principal
                   </label>
                   <select
-                    {...register('categoria_id', { setValueAs: v => v === "" ? null : parseInt(v, 10) })}
+                    {...register('categoria_id', {
+                      setValueAs: v => v === "" ? null : parseInt(v, 10),
+                      onChange: (e) => {
+                        if (e.target.value) localStorage.setItem('last_categoria_id', e.target.value)
+                      }
+                    })}
                     className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition-colors focus:border-primary focus:bg-white"
                   >
                     <option value="">Ninguna</option>
@@ -480,7 +494,11 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
                     Subcategoría (Tienda Web)
                   </label>
                   <input
-                    {...register('subcategoria')}
+                    {...register('subcategoria', {
+                      onChange: (e) => {
+                        if (e.target.value) localStorage.setItem('last_subcategoria', e.target.value)
+                      }
+                    })}
                     className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition-colors focus:border-primary focus:bg-white"
                     placeholder="Ej. Navidad, Pokémon"
                   />
