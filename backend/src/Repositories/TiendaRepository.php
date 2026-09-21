@@ -270,7 +270,7 @@ class TiendaRepository
     {
         try {
             $sql = "SELECT c.id, c.nombre AS name, COALESCE(c.icono, '✨') AS icon, c.es_destacada,
-                           (SELECT COUNT(*) FROM productos p WHERE p.categoria_id = c.id AND p.activo = 1 AND p.es_tienda = 1) AS productos_count
+                           (SELECT COUNT(*) FROM productos p WHERE p.categoria_id = c.id AND p.activo = 1 AND (p.es_tienda = 1 OR p.es_vendible = 1)) AS productos_count
                     FROM categorias_producto c
                     ORDER BY c.es_destacada DESC, c.nombre ASC";
             $stmt = $this->db->prepare($sql);

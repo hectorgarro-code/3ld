@@ -221,31 +221,37 @@ export default function TiendaPage() {
           api.get('/tienda/categorias').catch(() => ({ data: { data: [] } }))
         ]);
 
-        if (prodRes.data?.data && Array.isArray(prodRes.data.data) && prodRes.data.data.length > 0) {
-          setProducts(prodRes.data.data);
+        const loadedProducts = (prodRes.data?.data && Array.isArray(prodRes.data.data)) ? prodRes.data.data : [];
+        if (loadedProducts.length > 0) {
+          setProducts(loadedProducts);
         }
 
         const allCat: Category = { id: 'all', name: 'Todo el Catálogo', icon: '✨', subcategories: [] };
         let dynamicCats: Category[] = [];
 
         if (catRes.data?.data && Array.isArray(catRes.data.data) && catRes.data.data.length > 0) {
-          dynamicCats = catRes.data.data.map((c: any) => ({
-            id: c.name,
-            name: c.name,
-            icon: c.icon || '✨',
-            subcategories: c.subcategories || [],
-            es_destacada: Boolean(c.es_destacada),
-            productos_count: c.productos_count || 0
-          }));
-        } else if (prodRes.data?.data && Array.isArray(prodRes.data.data)) {
-          const uniqueCats = Array.from(new Set(prodRes.data.data.map((p: any) => p.category).filter(Boolean))) as string[];
+          dynamicCats = catRes.data.data.map((c: any) => {
+            const countFromProds = loadedProducts.filter(
+              (p: any) => p.category === c.name || (c.categoria_id && String(p.categoria_id) === String(c.categoria_id))
+            ).length;
+            return {
+              id: c.name,
+              name: c.name,
+              icon: c.icon || '✨',
+              subcategories: c.subcategories || [],
+              es_destacada: Boolean(c.es_destacada),
+              productos_count: loadedProducts.length > 0 ? countFromProds : (c.productos_count || 0)
+            };
+          });
+        } else if (loadedProducts.length > 0) {
+          const uniqueCats = Array.from(new Set(loadedProducts.map((p: any) => p.category).filter(Boolean))) as string[];
           dynamicCats = uniqueCats.map((catName) => ({
             id: catName,
             name: catName,
             icon: '📦',
             subcategories: [],
             es_destacada: false,
-            productos_count: prodRes.data.data.filter((p: any) => p.category === catName).length
+            productos_count: loadedProducts.filter((p: any) => p.category === catName).length
           }));
         }
 
@@ -381,6 +387,16 @@ export default function TiendaPage() {
   const cartItemsCount = useMemo(() => {
     return cart.reduce((sum, item) => sum + item.qty, 0);
   }, [cart]);
+
+  const categoryProductCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    products.forEach((p) => {
+      if (p.category) {
+        counts[p.category] = (counts[p.category] || 0) + 1;
+      }
+    });
+    return counts;
+  }, [products]);
 
   const freeShippingThreshold = 30000;
   const isFreeLocalShipping = cartSubtotal >= freeShippingThreshold;
@@ -597,6 +613,7 @@ export default function TiendaPage() {
           <div className="hidden md:flex md:flex-wrap items-center gap-2 py-3">
             {categories.map((cat) => {
               const active = selectedCategory === cat.id || (selectedCategory === 'all' && cat.id === 'all');
+              const count = cat.id === 'all' ? products.length : (categoryProductCounts[cat.name] ?? cat.productos_count ?? 0);
               return (
                 <button
                   key={cat.id}
@@ -612,11 +629,11 @@ export default function TiendaPage() {
                 >
                   <span className="text-sm">{cat.icon}</span>
                   <span>{cat.name}</span>
-                  {cat.productos_count !== undefined && cat.id !== 'all' && (
+                  {cat.id !== 'all' && (
                     <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ml-0.5 ${
                       active ? 'bg-white/25 text-white' : 'bg-slate-200/80 text-slate-600'
                     }`}>
-                      {cat.productos_count}
+                      {count}
                     </span>
                   )}
                 </button>
@@ -645,6 +662,7 @@ export default function TiendaPage() {
             {/* Las 3 más utilizadas */}
             {mobileFeaturedCategories.map((cat) => {
               const active = selectedCategory === cat.id;
+              const count = categoryProductCounts[cat.name] ?? cat.productos_count ?? 0;
               return (
                 <button
                   key={cat.id}
@@ -660,6 +678,11 @@ export default function TiendaPage() {
                 >
                   <span>{cat.icon}</span>
                   <span className="truncate max-w-[120px]">{cat.name}</span>
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ml-0.5 ${
+                    active ? 'bg-white/25 text-white' : 'bg-slate-200/80 text-slate-600'
+                  }`}>
+                    {count}
+                  </span>
                 </button>
               );
             })}
