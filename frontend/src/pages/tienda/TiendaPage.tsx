@@ -8,7 +8,7 @@ import {
   CreditCard,
   MessageCircle,
   Layers,
-  Check,
+  ChevronLeft,
   ChevronRight,
   Filter,
   Sparkles,
@@ -947,23 +947,53 @@ export default function TiendaPage() {
       {/* Product Detail Modal */}
       {activeProductModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs">
-          <div className="bg-white rounded-3xl max-w-md w-full overflow-hidden shadow-2xl animate-in zoom-in-95 duration-150 border border-slate-200 max-h-[90vh] flex flex-col">
-            <div className="relative aspect-square bg-slate-100 shrink-0 overflow-hidden">
+          <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-150 border border-slate-200 max-h-[90vh] flex flex-col overflow-y-auto">
+            <div className="relative aspect-square max-h-[380px] bg-slate-100 shrink-0 overflow-hidden">
               <img src={currentDisplayImage} alt={activeProductModal.title} className="w-full h-full object-cover transition-all duration-300" />
               <button
                 onClick={() => {
                   setActiveProductModal(null);
                   setModalActiveImage(null);
                 }}
-                className="absolute top-3 right-3 p-2 bg-slate-900/80 text-white rounded-full hover:bg-slate-900 transition"
+                className="absolute top-3 right-3 z-10 p-2 bg-slate-900/80 text-white rounded-full hover:bg-slate-900 transition shadow-md"
               >
                 <X className="w-4 h-4" />
               </button>
+
+              {/* Discrete Left / Right Arrow Buttons */}
+              {modalImages.length > 1 && (
+                <>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const currentIndex = modalImages.indexOf(currentDisplayImage);
+                      const prevIndex = (currentIndex - 1 + modalImages.length) % modalImages.length;
+                      setModalActiveImage(modalImages[prevIndex]);
+                    }}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 z-10 p-2 bg-slate-900/40 hover:bg-slate-900/80 text-white rounded-full backdrop-blur-xs transition shadow-md"
+                    aria-label="Foto anterior"
+                  >
+                    <ChevronLeft className="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const currentIndex = modalImages.indexOf(currentDisplayImage);
+                      const nextIndex = (currentIndex + 1) % modalImages.length;
+                      setModalActiveImage(modalImages[nextIndex]);
+                    }}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 z-10 p-2 bg-slate-900/40 hover:bg-slate-900/80 text-white rounded-full backdrop-blur-xs transition shadow-md"
+                    aria-label="Foto siguiente"
+                  >
+                    <ChevronRight className="w-5 h-5" />
+                  </button>
+                </>
+              )}
             </div>
 
             {/* Gallery Thumbnails */}
             {modalImages.length > 1 && (
-              <div className="flex items-center gap-2 px-5 py-2.5 bg-slate-50 border-b border-slate-100 overflow-x-auto">
+              <div className="flex items-center gap-2 px-5 py-2.5 bg-slate-50 border-b border-slate-100 overflow-x-auto shrink-0">
                 {modalImages.map((imgUrl, idx) => (
                   <button
                     key={idx}
@@ -978,7 +1008,7 @@ export default function TiendaPage() {
               </div>
             )}
 
-            <div className="p-5 overflow-y-auto">
+            <div className="p-5">
               <span className="text-xs font-bold text-cyan-600 uppercase tracking-wide">
                 {activeProductModal.subcategory || activeProductModal.category}
               </span>
