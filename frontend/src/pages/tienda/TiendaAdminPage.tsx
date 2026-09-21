@@ -21,6 +21,7 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
+  Printer,
 } from 'lucide-react'
 import api from '@/lib/api'
 import { ProductoFormModal } from '@/components/productos/ProductoFormModal'
@@ -42,6 +43,10 @@ export interface AdminProduct {
   es_destacado?: boolean | number
   peso_gramos?: number
   dimensiones?: string
+  alto_mm?: number
+  ancho_mm?: number
+  profundidad_mm?: number
+  horas_impresion?: number
   categoria_id?: number
   categoria_nombre?: string
 }
@@ -198,6 +203,41 @@ export default function TiendaAdminPage() {
     })
   }, [filteredProducts, sortField, sortOrder])
 
+  const printProducts = useMemo(() => {
+    if (selectedIds.length > 0) {
+      return sortedProducts.filter((p) => selectedIds.includes(p.id))
+    }
+    return sortedProducts
+  }, [sortedProducts, selectedIds])
+
+  const formatDimensions = (p: AdminProduct) => {
+    if (p.dimensiones && p.dimensiones.trim() && p.dimensiones !== '0' && p.dimensiones !== '0x0') {
+      return p.dimensiones
+    }
+    const alto = p.alto_mm || 0
+    const ancho = p.ancho_mm || 0
+    const prof = p.profundidad_mm || 0
+    if (alto > 0 || ancho > 0 || prof > 0) {
+      const parts = []
+      if (alto > 0) parts.push(alto >= 10 ? `${(alto / 10).toFixed(1)} cm` : `${alto} mm`)
+      if (ancho > 0) parts.push(ancho >= 10 ? `${(ancho / 10).toFixed(1)} cm` : `${ancho} mm`)
+      if (prof > 0) parts.push(prof >= 10 ? `${(prof / 10).toFixed(1)} cm` : `${prof} mm`)
+      return parts.join(' x ')
+    }
+    return '-'
+  }
+
+  const formatPrintTime = (p: AdminProduct) => {
+    const hrs = p.horas_impresion || 0
+    if (!hrs || hrs <= 0) return '-'
+    const totalMin = Math.round(hrs * 60)
+    const h = Math.floor(totalMin / 60)
+    const m = totalMin % 60
+    if (h > 0 && m > 0) return `${h}h ${m}m`
+    if (h > 0) return `${h}h`
+    return `${m}m`
+  }
+
   // Selection Logic
   const allFilteredSelected =
     sortedProducts.length > 0 && sortedProducts.every((p) => selectedIds.includes(p.id))
@@ -287,7 +327,9 @@ export default function TiendaAdminPage() {
 
   return (
     <div className="p-6 space-y-6">
-      {/* Header */}
+      {/* Screen Web UI (Hidden during window.print()) */}
+      <div className="print:hidden space-y-6">
+        {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-xs">
         <div>
           <div className="flex items-center gap-2">
@@ -300,6 +342,14 @@ export default function TiendaAdminPage() {
         </div>
 
         <div className="flex items-center gap-3">
+          <button
+            onClick={() => window.print()}
+            className="flex items-center gap-2 px-4 py-2.5 bg-[#6B66C8] hover:bg-[#5752B3] text-white text-xs font-bold rounded-xl shadow-md transition active:scale-95 cursor-pointer"
+            title="Imprimir informe evaluativo de costos, dimensiones y tiempos de impresión"
+          >
+            <Printer className="h-4 w-4" />
+            <span>Imprimir Informe Costos/Precios</span>
+          </button>
           <Link
             to="/tienda-builder"
             className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-cyan-600 to-cyan-500 hover:from-cyan-500 hover:to-cyan-400 text-white text-xs font-extrabold rounded-xl shadow-md transition"
@@ -1093,6 +1143,122 @@ export default function TiendaAdminPage() {
           producto={editingProduct as any}
         />
       )}
+      </div>
+
+      {/* Styles for Window Print */}
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
+            @media print {
+              @page {
+                size: A4 landscape;
+                margin: 8mm;
+              }
+              html, body {
+                background: white !important;
+                color: black !important;
+                margin: 0 !important;
+                padding: 0 !important;
+              }
+              header, footer, nav, aside, .no-print {
+                display: none !important;
+              }
+            }
+          `,
+        }}
+      />
+
+      {/* Printable Evaluation & Costing Report Container (Visible ONLY during window.print()) */}
+      <div className="hidden print:block p-4 bg-white text-slate-900 font-sans">
+        {/* Report Header */}
+        <div className="border-b-2 border-slate-900 pb-3 mb-4 flex items-start justify-between">
+          <div>
+            <h1 className="text-xl font-black text-slate-900 tracking-tight">3LD IMPRESIÓN 3D — INFORME DE EVALUACIÓN DE COSTOS Y PRECIOS</h1>
+            <p className="text-xs text-slate-600 mt-0.5">
+              Planilla de evaluación por producto: Foto, Medidas/Dimensiones, Tiempo de Impresión 3D, Costo y Margen Comercial.
+            </p>
+          </div>
+          <div className="text-right">
+            <span className="text-xs font-bold text-slate-800 block">
+              Fecha: {new Date().toLocaleDateString('es-AR')}
+            </span>
+            <span className="text-[11px] font-semibold text-slate-500">
+              {printProducts.length} artículo(s) en lista
+            </span>
+          </div>
+        </div>
+
+        {/* Evaluation Table */}
+        <table className="w-full border-collapse text-left text-xs">
+          <thead>
+            <tr className="border-b-2 border-slate-800 bg-slate-100 text-slate-900 font-black uppercase text-[10px]">
+              <th className="p-2 w-14 text-center">Foto</th>
+              <th className="p-2">Producto / Referencia</th>
+              <th className="p-2">Dimensiones / Peso</th>
+              <th className="p-2 text-center">Tiempo 3D</th>
+              <th className="p-2 text-right">Precio Costo</th>
+              <th className="p-2 text-right">Precio Venta Actual</th>
+              <th className="p-2 text-center">Margen Actual</th>
+              <th className="p-2 text-center w-36 border-l-2 border-slate-400">Nuevo Precio / Evaluación</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-200">
+            {printProducts.map((p) => {
+              const costo = p.precio_costo || 0
+              const venta = p.precio_venta || 0
+              const margenPct = costo > 0 ? Math.round(((venta - costo) / costo) * 100) : null
+              const dimensionsStr = formatDimensions(p)
+              const printTimeStr = formatPrintTime(p)
+
+              return (
+                <tr key={p.id} className="break-inside-avoid border-b border-slate-200 text-slate-800">
+                  <td className="p-2 text-center align-middle">
+                    {p.imagen_url ? (
+                      <img src={p.imagen_url} alt={p.nombre} className="h-12 w-12 object-cover rounded-md border border-slate-300 mx-auto" />
+                    ) : (
+                      <div className="h-12 w-12 rounded-md bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400 font-bold text-[9px] mx-auto">
+                        Sin foto
+                      </div>
+                    )}
+                  </td>
+                  <td className="p-2 align-middle">
+                    <p className="font-bold text-slate-900 text-xs leading-tight">{p.nombre}</p>
+                    {p.variante && <p className="text-[10px] text-slate-600 font-medium">Variante: {p.variante}</p>}
+                    <p className="text-[10px] text-slate-500 font-mono mt-0.5">
+                      SKU: {p.sku || '-'} · {p.categoria_nombre || 'Sin cat.'} {p.subcategoria ? '(' + p.subcategoria + ')' : ''}
+                    </p>
+                  </td>
+                  <td className="p-2 align-middle text-xs">
+                    <p className="font-semibold text-slate-800">{dimensionsStr}</p>
+                    {p.peso_gramos ? <p className="text-[10px] text-slate-500 font-medium">Peso: {p.peso_gramos} g</p> : null}
+                  </td>
+                  <td className="p-2 text-center align-middle font-bold text-slate-900 text-xs">
+                    {printTimeStr}
+                  </td>
+                  <td className="p-2 text-right align-middle font-extrabold text-slate-900 text-xs">
+                    {'$' + costo.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </td>
+                  <td className="p-2 text-right align-middle font-bold text-slate-900 text-xs">
+                    {'$' + venta.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </td>
+                  <td className="p-2 text-center align-middle text-[11px] font-bold">
+                    {margenPct !== null ? (
+                      <span className={margenPct >= 100 ? 'text-emerald-700' : 'text-amber-700'}>
+                        +{margenPct}%
+                      </span>
+                    ) : (
+                      '-'
+                    )}
+                  </td>
+                  <td className="p-2 align-middle border-l-2 border-slate-400 bg-slate-50/40">
+                    <div className="h-8 border border-dashed border-slate-400 rounded-md bg-white"></div>
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }
