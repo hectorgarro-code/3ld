@@ -639,11 +639,11 @@ export default function TiendaAdminPage() {
                             <img
                               src={p.imagen_url}
                               alt={p.nombre}
-                              className="h-10 w-10 object-cover rounded-xl border border-slate-200"
+                              className="h-16 w-16 object-cover rounded-2xl border border-slate-200 shadow-xs shrink-0"
                             />
                           ) : (
-                            <div className="h-10 w-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400">
-                              <Package className="h-5 w-5" />
+                            <div className="h-16 w-16 rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400 shrink-0">
+                              <Package className="h-7 w-7" />
                             </div>
                           )}
                           <div>
