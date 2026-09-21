@@ -50,9 +50,10 @@ class ProductoRepository
 
         try {
             $sql = "SELECT p.id, p.nombre, p.variante, p.sku, p.descripcion, p.tipo,
-                           p.precio_venta, p.precio_costo, p.stock_actual, p.stock_minimo,
+                           p.precio_venta, p.precio_costo, p.precio_oferta, p.stock_actual, p.stock_minimo,
                            p.unidad_medida, p.imagen_url, p.imagenes, p.archivo_url, p.colores, p.activo,
-                           p.es_vendible, p.es_insumo, p.horas_impresion, p.peso_gramos,
+                           p.es_vendible, p.es_insumo, p.es_tienda, p.es_destacado, p.subcategoria,
+                           p.horas_impresion, p.peso_gramos,
                            p.alto_mm, p.ancho_mm, p.profundidad_mm, p.dimensiones,
                            p.created_at, p.updated_at,
                            c.id AS categoria_id, c.nombre AS categoria_nombre
@@ -67,9 +68,9 @@ class ProductoRepository
             $productos = $stmt->fetchAll();
         } catch (\PDOException $e) {
             $sql = "SELECT p.id, p.nombre, p.variante, p.sku, p.descripcion, p.tipo,
-                           p.precio_venta, p.precio_costo, p.stock_actual, p.stock_minimo,
+                           p.precio_venta, p.precio_costo, p.precio_oferta, p.stock_actual, p.stock_minimo,
                            p.unidad_medida, p.imagen_url, p.imagenes, p.archivo_url, p.activo,
-                           p.es_vendible, p.es_insumo,
+                           p.es_vendible, p.es_insumo, p.es_tienda, p.es_destacado, p.subcategoria,
                            p.created_at, p.updated_at,
                            c.id AS categoria_id, c.nombre AS categoria_nombre
                     FROM productos p
