@@ -142,6 +142,11 @@ class Database
         } catch (\Throwable $e) {
             // Se ignora si ya existe
         }
+        try {
+            $db->exec("ALTER TABLE productos ADD COLUMN colores TEXT NULL");
+        } catch (\Throwable $e) {
+            // Se ignora si ya existe
+        }
     }
 
     /**

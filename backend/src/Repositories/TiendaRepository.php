@@ -64,7 +64,7 @@ class TiendaRepository
             $sql = "SELECT p.id, p.nombre AS title, p.subcategoria, p.descripcion,
                            p.precio_venta AS price, p.precio_oferta AS oldPrice,
                            p.stock_actual, p.estado_stock AS stockStatus,
-                           p.imagen_url AS image, p.imagenes, p.peso_gramos AS weightGrams,
+                           p.imagen_url AS image, p.imagenes, p.colores, p.peso_gramos AS weightGrams,
                            p.dimensiones AS size, p.alto_mm, p.ancho_mm, p.profundidad_mm, p.es_destacado,
                            p.categoria_id,
                            COALESCE(c.nombre, 'Sin categoría') AS category
@@ -82,6 +82,13 @@ class TiendaRepository
                     $item['images'] = is_array($dec) ? $dec : (!empty($item['image']) ? [$item['image']] : []);
                 } else {
                     $item['images'] = !empty($item['image']) ? [$item['image']] : [];
+                }
+
+                if (!empty($item['colores'])) {
+                    $decCol = is_string($item['colores']) ? json_decode($item['colores'], true) : $item['colores'];
+                    $item['colors'] = is_array($decCol) ? array_values($decCol) : [];
+                } else {
+                    $item['colors'] = [];
                 }
 
                 if (empty($item['size']) || trim((string)$item['size']) === '' || trim((string)$item['size']) === '0') {

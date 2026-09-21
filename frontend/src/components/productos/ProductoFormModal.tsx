@@ -48,12 +48,22 @@ interface Props {
   initialImages?: string[]
 }
 
+const ALL_AVAILABLE_COLORS = [
+  { name: 'Negro Mate', hex: '#1e293b' },
+  { name: 'Blanco Puro', hex: '#f8fafc' },
+  { name: 'Rojo Carmesí', hex: '#ef4444' },
+  { name: 'Azul Cyan 3LD', hex: '#06b6d4' },
+  { name: 'Dorado Seda', hex: '#eab308' },
+  { name: 'Verde Pastel', hex: '#10b981' }
+]
+
 export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, initialImages }: Props) {
   const { data: categorias } = useCategorias()
   const createMutation = useCreateProducto()
   const updateMutation = useUpdateProducto()
 
   const [imagesBase64, setImagesBase64] = useState<string[]>([])
+  const [selectedColors, setSelectedColors] = useState<string[]>([])
   const [isCompressing, setIsCompressing] = useState(false)
   const [isGeneratingAi, setIsGeneratingAi] = useState(false)
   const [receta, setReceta] = useState<{insumo_id: number, cantidad: number, insumo_nombre?: string, precio_costo?: number, unidad_medida?: string}[]>([])
@@ -147,8 +157,18 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
       if (existing.length === 0 && producto.imagen_url) {
         existing = [producto.imagen_url]
       }
-      setImagesBase64(existing.slice(0, 5))
+      let existingCol: string[] = []
+      if (Array.isArray(p.colores)) {
+        existingCol = p.colores
+      } else if (typeof p.colores === 'string' && p.colores.trim()) {
+        try {
+          const parsed = JSON.parse(p.colores)
+          if (Array.isArray(parsed)) existingCol = parsed
+        } catch (e) {}
+      }
+      setSelectedColors(existingCol)
     } else if (isOpen && !producto) {
+      setSelectedColors([])
       const savedCatId = localStorage.getItem('last_categoria_id')
       const savedSubcat = localStorage.getItem('last_subcategoria')
       reset({
@@ -270,6 +290,7 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
 
       const payload = {
         ...data,
+        colores: selectedColors,
         categoria_id: data.categoria_id || undefined,
         variante: data.variante || undefined,
         archivo_url: data.archivo_url?.trim() || null,
@@ -502,6 +523,49 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
                     className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition-colors focus:border-primary focus:bg-white"
                     placeholder="Ej. Navidad, Pokémon"
                   />
+                </div>
+
+                {/* Sección de Selección de Colores para Tienda */}
+                <div className="md:col-span-2 bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                      🎨 Colores Disponibles (Tienda Web)
+                    </label>
+                    <span className="text-[10px] font-bold text-slate-400">
+                      {selectedColors.length > 0 ? `${selectedColors.length} colores habilitados` : 'Ningún color (se ocultará el selector en la tienda)'}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500">
+                    Marcá los colores disponibles para este producto. Si no seleccionás ninguno, en la tienda no se mostrarán opciones de color.
+                  </p>
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {ALL_AVAILABLE_COLORS.map((c) => {
+                      const isSelected = selectedColors.includes(c.name)
+                      return (
+                        <button
+                          key={c.name}
+                          type="button"
+                          onClick={() => {
+                            if (isSelected) {
+                              setSelectedColors(selectedColors.filter((item) => item !== c.name))
+                            } else {
+                              setSelectedColors([...selectedColors, c.name])
+                            }
+                          }}
+                          className={cn(
+                            "flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition cursor-pointer select-none",
+                            isSelected
+                              ? "border-cyan-500 bg-cyan-50 text-cyan-900 shadow-2xs ring-1 ring-cyan-500/40"
+                              : "border-slate-200 bg-white text-slate-500 hover:bg-slate-100"
+                          )}
+                        >
+                          <span className="w-3 h-3 rounded-full border border-slate-300 shrink-0" style={{ backgroundColor: c.hex }} />
+                          <span>{c.name}</span>
+                          {isSelected && <span className="text-cyan-600 font-black ml-0.5">✓</span>}
+                        </button>
+                      )
+                    })}
+                  </div>
                 </div>
 
                 <div>

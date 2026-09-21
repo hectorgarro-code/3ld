@@ -47,6 +47,7 @@ export interface StoreProduct {
   stockStatus: 'ready' | 'custom' | string;
   image: string;
   images?: string[];
+  colors?: string[];
   description: string;
   weightGrams?: number;
   size?: string;
@@ -203,7 +204,7 @@ export default function TiendaPage() {
   const [modalActiveImage, setModalActiveImage] = useState<string | null>(null);
   const [isQuoteModalOpen, setIsQuoteModalOpen] = useState(false);
   const [isMobileCatMenuOpen, setIsMobileCatMenuOpen] = useState(false);
-  const [modalSelectedColor, setModalSelectedColor] = useState('Negro Mate');
+  const [modalSelectedColor, setModalSelectedColor] = useState('');
   const [toastMessage, setToastMessage] = useState<{ text: string; type: string } | null>(null);
 
   // Shipping
@@ -1105,25 +1106,33 @@ export default function TiendaPage() {
               <p className="text-xs text-slate-600 mt-2 leading-relaxed">{activeProductModal.description}</p>
 
               {/* Color options */}
-              <div className="mt-4">
-                <label className="text-xs font-bold text-slate-800 block mb-1.5">Color de Impresión (PLA):</label>
-                <div className="flex items-center gap-2 flex-wrap">
-                  {AVAILABLE_COLORS.map((c) => (
-                    <button
-                      key={c.name}
-                      onClick={() => setModalSelectedColor(c.name)}
-                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border transition ${
-                        modalSelectedColor === c.name
-                          ? 'border-cyan-600 bg-cyan-50 text-cyan-900 ring-2 ring-cyan-500/30'
-                          : 'border-slate-200 text-slate-700 bg-white hover:bg-slate-50'
-                      }`}
-                    >
-                      <span className="w-3 h-3 rounded-full border border-slate-300" style={{ backgroundColor: c.hex }} />
-                      <span>{c.name}</span>
-                    </button>
-                  ))}
+              {activeProductModal.colors && activeProductModal.colors.length > 0 && (
+                <div className="mt-4">
+                  <label className="text-xs font-bold text-slate-800 block mb-1.5">
+                    Color de Impresión (PLA): {modalSelectedColor ? <span className="text-cyan-600 font-extrabold">{modalSelectedColor}</span> : <span className="text-slate-400 font-normal">(Opcional)</span>}
+                  </label>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {activeProductModal.colors.map((colorName) => {
+                      const cObj = AVAILABLE_COLORS.find(c => c.name === colorName) || { name: colorName, hex: '#06b6d4' };
+                      const isSelected = modalSelectedColor === colorName;
+                      return (
+                        <button
+                          key={colorName}
+                          onClick={() => setModalSelectedColor(isSelected ? '' : colorName)}
+                          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border transition cursor-pointer ${
+                            isSelected
+                              ? 'border-cyan-600 bg-cyan-50 text-cyan-900 ring-2 ring-cyan-500/30 font-bold'
+                              : 'border-slate-200 text-slate-700 bg-white hover:bg-slate-50'
+                          }`}
+                        >
+                          <span className="w-3 h-3 rounded-full border border-slate-300 shrink-0" style={{ backgroundColor: cObj.hex }} />
+                          <span>{colorName}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Specs */}
               {hasValidSize(activeProductModal.size) && (
@@ -1154,8 +1163,10 @@ export default function TiendaPage() {
 
                   <button
                     onClick={() => {
-                      addToCart(activeProductModal, 1, modalSelectedColor);
+                      const finalColor = modalSelectedColor || 'Estándar';
+                      addToCart(activeProductModal, 1, finalColor);
                       setActiveProductModal(null);
+                      setModalSelectedColor('');
                     }}
                     className="px-5 py-2.5 bg-slate-900 hover:bg-cyan-600 text-white font-bold text-xs rounded-2xl shadow-md transition active:scale-95 flex items-center gap-2"
                   >

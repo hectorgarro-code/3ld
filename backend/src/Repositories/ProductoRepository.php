@@ -51,7 +51,7 @@ class ProductoRepository
         try {
             $sql = "SELECT p.id, p.nombre, p.variante, p.sku, p.descripcion, p.tipo,
                            p.precio_venta, p.precio_costo, p.stock_actual, p.stock_minimo,
-                           p.unidad_medida, p.imagen_url, p.imagenes, p.archivo_url, p.activo,
+                           p.unidad_medida, p.imagen_url, p.imagenes, p.archivo_url, p.colores, p.activo,
                            p.es_vendible, p.es_insumo, p.horas_impresion, p.peso_gramos,
                            p.alto_mm, p.ancho_mm, p.profundidad_mm, p.dimensiones,
                            p.created_at, p.updated_at,
@@ -304,6 +304,7 @@ class ProductoRepository
             'estado_stock'  => 'string',
             'es_destacado'  => 'int',
             'archivo_url'   => 'string',
+            'colores'       => 'json',
         ];
 
         foreach ($map as $col => $type) {
