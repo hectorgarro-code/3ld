@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Store,
@@ -18,6 +18,9 @@ import {
   CheckSquare,
   Square,
   Sliders,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
 } from 'lucide-react'
 import api from '@/lib/api'
 import { ProductoFormModal } from '@/components/productos/ProductoFormModal'
@@ -28,6 +31,7 @@ export interface AdminProduct {
   variante?: string
   sku?: string
   descripcion?: string
+  precio_costo?: number
   precio_venta: number
   precio_oferta?: number | null
   stock_actual: number
@@ -115,6 +119,53 @@ export default function TiendaAdminPage() {
     setTimeout(() => setToast(null), 3000)
   }
 
+  // Sorting State
+  const [sortField, setSortField] = useState<keyof AdminProduct | null>(null)
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
+
+  // Inline Price Editing State
+  const [editingCell, setEditingCell] = useState<{
+    id: number
+    field: 'precio_costo' | 'precio_venta' | 'precio_oferta'
+    value: string
+  } | null>(null)
+
+  const handleSort = (field: keyof AdminProduct) => {
+    if (sortField === field) {
+      setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'))
+    } else {
+      setSortField(field)
+      setSortOrder('asc')
+    }
+  }
+
+  const handleCellSave = async () => {
+    if (!editingCell) return
+    const { id, field, value } = editingCell
+    setEditingCell(null)
+
+    const rawVal = value.trim()
+    const numValue = rawVal === '' ? (field === 'precio_oferta' ? null : 0) : parseFloat(rawVal) || 0
+
+    try {
+      await api.put(`/productos/${id}`, {
+        [field]: numValue,
+      })
+      setProducts((prev) =>
+        prev.map((p) => (p.id === id ? { ...p, [field]: numValue } : p))
+      )
+      const fieldLabel =
+        field === 'precio_costo'
+          ? 'Costo'
+          : field === 'precio_venta'
+          ? 'Precio de venta'
+          : 'Precio de oferta'
+      showToast(`${fieldLabel} actualizado correctamente`)
+    } catch (e) {
+      showToast('Error al actualizar el precio', 'error')
+    }
+  }
+
   const filteredProducts = products.filter((p) => {
     if (filterTienda === 'published' && !p.es_tienda) return false
     if (filterTienda === 'hidden' && p.es_tienda) return false
@@ -129,16 +180,34 @@ export default function TiendaAdminPage() {
     return true
   })
 
+  const sortedProducts = useMemo(() => {
+    if (!sortField) return filteredProducts
+    return [...filteredProducts].sort((a, b) => {
+      let valA: any = a[sortField]
+      let valB: any = b[sortField]
+
+      if (typeof valA === 'string') valA = valA.toLowerCase()
+      if (typeof valB === 'string') valB = valB.toLowerCase()
+
+      if (valA === undefined || valA === null) valA = ''
+      if (valB === undefined || valB === null) valB = ''
+
+      if (valA < valB) return sortOrder === 'asc' ? -1 : 1
+      if (valA > valB) return sortOrder === 'asc' ? 1 : -1
+      return 0
+    })
+  }, [filteredProducts, sortField, sortOrder])
+
   // Selection Logic
   const allFilteredSelected =
-    filteredProducts.length > 0 && filteredProducts.every((p) => selectedIds.includes(p.id))
+    sortedProducts.length > 0 && sortedProducts.every((p) => selectedIds.includes(p.id))
 
   const toggleSelectAllFiltered = () => {
     if (allFilteredSelected) {
-      const filteredSet = new Set(filteredProducts.map((p) => p.id))
+      const filteredSet = new Set(sortedProducts.map((p) => p.id))
       setSelectedIds((prev) => prev.filter((id) => !filteredSet.has(id)))
     } else {
-      const filteredSet = new Set(filteredProducts.map((p) => p.id))
+      const filteredSet = new Set(sortedProducts.map((p) => p.id))
       setSelectedIds((prev) => Array.from(new Set([...prev, ...filteredSet])))
     }
   }
@@ -406,7 +475,7 @@ export default function TiendaAdminPage() {
       <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
-            <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-200 uppercase tracking-wider">
+            <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-200 uppercase tracking-wider select-none">
               <tr>
                 <th className="p-4 w-10">
                   <input
@@ -416,24 +485,88 @@ export default function TiendaAdminPage() {
                     className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary cursor-pointer"
                   />
                 </th>
-                <th className="p-4">Producto</th>
-                <th className="p-4">Categoría / Subcat</th>
-                <th className="p-4">Precio Venta</th>
-                <th className="p-4">Precio Oferta</th>
-                <th className="p-4">Stock</th>
-                <th className="p-4">Estado Tienda</th>
+                <th onClick={() => handleSort('nombre')} className="p-4 cursor-pointer hover:bg-slate-100 transition">
+                  <div className="flex items-center gap-1.5">
+                    <span>Producto</span>
+                    {sortField === 'nombre' ? (
+                      sortOrder === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-primary" /> : <ArrowDown className="w-3.5 h-3.5 text-primary" />
+                    ) : (
+                      <ArrowUpDown className="w-3 h-3 text-slate-400 opacity-60 hover:opacity-100" />
+                    )}
+                  </div>
+                </th>
+                <th onClick={() => handleSort('categoria_nombre')} className="p-4 cursor-pointer hover:bg-slate-100 transition">
+                  <div className="flex items-center gap-1.5">
+                    <span>Categoría / Subcat</span>
+                    {sortField === 'categoria_nombre' ? (
+                      sortOrder === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-primary" /> : <ArrowDown className="w-3.5 h-3.5 text-primary" />
+                    ) : (
+                      <ArrowUpDown className="w-3 h-3 text-slate-400 opacity-60 hover:opacity-100" />
+                    )}
+                  </div>
+                </th>
+                <th onClick={() => handleSort('precio_costo')} className="p-4 cursor-pointer hover:bg-slate-100 transition">
+                  <div className="flex items-center gap-1.5">
+                    <span>Costo</span>
+                    {sortField === 'precio_costo' ? (
+                      sortOrder === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-primary" /> : <ArrowDown className="w-3.5 h-3.5 text-primary" />
+                    ) : (
+                      <ArrowUpDown className="w-3 h-3 text-slate-400 opacity-60 hover:opacity-100" />
+                    )}
+                  </div>
+                </th>
+                <th onClick={() => handleSort('precio_venta')} className="p-4 cursor-pointer hover:bg-slate-100 transition">
+                  <div className="flex items-center gap-1.5">
+                    <span>Precio Venta</span>
+                    {sortField === 'precio_venta' ? (
+                      sortOrder === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-primary" /> : <ArrowDown className="w-3.5 h-3.5 text-primary" />
+                    ) : (
+                      <ArrowUpDown className="w-3 h-3 text-slate-400 opacity-60 hover:opacity-100" />
+                    )}
+                  </div>
+                </th>
+                <th onClick={() => handleSort('precio_oferta')} className="p-4 cursor-pointer hover:bg-slate-100 transition">
+                  <div className="flex items-center gap-1.5">
+                    <span>Precio Oferta</span>
+                    {sortField === 'precio_oferta' ? (
+                      sortOrder === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-primary" /> : <ArrowDown className="w-3.5 h-3.5 text-primary" />
+                    ) : (
+                      <ArrowUpDown className="w-3 h-3 text-slate-400 opacity-60 hover:opacity-100" />
+                    )}
+                  </div>
+                </th>
+                <th onClick={() => handleSort('stock_actual')} className="p-4 cursor-pointer hover:bg-slate-100 transition">
+                  <div className="flex items-center gap-1.5">
+                    <span>Stock</span>
+                    {sortField === 'stock_actual' ? (
+                      sortOrder === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-primary" /> : <ArrowDown className="w-3.5 h-3.5 text-primary" />
+                    ) : (
+                      <ArrowUpDown className="w-3 h-3 text-slate-400 opacity-60 hover:opacity-100" />
+                    )}
+                  </div>
+                </th>
+                <th onClick={() => handleSort('es_tienda')} className="p-4 cursor-pointer hover:bg-slate-100 transition">
+                  <div className="flex items-center gap-1.5">
+                    <span>Estado Tienda</span>
+                    {sortField === 'es_tienda' ? (
+                      sortOrder === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-primary" /> : <ArrowDown className="w-3.5 h-3.5 text-primary" />
+                    ) : (
+                      <ArrowUpDown className="w-3 h-3 text-slate-400 opacity-60 hover:opacity-100" />
+                    )}
+                  </div>
+                </th>
                 <th className="p-4 text-right">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-medium">
-              {filteredProducts.length === 0 ? (
+              {sortedProducts.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="p-8 text-center text-slate-400">
+                  <td colSpan={9} className="p-8 text-center text-slate-400">
                     No se encontraron productos
                   </td>
                 </tr>
               ) : (
-                filteredProducts.map((p) => {
+                sortedProducts.map((p) => {
                   const isSelected = selectedIds.includes(p.id)
                   return (
                     <tr
@@ -477,18 +610,103 @@ export default function TiendaAdminPage() {
                           {p.subcategoria || 'Sin subcat'}
                         </p>
                       </td>
-                      <td className="p-4 font-bold text-slate-900">
-                        ${p.precio_venta?.toLocaleString('es-AR')}
-                      </td>
-                      <td className="p-4">
-                        {p.precio_oferta ? (
-                          <span className="font-bold text-emerald-600">
-                            ${p.precio_oferta.toLocaleString('es-AR')}
-                          </span>
+
+                      {/* Costo (Doble Clic para Editar) */}
+                      <td
+                        className="p-4 font-bold text-slate-700 cursor-pointer hover:bg-amber-50/80 transition group relative"
+                        onDoubleClick={() => setEditingCell({ id: p.id, field: 'precio_costo', value: p.precio_costo ? String(p.precio_costo) : '' })}
+                        title="Doble clic para editar costo"
+                      >
+                        {editingCell?.id === p.id && editingCell?.field === 'precio_costo' ? (
+                          <div onClick={(e) => e.stopPropagation()}>
+                            <input
+                              type="number"
+                              step="any"
+                              value={editingCell.value}
+                              onChange={(e) => setEditingCell({ ...editingCell, value: e.target.value })}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleCellSave()
+                                if (e.key === 'Escape') setEditingCell(null)
+                              }}
+                              onBlur={handleCellSave}
+                              autoFocus
+                              className="w-24 px-2 py-1 bg-white border-2 border-amber-500 rounded-lg text-xs font-bold text-slate-900 shadow-sm focus:outline-none"
+                            />
+                          </div>
                         ) : (
-                          <span className="text-slate-300">-</span>
+                          <div className="flex items-center gap-1">
+                            <span>${(p.precio_costo || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                            <Edit2 className="w-3 h-3 text-slate-300 opacity-0 group-hover:opacity-100 transition" />
+                          </div>
                         )}
                       </td>
+
+                      {/* Precio Venta (Doble Clic para Editar) */}
+                      <td
+                        className="p-4 font-bold text-slate-900 cursor-pointer hover:bg-cyan-50/80 transition group relative"
+                        onDoubleClick={() => setEditingCell({ id: p.id, field: 'precio_venta', value: p.precio_venta ? String(p.precio_venta) : '' })}
+                        title="Doble clic para editar precio de venta"
+                      >
+                        {editingCell?.id === p.id && editingCell?.field === 'precio_venta' ? (
+                          <div onClick={(e) => e.stopPropagation()}>
+                            <input
+                              type="number"
+                              step="any"
+                              value={editingCell.value}
+                              onChange={(e) => setEditingCell({ ...editingCell, value: e.target.value })}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleCellSave()
+                                if (e.key === 'Escape') setEditingCell(null)
+                              }}
+                              onBlur={handleCellSave}
+                              autoFocus
+                              className="w-24 px-2 py-1 bg-white border-2 border-cyan-500 rounded-lg text-xs font-bold text-slate-900 shadow-sm focus:outline-none"
+                            />
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1">
+                            <span>${(p.precio_venta || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                            <Edit2 className="w-3 h-3 text-slate-300 opacity-0 group-hover:opacity-100 transition" />
+                          </div>
+                        )}
+                      </td>
+
+                      {/* Precio Oferta (Doble Clic para Editar) */}
+                      <td
+                        className="p-4 cursor-pointer hover:bg-emerald-50/80 transition group relative"
+                        onDoubleClick={() => setEditingCell({ id: p.id, field: 'precio_oferta', value: p.precio_oferta ? String(p.precio_oferta) : '' })}
+                        title="Doble clic para editar precio de oferta"
+                      >
+                        {editingCell?.id === p.id && editingCell?.field === 'precio_oferta' ? (
+                          <div onClick={(e) => e.stopPropagation()}>
+                            <input
+                              type="number"
+                              step="any"
+                              value={editingCell.value}
+                              placeholder="Sin oferta"
+                              onChange={(e) => setEditingCell({ ...editingCell, value: e.target.value })}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleCellSave()
+                                if (e.key === 'Escape') setEditingCell(null)
+                              }}
+                              onBlur={handleCellSave}
+                              autoFocus
+                              className="w-24 px-2 py-1 bg-white border-2 border-emerald-500 rounded-lg text-xs font-bold text-slate-900 shadow-sm focus:outline-none"
+                            />
+                          </div>
+                        ) : p.precio_oferta ? (
+                          <div className="flex items-center gap-1 font-bold text-emerald-600">
+                            <span>${p.precio_oferta.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                            <Edit2 className="w-3 h-3 text-slate-300 opacity-0 group-hover:opacity-100 transition" />
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1 text-slate-300">
+                            <span>-</span>
+                            <Edit2 className="w-3 h-3 text-slate-300 opacity-0 group-hover:opacity-100 transition" />
+                          </div>
+                        )}
+                      </td>
+
                       <td className="p-4">
                         <span className="font-extrabold text-slate-800">{p.stock_actual} un</span>
                       </td>
