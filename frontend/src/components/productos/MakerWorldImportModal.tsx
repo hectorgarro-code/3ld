@@ -53,7 +53,7 @@ export function MakerWorldImportModal({ isOpen, onClose, onSuccess }: Props) {
   const [altoMm, setAltoMm] = useState<number>(0)
   const [anchoMm, setAnchoMm] = useState<number>(0)
   const [profundidadMm, setProfundidadMm] = useState<number>(0)
-  const [stockActual, setStockActual] = useState<number>(5)
+  const [stockActual, setStockActual] = useState<number>(0)
   const [stockMinimo, setStockMinimo] = useState<number>(1)
   const [esTienda, setEsTienda] = useState<boolean>(true)
   const [archivoUrl, setArchivoUrl] = useState<string>('')
@@ -89,7 +89,6 @@ export function MakerWorldImportModal({ isOpen, onClose, onSuccess }: Props) {
         setImportedData(d)
         setTitle(d.title || '')
         setDescription(d.description || '')
-        setPrecioVenta(d.suggested_price || 8500)
         
         const h = parseFloat(d.horas_impresion || 0)
         const g = parseInt(d.peso_gramos || 0)
@@ -98,12 +97,15 @@ export function MakerWorldImportModal({ isOpen, onClose, onSuccess }: Props) {
 
         const savedFilamento = parseFloat(localStorage.getItem('costo_filamento_kg_default') || '15000')
         const savedHora = parseFloat(localStorage.getItem('costo_hora_maquina_default') || '500')
+        let calcCost = 0
         if (g > 0 || h > 0) {
-          const calcCost = Math.round((g / 1000) * savedFilamento + h * savedHora)
-          if (calcCost > 0) setPrecioCosto(calcCost)
-        } else {
-          setPrecioCosto(Math.round((d.suggested_price || 8500) * 0.35))
+          calcCost = Math.round((g / 1000) * savedFilamento + h * savedHora)
+        } else if (d.suggested_price) {
+          calcCost = Math.round(d.suggested_price * 0.5)
         }
+
+        setPrecioCosto(calcCost)
+        setPrecioVenta(calcCost > 0 ? Math.round(calcCost * 2) : (d.suggested_price || 0))
 
         setArchivoUrl(d.source_url || url.trim())
         if (d.images && d.images.length > 0) {
@@ -386,7 +388,11 @@ export function MakerWorldImportModal({ isOpen, onClose, onSuccess }: Props) {
                     <input
                       type="number"
                       value={precioCosto}
-                      onChange={(e) => setPrecioCosto(parseFloat(e.target.value) || 0)}
+                      onChange={(e) => {
+                        const val = parseFloat(e.target.value) || 0
+                        setPrecioCosto(val)
+                        setPrecioVenta(Math.round(val * 2))
+                      }}
                       className="w-full p-2 bg-white border border-slate-200 rounded-xl font-bold text-slate-900"
                     />
                   </div>

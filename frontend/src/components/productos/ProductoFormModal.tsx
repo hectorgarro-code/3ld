@@ -101,7 +101,7 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
       alto_mm: 0,
       ancho_mm: 0,
       profundidad_mm: 0,
-      stock_actual: 1,
+      stock_actual: 0,
       stock_minimo: 1,
       descripcion: '',
       archivo_url: '',
@@ -134,7 +134,7 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
         alto_mm: Number(p.alto_mm) || 0,
         ancho_mm: Number(p.ancho_mm) || 0,
         profundidad_mm: Number(p.profundidad_mm) || 0,
-        stock_actual: isDuplicate ? 1 : (Number(producto.stock_actual) || 0),
+        stock_actual: isDuplicate ? 0 : (Number(producto.stock_actual) || 0),
         stock_minimo: Number(producto.stock_minimo) || 0,
         descripcion: producto.descripcion || '',
         archivo_url: p.archivo_url || '',
@@ -189,7 +189,7 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
         alto_mm: 0,
         ancho_mm: 0,
         profundidad_mm: 0,
-        stock_actual: 1,
+        stock_actual: 0,
         stock_minimo: 1,
         descripcion: '',
         archivo_url: '',
@@ -219,6 +219,7 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
       const savedHora = parseFloat(localStorage.getItem('costo_hora_maquina_default') || '500')
       const autoCost = Math.round((gramos / 1000) * savedFil + horas * savedHora)
       setValue('precio_costo', autoCost)
+      setValue('precio_venta', Math.round(autoCost * 2))
     }
   }
 
@@ -607,6 +608,11 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
                     type="number"
                     step="0.01"
                     {...register('precio_costo', { valueAsNumber: true })}
+                    onChange={(e) => {
+                      const cost = parseFloat(e.target.value) || 0
+                      setValue('precio_costo', cost)
+                      setValue('precio_venta', Math.round(cost * 2))
+                    }}
                     className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition-colors focus:border-primary focus:bg-white"
                   />
                 </div>
