@@ -269,13 +269,6 @@ export default function ProductosPage() {
         </div>
         <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
           <button
-            onClick={() => setIsCategoriasModalOpen(true)}
-            className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs font-black text-slate-700 card-shadow transition-all hover:bg-slate-50 hover:border-[#6B66C8]/40"
-          >
-            <Tags className="h-4 w-4 text-[#6B66C8]" />
-            <span>Categorías</span>
-          </button>
-          <button
             onClick={() => setIsMakerWorldModalOpen(true)}
             className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-600 to-cyan-500 px-4 py-2.5 text-xs font-black text-white shadow-md transition-all hover:brightness-110"
           >
@@ -293,47 +286,26 @@ export default function ProductosPage() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        {/* Type filter */}
-        <div className="flex gap-2 overflow-x-auto pb-1 flex-1">
-          {TIPO_OPTIONS.map((t) => (
-            <button
-              key={t.value}
-              onClick={() => setTipo(t.value as ProductoTipo | 'todos')}
-              className={cn(
-                'flex-shrink-0 rounded-full px-3 py-1.5 text-xs font-bold transition-all',
-                tipo === t.value
-                  ? 'bg-primary/20 text-primary ring-1 ring-primary/50'
-                  : 'bg-white card-shadow text-slate-500 hover:text-slate-800'
-              )}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Categoria filter */}
-        <div className="flex items-center gap-2">
-          {categorias && categorias.length > 0 && (
-            <select
-              value={categoriaId ?? ''}
-              onChange={(e) => setCategoriaId(e.target.value ? Number(e.target.value) : undefined)}
-              className="w-full sm:w-48 rounded-xl border border-slate-100 bg-white card-shadow px-4 py-2.5 text-sm text-slate-800 outline-none focus:border-primary"
-            >
-              <option value="">Todas las categorías</option>
-              {categorias.map((c) => (
-                <option key={c.id} value={c.id}>{c.nombre}</option>
-              ))}
-            </select>
-          )}
-          <button
-            onClick={() => setIsCategoriasModalOpen(true)}
-            className="p-2.5 rounded-xl border border-slate-100 bg-white text-slate-500 hover:text-[#6B66C8] hover:border-[#6B66C8]/40 transition card-shadow shrink-0"
-            title="Gestionar Categorías"
+      <div className="flex items-center justify-end gap-2">
+        {categorias && categorias.length > 0 && (
+          <select
+            value={categoriaId ?? ''}
+            onChange={(e) => setCategoriaId(e.target.value ? Number(e.target.value) : undefined)}
+            className="w-full sm:w-48 rounded-xl border border-slate-100 bg-white card-shadow px-4 py-2.5 text-sm text-slate-800 outline-none focus:border-primary"
           >
-            <Tags className="h-4 w-4" />
-          </button>
-        </div>
+            <option value="">Todas las categorías</option>
+            {categorias.map((c) => (
+              <option key={c.id} value={c.id}>{c.nombre}</option>
+            ))}
+          </select>
+        )}
+        <button
+          onClick={() => setIsCategoriasModalOpen(true)}
+          className="p-2.5 rounded-xl border border-slate-100 bg-white text-slate-500 hover:text-[#6B66C8] hover:border-[#6B66C8]/40 transition card-shadow shrink-0"
+          title="Gestionar Categorías"
+        >
+          <Tags className="h-4 w-4" />
+        </button>
       </div>
 
       {/* Grid */}

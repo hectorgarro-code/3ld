@@ -400,6 +400,24 @@ try {
             }
         }
 
+        // K. Verificar Vista: v_filamentos
+        $viewsStmt = $db->query("SHOW FULL TABLES WHERE Table_type = 'VIEW'");
+        $existingViews = $viewsStmt ? $viewsStmt->fetchAll(PDO::FETCH_COLUMN) : [];
+        if (!in_array('v_filamentos', $existingViews) && !in_array('v_filamentos', $existingTables)) {
+            $diagnostics[] = [
+                'component' => 'Vista `v_filamentos`',
+                'status' => 'ERROR',
+                'details' => 'La vista v_filamentos no existe en la base de datos.',
+                'fix_sql' => "CREATE OR REPLACE VIEW v_filamentos AS SELECT *, ROUND(precio_compra / 1000, 4) AS costo_por_gramo FROM filamentos WHERE activo = 1;"
+            ];
+        } else {
+            $diagnostics[] = [
+                'component' => 'Vista `v_filamentos`',
+                'status' => 'OK',
+                'details' => 'La vista v_filamentos existe correctamente.'
+            ];
+        }
+
         // Recolectar SQLs pendientes
         foreach ($diagnostics as $d) {
             if ($d['status'] === 'ERROR' && isset($d['fix_sql'])) {

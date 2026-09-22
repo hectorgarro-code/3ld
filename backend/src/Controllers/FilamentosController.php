@@ -42,12 +42,12 @@ class FilamentosController
                 $binds   = [$like, $like];
             }
 
-            $stmtCount = $db->prepare("SELECT COUNT(*) FROM v_filamentos f {$where}");
+            $stmtCount = $db->prepare("SELECT COUNT(*) FROM filamentos f {$where}");
             $stmtCount->execute($binds);
             $total = (int) $stmtCount->fetchColumn();
 
-            $sql = "SELECT f.*
-                    FROM v_filamentos f
+            $sql = "SELECT f.*, ROUND(f.precio_compra / 1000, 4) AS costo_por_gramo
+                    FROM filamentos f
                     {$where}
                     ORDER BY f.nombre ASC
                     LIMIT {$perPage} OFFSET {$offset}";
@@ -71,7 +71,7 @@ class FilamentosController
             $db = (new Database($this->config))->getConnection();
             $id = (int) $args['id'];
 
-            $stmt = $db->prepare("SELECT * FROM v_filamentos WHERE id = ? AND activo = 1");
+            $stmt = $db->prepare("SELECT *, ROUND(precio_compra / 1000, 4) AS costo_por_gramo FROM filamentos WHERE id = ? AND activo = 1");
             $stmt->execute([$id]);
             $filamento = $stmt->fetch();
 
@@ -122,7 +122,7 @@ class FilamentosController
             ]);
 
             $newId = (int) $db->lastInsertId();
-            $stmt2 = $db->prepare("SELECT * FROM v_filamentos WHERE id = ?");
+            $stmt2 = $db->prepare("SELECT *, ROUND(precio_compra / 1000, 4) AS costo_por_gramo FROM filamentos WHERE id = ?");
             $stmt2->execute([$newId]);
 
             return Response::success($stmt2->fetch(), 201);
@@ -182,7 +182,7 @@ class FilamentosController
             $db->prepare("UPDATE filamentos SET " . implode(', ', $fields) . " WHERE id = ?")
                ->execute($binds);
 
-            $stmt = $db->prepare("SELECT * FROM v_filamentos WHERE id = ?");
+            $stmt = $db->prepare("SELECT *, ROUND(precio_compra / 1000, 4) AS costo_por_gramo FROM filamentos WHERE id = ?");
             $stmt->execute([$id]);
 
             return Response::success($stmt->fetch());
@@ -246,7 +246,7 @@ class FilamentosController
                 "UPDATE filamentos SET stock_rollos = ?, updated_at = NOW() WHERE id = ?"
             )->execute([$nuevoStock, $id]);
 
-            $stmtNew = $db->prepare("SELECT * FROM v_filamentos WHERE id = ?");
+            $stmtNew = $db->prepare("SELECT *, ROUND(precio_compra / 1000, 4) AS costo_por_gramo FROM filamentos WHERE id = ?");
             $stmtNew->execute([$id]);
             $updated = $stmtNew->fetch();
 
