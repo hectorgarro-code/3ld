@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useProductos, useCategorias, useDeleteProducto, useUpdateProducto } from '@/hooks/useProductos'
 import { formatARS } from '@/lib/cost-calculator'
 import { cn } from '@/lib/utils'
-import { Search, AlertTriangle, Package, Plus, Minus, Pencil, Copy, Trash2, Loader2, Bot, Sparkles, Tags, Download, ExternalLink, ChevronLeft, ChevronRight, Images } from 'lucide-react'
+import { Search, AlertTriangle, Package, Plus, Minus, Pencil, Copy, Trash2, Loader2, Bot, Sparkles, Tags, Download, ExternalLink, ChevronLeft, ChevronRight, Images, Printer } from 'lucide-react'
 import type { Producto, ProductoTipo } from '@/types'
 import { ProductoFormModal } from '@/components/productos/ProductoFormModal'
 import { MakerWorldImportModal } from '@/components/productos/MakerWorldImportModal'
@@ -269,6 +269,14 @@ export default function ProductosPage() {
         </div>
         <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
           <button
+            onClick={() => window.print()}
+            className="flex items-center justify-center gap-2 rounded-xl bg-slate-900 hover:bg-slate-800 px-4 py-2.5 text-xs font-black text-white shadow-md transition-all"
+            title="Imprimir / Exportar Informe de Productos y Precios"
+          >
+            <Printer className="h-4 w-4 text-cyan-400" />
+            <span>Imprimir Informe</span>
+          </button>
+          <button
             onClick={() => setIsMakerWorldModalOpen(true)}
             className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-600 to-cyan-500 px-4 py-2.5 text-xs font-black text-white shadow-md transition-all hover:brightness-110"
           >
@@ -352,6 +360,100 @@ export default function ProductosPage() {
         isOpen={isCategoriasModalOpen}
         onClose={() => setIsCategoriasModalOpen(false)}
       />
+
+      {/* Estilos para impresión del Informe de Productos */}
+      <style>{`
+        @media print {
+          @page {
+            size: A4 portrait;
+            margin: 8mm;
+          }
+          body {
+            background: white !important;
+            color: black !important;
+          }
+          .print\\:hidden, header, nav, aside, footer {
+            display: none !important;
+          }
+          .print\\:block {
+            display: block !important;
+          }
+        }
+      `}</style>
+
+      {/* Contenedor Imprimible del Informe de Productos y Precios */}
+      <div className="hidden print:block p-4 bg-white text-slate-900 font-sans">
+        <div className="border-b-2 border-slate-900 pb-3 mb-4 flex items-start justify-between">
+          <div>
+            <h1 className="text-xl font-black text-slate-900 uppercase">3LD IMPRESIÓN 3D - INFORME DE PRODUCTOS, PRECIOS Y COSTOS</h1>
+            <p className="text-xs text-slate-600 font-bold">Listado General con Especificaciones de Variantes / Piezas</p>
+          </div>
+          <div className="text-right text-[10px] text-slate-500">
+            <p>Fecha: {new Date().toLocaleDateString('es-AR')}</p>
+            <p>Total artículos: {productosData?.data?.length || 0}</p>
+          </div>
+        </div>
+
+        <table className="w-full text-[11px] border-collapse border border-slate-300">
+          <thead>
+            <tr className="bg-slate-100 text-slate-900 font-bold border-b border-slate-300 text-left">
+              <th className="p-2 border border-slate-300">Producto / Pieza</th>
+              <th className="p-2 border border-slate-300">Categoría</th>
+              <th className="p-2 border border-slate-300">Medidas</th>
+              <th className="p-2 border border-slate-300 text-right">Costo ($)</th>
+              <th className="p-2 border border-slate-300 text-right">Venta ($)</th>
+              <th className="p-2 border border-slate-300 text-center">Stock</th>
+            </tr>
+          </thead>
+          <tbody>
+            {productosData?.data?.map((p) => {
+              let parsedPiezas: any[] = []
+              if (Array.isArray(p.piezas)) {
+                parsedPiezas = p.piezas
+              } else if (typeof p.piezas === 'string' && (p.piezas as string).trim()) {
+                try { parsedPiezas = JSON.parse(p.piezas as string) } catch (e) {}
+              }
+              const dimStr = (p.alto_mm || p.ancho_mm || p.profundidad_mm)
+                ? `${p.alto_mm || 0}x${p.ancho_mm || 0}x${p.profundidad_mm || 0} mm`
+                : (p.dimensiones || 'Sin medidas')
+
+              return (
+                <React.Fragment key={p.id}>
+                  <tr className="border-b border-slate-300 bg-white font-semibold">
+                    <td className="p-2 border border-slate-300 font-bold text-slate-900">
+                      {p.nombre} {p.variante ? `(${p.variante})` : ''}
+                      {p.sku && <span className="text-[9px] text-slate-500 block">SKU: {p.sku}</span>}
+                    </td>
+                    <td className="p-2 border border-slate-300">{p.categoria_nombre || p.categoria?.nombre || '-'}</td>
+                    <td className="p-2 border border-slate-300">{dimStr}</td>
+                    <td className="p-2 border border-slate-300 text-right">${Number(p.precio_costo || 0).toLocaleString('es-AR')}</td>
+                    <td className="p-2 border border-slate-300 text-right font-black">${Number(p.precio_venta || 0).toLocaleString('es-AR')}</td>
+                    <td className="p-2 border border-slate-300 text-center">{p.stock_actual}</td>
+                  </tr>
+                  {parsedPiezas.length > 0 && (
+                    <tr className="bg-slate-50/90 border-b border-slate-300">
+                      <td colSpan={6} className="p-2 pl-6 border border-slate-300 text-[10px]">
+                        <p className="font-extrabold text-indigo-900 uppercase mb-1">Desglose de Componentes / Piezas:</p>
+                        <div className="space-y-1">
+                          {parsedPiezas.map((pieza: any, idx: number) => (
+                            <div key={idx} className="flex items-center justify-between border-b border-slate-200/60 pb-0.5 last:border-0">
+                              <span>• <strong>{pieza.nombre}</strong> {pieza.medidas ? `[Medidas: ${pieza.medidas}]` : ''}</span>
+                              <div className="space-x-3 text-right">
+                                <span className="text-slate-500">Costo: ${Number(pieza.precio_costo || 0).toLocaleString('es-AR')}</span>
+                                <span className="font-bold text-indigo-950">Venta: ${Number(pieza.precio || 0).toLocaleString('es-AR')}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }

@@ -600,59 +600,92 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
                   </p>
 
                   {piezas.length > 0 && (
-                    <div className="space-y-2">
+                    <div className="space-y-2.5">
                       {piezas.map((pieza, idx) => (
-                        <div key={pieza.id || idx} className="flex flex-wrap sm:flex-nowrap items-center gap-2 bg-white p-2.5 rounded-xl border border-indigo-100 shadow-2xs">
-                          {pieza.imagen_url && (
-                            <img src={pieza.imagen_url} alt={pieza.nombre} className="w-10 h-10 object-cover rounded-lg border border-slate-200 shrink-0" />
-                          )}
-                          <div className="flex-1 min-w-[140px]">
+                        <div key={pieza.id || idx} className="p-3 bg-white rounded-xl border border-indigo-100 shadow-2xs space-y-2">
+                          <div className="flex items-center gap-2">
+                            {pieza.imagen_url && (
+                              <img src={pieza.imagen_url} alt={pieza.nombre} className="w-9 h-9 object-cover rounded-lg border border-slate-200 shrink-0" />
+                            )}
                             <input
                               type="text"
-                              placeholder="Nombre de la pieza"
+                              placeholder="Nombre de la pieza / componente"
                               value={pieza.nombre}
                               onChange={(e) => {
                                 const copy = [...piezas]
                                 copy[idx].nombre = e.target.value
                                 setPiezas(copy)
                               }}
-                              className="w-full text-xs font-bold text-slate-800 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 outline-none focus:border-indigo-500"
+                              className="flex-1 text-xs font-bold text-slate-800 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 outline-none focus:border-indigo-500"
                             />
+                            <button
+                              type="button"
+                              onClick={() => setPiezas(piezas.filter((_, i) => i !== idx))}
+                              className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors shrink-0"
+                              title="Eliminar pieza"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
                           </div>
-                          <div className="w-24 shrink-0">
-                            <input
-                              type="number"
-                              placeholder="Precio ($)"
-                              value={pieza.precio}
-                              onChange={(e) => {
-                                const copy = [...piezas]
-                                copy[idx].precio = parseFloat(e.target.value) || 0
-                                setPiezas(copy)
-                              }}
-                              className="w-full text-xs font-bold text-slate-800 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 outline-none focus:border-indigo-500"
-                            />
+
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                            <div>
+                              <label className="block text-[10px] font-bold text-slate-500 mb-0.5">Precio Venta ($)</label>
+                              <input
+                                type="number"
+                                placeholder="Venta ($)"
+                                value={pieza.precio}
+                                onChange={(e) => {
+                                  const copy = [...piezas]
+                                  copy[idx].precio = parseFloat(e.target.value) || 0
+                                  setPiezas(copy)
+                                }}
+                                className="w-full text-xs font-bold text-slate-800 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 outline-none focus:border-indigo-500"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[10px] font-bold text-slate-500 mb-0.5">Costo ($)</label>
+                              <input
+                                type="number"
+                                placeholder="Costo ($)"
+                                value={pieza.precio_costo ?? 0}
+                                onChange={(e) => {
+                                  const copy = [...piezas]
+                                  copy[idx].precio_costo = parseFloat(e.target.value) || 0
+                                  setPiezas(copy)
+                                }}
+                                className="w-full text-xs font-bold text-slate-800 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 outline-none focus:border-indigo-500"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[10px] font-bold text-slate-500 mb-0.5">Medidas / Dimensiones</label>
+                              <input
+                                type="text"
+                                placeholder="Ej: 12 x 8 cm"
+                                value={pieza.medidas || ''}
+                                onChange={(e) => {
+                                  const copy = [...piezas]
+                                  copy[idx].medidas = e.target.value
+                                  setPiezas(copy)
+                                }}
+                                className="w-full text-xs font-bold text-slate-800 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 outline-none focus:border-indigo-500"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[10px] font-bold text-slate-500 mb-0.5">Foto URL (Opcional)</label>
+                              <input
+                                type="text"
+                                placeholder="https://..."
+                                value={pieza.imagen_url || ''}
+                                onChange={(e) => {
+                                  const copy = [...piezas]
+                                  copy[idx].imagen_url = e.target.value
+                                  setPiezas(copy)
+                                }}
+                                className="w-full text-[11px] font-medium text-slate-600 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 outline-none focus:border-indigo-500"
+                              />
+                            </div>
                           </div>
-                          <div className="flex-1 min-w-[120px]">
-                            <input
-                              type="text"
-                              placeholder="URL Foto (opcional)"
-                              value={pieza.imagen_url || ''}
-                              onChange={(e) => {
-                                const copy = [...piezas]
-                                copy[idx].imagen_url = e.target.value
-                                setPiezas(copy)
-                              }}
-                              className="w-full text-[11px] font-medium text-slate-600 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 outline-none focus:border-indigo-500"
-                            />
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => setPiezas(piezas.filter((_, i) => i !== idx))}
-                            className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors shrink-0"
-                            title="Eliminar pieza"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
                         </div>
                       ))}
                     </div>
@@ -665,6 +698,8 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
                         id: 'pieza_' + Math.random().toString(36).substring(2, 7),
                         nombre: '',
                         precio: 0,
+                        precio_costo: 0,
+                        medidas: '',
                         imagen_url: ''
                       }
                       setPiezas([...piezas, newPieza])

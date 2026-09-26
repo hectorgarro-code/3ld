@@ -15,6 +15,8 @@ export interface ProductoPieza {
   id: string
   nombre: string
   precio: number
+  precio_costo?: number
+  medidas?: string
   imagen_url?: string
 }
 

@@ -50,7 +50,7 @@ export interface StoreProduct {
   image: string;
   images?: string[];
   colors?: (string | { name: string; hex: string })[];
-  piezas?: { id: string; nombre: string; precio: number; imagen_url?: string }[];
+  piezas?: { id: string; nombre: string; precio: number; precio_costo?: number; medidas?: string; imagen_url?: string }[];
   description: string;
   weightGrams?: number;
   size?: string;
@@ -1343,7 +1343,12 @@ export default function TiendaPage() {
                             {pieza.imagen_url && (
                               <img src={pieza.imagen_url} alt={pieza.nombre} className="w-8 h-8 object-cover rounded-lg border border-slate-200 shrink-0" />
                             )}
-                            <span className="text-xs truncate">{pieza.nombre}</span>
+                            <div className="flex flex-col min-w-0">
+                              <span className="text-xs truncate">{pieza.nombre}</span>
+                              {pieza.medidas && (
+                                <span className="text-[10px] text-slate-400 font-semibold">📏 Medidas: {pieza.medidas}</span>
+                              )}
+                            </div>
                           </div>
                           <span className="text-xs font-black text-indigo-700 shrink-0 ml-2">
                             ${Number(pieza.precio).toLocaleString('es-AR')}
@@ -1694,6 +1699,17 @@ export default function TiendaPage() {
                       <p className="text-[9px] font-semibold text-slate-500 mt-1.5">
                         📏 Medidas: {p.size}
                       </p>
+                    )}
+                    {p.piezas && p.piezas.length > 0 && (
+                      <div className="mt-2 pt-1.5 border-t border-slate-100 text-[9px] text-slate-700 space-y-0.5">
+                        <p className="font-extrabold text-indigo-900 uppercase">🧩 Piezas incluidas / opcionales:</p>
+                        {p.piezas.map((pieza, pIdx) => (
+                          <div key={pIdx} className="flex items-center justify-between">
+                            <span>• {pieza.nombre}{pieza.medidas ? ` (${pieza.medidas})` : ''}</span>
+                            <span className="font-bold">${Number(pieza.precio).toLocaleString('es-AR')}</span>
+                          </div>
+                        ))}
+                      </div>
                     )}
                   </div>
 
