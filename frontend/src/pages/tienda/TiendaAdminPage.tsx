@@ -141,10 +141,10 @@ export default function TiendaAdminPage() {
   const [sortField, setSortField] = useState<keyof AdminProduct | null>(null)
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
 
-  // Inline Price Editing State
+  // Inline Price & Stock Editing State
   const [editingCell, setEditingCell] = useState<{
     id: number
-    field: 'precio_costo' | 'precio_venta' | 'precio_oferta'
+    field: 'precio_costo' | 'precio_venta' | 'precio_oferta' | 'stock_actual'
     value: string
   } | null>(null)
 
@@ -166,9 +166,14 @@ export default function TiendaAdminPage() {
     const numValue = rawVal === '' ? (field === 'precio_oferta' ? null : 0) : parseFloat(rawVal) || 0
 
     try {
-      await api.put(`/productos/${id}`, {
+      const payload: any = {
         [field]: numValue,
-      })
+      }
+      if (field === 'stock_actual') {
+        payload.motivo_ajuste = 'Ajuste manual desde Gestión de Tienda'
+      }
+
+      await api.put(`/productos/${id}`, payload)
       setProducts((prev) =>
         prev.map((p) => (p.id === id ? { ...p, [field]: numValue } : p))
       )
@@ -177,10 +182,12 @@ export default function TiendaAdminPage() {
           ? 'Costo'
           : field === 'precio_venta'
           ? 'Precio de venta'
-          : 'Precio de oferta'
+          : field === 'precio_oferta'
+          ? 'Precio de oferta'
+          : 'Stock'
       showToast(`${fieldLabel} actualizado correctamente`)
     } catch (e) {
-      showToast('Error al actualizar el precio', 'error')
+      showToast(`Error al actualizar ${field === 'stock_actual' ? 'el stock' : 'el precio'}`, 'error')
     }
   }
 
@@ -829,8 +836,36 @@ export default function TiendaAdminPage() {
                         )}
                       </td>
 
-                      <td className="p-4">
-                        <span className="font-extrabold text-slate-800">{p.stock_actual} un</span>
+                      {/* Stock (Doble Clic para Editar) */}
+                      <td
+                        className="p-4 cursor-pointer hover:bg-cyan-50/80 transition group relative"
+                        onDoubleClick={() => setEditingCell({ id: p.id, field: 'stock_actual', value: String(p.stock_actual ?? 0) })}
+                        title="Doble clic para editar stock"
+                      >
+                        {editingCell?.id === p.id && editingCell?.field === 'stock_actual' ? (
+                          <div onClick={(e) => e.stopPropagation()}>
+                            <input
+                              type="number"
+                              step="any"
+                              value={editingCell.value}
+                              onChange={(e) => setEditingCell({ ...editingCell, value: e.target.value })}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleCellSave()
+                                if (e.key === 'Escape') setEditingCell(null)
+                              }}
+                              onBlur={handleCellSave}
+                              autoFocus
+                              className="w-20 px-2 py-1 bg-white border-2 border-cyan-500 rounded-lg text-xs font-bold text-slate-900 shadow-sm focus:outline-none"
+                            />
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1">
+                            <span className="font-extrabold text-slate-800">
+                              {Number(p.stock_actual || 0).toFixed(2)} un
+                            </span>
+                            <Edit2 className="w-3 h-3 text-slate-300 opacity-0 group-hover:opacity-100 transition" />
+                          </div>
+                        )}
                       </td>
                       <td className="p-4">
                         {(() => {
@@ -1296,7 +1331,7 @@ export default function TiendaAdminPage() {
                 <tr key={p.id} className="break-inside-avoid border-b border-slate-200 text-slate-800">
                   <td className="p-2 text-center align-middle">
                     {p.imagen_url ? (
-                      <img src={p.imagen_url} alt={p.nombre} className="h-36 w-36 object-cover rounded-2xl border border-slate-300 mx-auto shadow-xs" />
+                      <img src={p.imagen_url} alt={p.nombre} className="h-36 w-36 object-contain rounded-2xl border border-slate-300 mx-auto shadow-xs bg-slate-50 p-1" />
                     ) : (
                       <div className="h-36 w-36 rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400 font-bold text-xs mx-auto">
                         Sin foto

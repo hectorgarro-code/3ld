@@ -33,13 +33,30 @@ class MakerWorldScraper
         $pesoGramos     = 0;
         $horasImpresion = 0.0;
 
+        $tags           = [];
+
         // 1. Intentar consultar la API interna de MakerWorld design-service
         if (!empty($modelId)) {
             $apiData = $this->fetchDesignApi($modelId);
             if (!empty($apiData)) {
-                $title = trim((string)($apiData['title'] ?? $apiData['titleTranslated'] ?? ''));
+                $title = trim((string)($apiData['titleTranslated'] ?? $apiData['title'] ?? ''));
+
+                $summaryText = '';
+                if (!empty($apiData['summaryTranslated'])) {
+                    $summaryText .= trim(strip_tags((string)$apiData['summaryTranslated']));
+                }
                 if (!empty($apiData['summary'])) {
-                    $description = trim(strip_tags((string)$apiData['summary']));
+                    $rawSum = trim(strip_tags((string)$apiData['summary']));
+                    if (!empty($rawSum) && !str_contains($summaryText, mb_substr($rawSum, 0, 30))) {
+                        $summaryText .= ($summaryText ? "\n\nContexto adicional original:\n" : "") . $rawSum;
+                    }
+                }
+                $description = $summaryText;
+
+                if (!empty($apiData['tagsTranslated']) && is_array($apiData['tagsTranslated'])) {
+                    $tags = $apiData['tagsTranslated'];
+                } elseif (!empty($apiData['tags']) && is_array($apiData['tags'])) {
+                    $tags = $apiData['tags'];
                 }
 
                 if (!empty($apiData['instances']) && is_array($apiData['instances'])) {
@@ -135,6 +152,7 @@ class MakerWorldScraper
         return [
             'raw_title'       => trim($title),
             'raw_description' => trim($description),
+            'tags'            => $tags,
             'images'          => array_values(array_unique($proxyImages)),
             'peso_gramos'     => $pesoGramos,
             'horas_impresion' => $horasImpresion,

@@ -64,7 +64,7 @@ class TiendaRepository
             $sql = "SELECT p.id, p.nombre AS title, p.subcategoria, p.descripcion,
                            p.precio_venta AS price, p.precio_oferta AS oldPrice,
                            p.stock_actual, p.estado_stock AS stockStatus,
-                           p.imagen_url AS image, p.imagenes, p.colores, p.peso_gramos AS weightGrams,
+                           p.imagen_url AS image, p.imagenes, p.colores, p.piezas, p.peso_gramos AS weightGrams,
                            p.dimensiones AS size, p.alto_mm, p.ancho_mm, p.profundidad_mm, p.es_destacado,
                            p.categoria_id,
                            COALESCE(c.nombre, 'Sin categoría') AS category
@@ -76,6 +76,23 @@ class TiendaRepository
             $stmt = $this->db->prepare($sql);
             $stmt->execute($binds);
             $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            $filamentColors = [];
+            try {
+                $stmtCol = $this->db->query("SELECT TRIM(color) AS name, MAX(color_hex) AS hex FROM filamentos WHERE activo = 1 AND stock_rollos > 0 GROUP BY LOWER(TRIM(color)) ORDER BY name ASC");
+                $rawCols = $stmtCol->fetchAll(PDO::FETCH_ASSOC) ?: [];
+                foreach ($rawCols as $rc) {
+                    if (!empty($rc['name'])) {
+                        $filamentColors[] = [
+                            'name' => $rc['name'],
+                            'hex'  => !empty($rc['hex']) ? $rc['hex'] : '#06b6d4',
+                        ];
+                    }
+                }
+            } catch (\Throwable $e) {
+                $filamentColors = [];
+            }
+
             foreach ($items as &$item) {
                 if (!empty($item['imagenes'])) {
                     $dec = is_string($item['imagenes']) ? json_decode($item['imagenes'], true) : $item['imagenes'];
@@ -84,12 +101,14 @@ class TiendaRepository
                     $item['images'] = !empty($item['image']) ? [$item['image']] : [];
                 }
 
-                if (!empty($item['colores'])) {
-                    $decCol = is_string($item['colores']) ? json_decode($item['colores'], true) : $item['colores'];
-                    $item['colors'] = is_array($decCol) ? array_values($decCol) : [];
+                if (!empty($item['piezas'])) {
+                    $decP = is_string($item['piezas']) ? json_decode($item['piezas'], true) : $item['piezas'];
+                    $item['piezas'] = is_array($decP) ? array_values($decP) : [];
                 } else {
-                    $item['colors'] = [];
+                    $item['piezas'] = [];
                 }
+
+                $item['colors'] = $filamentColors;
 
                 if (empty($item['size']) || trim((string)$item['size']) === '' || trim((string)$item['size']) === '0') {
                     $alto = isset($item['alto_mm']) ? (float)$item['alto_mm'] : 0;
@@ -269,7 +288,7 @@ class TiendaRepository
     public function getCategoriasPublicas(): array
     {
         try {
-            $sql = "SELECT c.id, c.nombre AS name, COALESCE(c.icono, '✨') AS icon, c.es_destacada,
+            $sql = "SELECT c.id, c.nombre AS name, COALESCE(c.icono, '✨') AS icon, c.imagen_url AS image, c.es_destacada,
                            (SELECT COUNT(*) FROM productos p WHERE p.categoria_id = c.id AND p.activo = 1 AND (p.es_tienda = 1 OR p.es_vendible = 1)) AS productos_count
                     FROM categorias_producto c
                     ORDER BY c.es_destacada DESC, c.nombre ASC";
@@ -294,6 +313,7 @@ class TiendaRepository
                     'categoria_id' => $catId,
                     'name' => $cat['name'],
                     'icon' => $cat['icon'] ?: '✨',
+                    'image' => $cat['image'] ?? null,
                     'es_destacada' => (bool)$cat['es_destacada'],
                     'subcategories' => !empty($subs) ? array_merge(['Todos'], $subs) : [],
                     'productos_count' => (int)$cat['productos_count'],

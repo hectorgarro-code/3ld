@@ -43,7 +43,8 @@ class AiController
             try {
                 $aiResult = $this->openAiService->optimizeProductForSales(
                     $scraped['raw_title'],
-                    $scraped['raw_description']
+                    $scraped['raw_description'],
+                    ['tags' => $scraped['tags'] ?? []]
                 );
             } catch (Throwable $aiErr) {
                 $aiResult = [

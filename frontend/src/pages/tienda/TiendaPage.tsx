@@ -24,7 +24,8 @@ import {
   Star,
   Share2,
   Printer,
-  Download
+  Download,
+  Headset
 } from 'lucide-react';
 import api from '@/lib/api';
 
@@ -32,6 +33,7 @@ export interface Category {
   id: string;
   name: string;
   icon: string;
+  image?: string | null;
   subcategories: string[];
   es_destacada?: boolean;
   productos_count?: number;
@@ -47,7 +49,8 @@ export interface StoreProduct {
   stockStatus: 'ready' | 'custom' | string;
   image: string;
   images?: string[];
-  colors?: string[];
+  colors?: (string | { name: string; hex: string })[];
+  piezas?: { id: string; nombre: string; precio: number; imagen_url?: string }[];
   description: string;
   weightGrams?: number;
   size?: string;
@@ -205,7 +208,31 @@ export default function TiendaPage() {
   const [isQuoteModalOpen, setIsQuoteModalOpen] = useState(false);
   const [isMobileCatMenuOpen, setIsMobileCatMenuOpen] = useState(false);
   const [modalSelectedColor, setModalSelectedColor] = useState('');
+  const [modalSelectedPiezas, setModalSelectedPiezas] = useState<Record<string, boolean>>({});
   const [toastMessage, setToastMessage] = useState<{ text: string; type: string } | null>(null);
+
+  useEffect(() => {
+    if (activeProductModal && activeProductModal.piezas && activeProductModal.piezas.length > 0) {
+      const initialMap: Record<string, boolean> = {};
+      activeProductModal.piezas.forEach(p => {
+        initialMap[p.id || p.nombre] = true;
+      });
+      setModalSelectedPiezas(initialMap);
+    } else {
+      setModalSelectedPiezas({});
+    }
+  }, [activeProductModal]);
+
+  const calculatedModalPrice = useMemo(() => {
+    if (!activeProductModal) return 0;
+    if (activeProductModal.piezas && activeProductModal.piezas.length > 0) {
+      const selectedList = activeProductModal.piezas.filter(p => modalSelectedPiezas[p.id || p.nombre]);
+      if (selectedList.length > 0) {
+        return selectedList.reduce((sum, p) => sum + (Number(p.precio) || 0), 0);
+      }
+    }
+    return activeProductModal.price;
+  }, [activeProductModal, modalSelectedPiezas]);
 
   // Shipping
   const [postalCode, setPostalCode] = useState('');
@@ -331,6 +358,58 @@ export default function TiendaPage() {
     window.print();
   };
 
+  const getAdvisorWhatsAppUrl = () => {
+    const phone = '5492257512597';
+    let text = '¡Hola! Quisiera comunicarme con un asesor de 3LD.\n\n';
+
+    if (activeProductModal) {
+      text += `👀 *Producto que estoy viendo:*\n`;
+      text += `• ${activeProductModal.title}\n`;
+      text += `• Precio: $${activeProductModal.price.toLocaleString('es-AR')}\n`;
+      if (activeProductModal.category) {
+        text += `• Categoría: ${activeProductModal.category}${activeProductModal.subcategory ? ` / ${activeProductModal.subcategory}` : ''}\n`;
+      }
+      if (modalSelectedColor) {
+        text += `• Color seleccionado: ${modalSelectedColor}\n`;
+      }
+      if (activeProductModal.size && hasValidSize(activeProductModal.size)) {
+        text += `• Medidas: ${activeProductModal.size}\n`;
+      }
+      text += `• Enlace directo: ${window.location.origin}/tienda?producto=${activeProductModal.id}`;
+    } else if (isCartOpen && cart.length > 0) {
+      const totalCart = cart.reduce((acc, item) => acc + item.price * item.qty, 0);
+      text += `🛒 *Estoy revisando mi carrito con ${cart.length} producto(s)* (Total: $${totalCart.toLocaleString('es-AR')}):\n`;
+      cart.forEach((item) => {
+        text += `• ${item.title} x${item.qty}${item.color ? ` (Color: ${item.color})` : ''}\n`;
+      });
+    } else if (isQuoteModalOpen) {
+      text += `📐 *Estoy en la sección de cotización de archivos 3D / piezas personalizadas.*`;
+    } else {
+      const currentCatObj = categories.find((c) => c.id === selectedCategory);
+      const catName = currentCatObj ? currentCatObj.name : selectedCategory;
+      const filters: string[] = [];
+
+      if (selectedCategory && selectedCategory !== 'all') {
+        filters.push(`Categoría: ${catName}`);
+      }
+      if (selectedSubcategory && selectedSubcategory !== 'all') {
+        filters.push(`Subcategoría: ${selectedSubcategory}`);
+      }
+      if (searchQuery.trim()) {
+        filters.push(`Búsqueda: "${searchQuery.trim()}"`);
+      }
+
+      if (filters.length > 0) {
+        text += `🔍 *Estoy explorando en la tienda:*\n• ${filters.join('\n• ')}\n`;
+      } else {
+        text += `🛍️ *Estoy explorando el catálogo general de la tienda.*\n`;
+      }
+      text += `• Enlace: ${window.location.href}`;
+    }
+
+    return `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
+  };
+
   const showToast = (msg: string, type = 'info') => {
     setToastMessage({ text: msg, type });
     setTimeout(() => setToastMessage(null), 3500);
@@ -440,6 +519,60 @@ export default function TiendaPage() {
         return 0;
       });
   }, [products, selectedCategory, currentCategoryData, selectedSubcategory, stockFilter, searchQuery, sortOption]);
+
+  const getCategoryDisplayName = (catKey: string) => {
+    const found = categories.find(
+      (c) => c.id.toLowerCase() === catKey.toLowerCase() || c.name.toLowerCase() === catKey.toLowerCase()
+    );
+    return found ? (found.icon ? `${found.icon} ${found.name}` : found.name) : catKey;
+  };
+
+  const printCategoriesGrouped = useMemo(() => {
+    const catMap = new Map<string, StoreProduct[]>();
+
+    filteredProducts.forEach((p) => {
+      const catKey = p.category || 'Otros';
+      if (!catMap.has(catKey)) {
+        catMap.set(catKey, []);
+      }
+      catMap.get(catKey)!.push(p);
+    });
+
+    const hasMultiple = catMap.size > 1;
+    if (!hasMultiple) {
+      return {
+        hasMultiple: false,
+        groups: [{ categoryKey: '', categoryName: '', products: filteredProducts }]
+      };
+    }
+
+    const sortedKeys = Array.from(catMap.keys()).sort((a, b) => {
+      const nameA = getCategoryDisplayName(a).toLowerCase();
+      const nameB = getCategoryDisplayName(b).toLowerCase();
+      return nameA.localeCompare(nameB, 'es', { sensitivity: 'base' });
+    });
+
+    const groups = sortedKeys.map((key) => {
+      const prods = [...catMap.get(key)!].sort((a, b) => {
+        const subA = (a.subcategory || '').toLowerCase();
+        const subB = (b.subcategory || '').toLowerCase();
+        const subCmp = subA.localeCompare(subB, 'es', { sensitivity: 'base' });
+        if (subCmp !== 0) return subCmp;
+        return a.title.localeCompare(b.title, 'es', { sensitivity: 'base' });
+      });
+
+      return {
+        categoryKey: key,
+        categoryName: getCategoryDisplayName(key),
+        products: prods
+      };
+    });
+
+    return {
+      hasMultiple: true,
+      groups
+    };
+  }, [filteredProducts, categories]);
 
   const handleCalculateShipping = (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -643,22 +776,19 @@ export default function TiendaPage() {
             })}
           </div>
 
-          {/* Mobile / Celular: Todo + 3 más utilizadas + Menú hamburguesa */}
+          {/* Mobile / Celular: Menú Categorías al inicio + Destacadas */}
           <div className="flex md:hidden items-center gap-2 py-2.5 overflow-x-auto no-scrollbar scroll-smooth">
-            {/* Todo el Catálogo */}
+            {/* Botón Menú de Categorías al Inicio */}
             <button
-              onClick={() => {
-                setSelectedCategory('all');
-                setSelectedSubcategory('all');
-              }}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition shrink-0 ${
-                selectedCategory === 'all'
-                  ? 'bg-[#6B66C8] text-white shadow-sm ring-2 ring-[#6B66C8] ring-offset-1'
-                  : 'bg-slate-100 text-slate-700'
-              }`}
+              type="button"
+              onClick={() => setIsMobileCatMenuOpen(true)}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-black whitespace-nowrap transition shrink-0 bg-[#6B66C8] text-white shadow-sm ring-2 ring-[#6B66C8] ring-offset-1 active:scale-95"
             >
-              <span>✨</span>
-              <span>Todo</span>
+              <Menu className="w-4 h-4 text-white" />
+              <span>Categorías</span>
+              <span className="bg-white/25 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full">
+                {categories.length > 1 ? categories.length - 1 : ''}
+              </span>
             </button>
 
             {/* Las 3 más utilizadas */}
@@ -672,13 +802,17 @@ export default function TiendaPage() {
                     setSelectedCategory(cat.id);
                     setSelectedSubcategory('all');
                   }}
-                  className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition shrink-0 ${
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition shrink-0 ${
                     active
                       ? 'bg-[#6B66C8] text-white shadow-sm ring-2 ring-[#6B66C8] ring-offset-1'
                       : 'bg-slate-100 text-slate-700'
                   }`}
                 >
-                  <span>{cat.icon}</span>
+                  {cat.image ? (
+                    <img src={cat.image} alt="" className="w-4 h-4 rounded-full object-cover shrink-0" />
+                  ) : (
+                    <span>{cat.icon}</span>
+                  )}
                   <span className="truncate max-w-[120px]">{cat.name}</span>
                   <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ml-0.5 ${
                     active ? 'bg-white/25 text-white' : 'bg-slate-200/80 text-slate-600'
@@ -689,7 +823,7 @@ export default function TiendaPage() {
               );
             })}
 
-            {/* Si la activa no es 'all' y no está en las 3, mostrarla también */}
+            {/* Si la activa no es 'all' y no está en las destacadas */}
             {selectedCategory !== 'all' && !mobileFeaturedCategories.some((c) => c.id === selectedCategory) && (
               <button
                 onClick={() => setSelectedSubcategory('all')}
@@ -699,19 +833,6 @@ export default function TiendaPage() {
                 <span className="truncate max-w-[120px]">{currentCategoryData.name}</span>
               </button>
             )}
-
-            {/* Botón Menú Hamburguesa de Categorías */}
-            <button
-              type="button"
-              onClick={() => setIsMobileCatMenuOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition shrink-0 bg-white border border-slate-300 text-slate-800 hover:bg-slate-50 shadow-2xs active:scale-95"
-            >
-              <Menu className="w-3.5 h-3.5 text-[#6B66C8]" />
-              <span>Categorías</span>
-              <span className="bg-[#6B66C8]/10 text-[#6B66C8] text-[10px] font-black px-1.5 py-0.5 rounded-full">
-                {categories.length > 1 ? categories.length - 1 : ''}
-              </span>
-            </button>
           </div>
 
         </div>
@@ -743,7 +864,7 @@ export default function TiendaPage() {
 
       {/* Catalog Grid Section */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 w-full">
-        {/* Controls Bar */}
+        {/* Controls Bar (Optimizada para espacio en Celular) */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 pb-2 border-b border-slate-200">
           <div className="flex items-center gap-2.5">
             <h1 className="text-xl font-black text-slate-900 tracking-tight">{currentCategoryData.name}</h1>
@@ -752,11 +873,11 @@ export default function TiendaPage() {
             </span>
           </div>
 
-          <div className="flex items-center gap-2 flex-wrap text-xs">
-            <div className="flex items-center bg-white border border-slate-200 rounded-xl p-1 shadow-2xs">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 text-xs w-full sm:w-auto">
+            <div className="flex items-center bg-white border border-slate-200 rounded-xl p-1 shadow-2xs w-full sm:w-auto justify-between">
               <button
                 onClick={() => setStockFilter('all')}
-                className={`px-2.5 py-1 rounded-lg font-bold transition ${
+                className={`flex-1 sm:flex-none px-2.5 py-1 rounded-lg font-bold transition text-center ${
                   stockFilter === 'all' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
@@ -764,7 +885,7 @@ export default function TiendaPage() {
               </button>
               <button
                 onClick={() => setStockFilter('ready')}
-                className={`px-2.5 py-1 rounded-lg font-bold transition ${
+                className={`flex-1 sm:flex-none px-2.5 py-1 rounded-lg font-bold transition text-center ${
                   stockFilter === 'ready' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
@@ -772,7 +893,7 @@ export default function TiendaPage() {
               </button>
               <button
                 onClick={() => setStockFilter('custom')}
-                className={`px-2.5 py-1 rounded-lg font-bold transition ${
+                className={`flex-1 sm:flex-none px-2.5 py-1 rounded-lg font-bold transition text-center ${
                   stockFilter === 'custom' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
@@ -780,34 +901,36 @@ export default function TiendaPage() {
               </button>
             </div>
 
-            <select
-              value={sortOption}
-              onChange={(e) => setSortOption(e.target.value)}
-              className="bg-white border border-slate-200 text-slate-700 text-xs font-semibold rounded-xl px-2.5 py-2 focus:ring-2 focus:ring-cyan-500 focus:outline-none"
-            >
-              <option value="featured">Destacados</option>
-              <option value="price-asc">Precio: Menor a Mayor</option>
-              <option value="price-desc">Precio: Mayor a Menor</option>
-              <option value="name-asc">Nombre: A - Z</option>
-            </select>
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <select
+                value={sortOption}
+                onChange={(e) => setSortOption(e.target.value)}
+                className="flex-1 sm:flex-none bg-white border border-slate-200 text-slate-700 text-xs font-semibold rounded-xl px-2.5 py-2 focus:ring-2 focus:ring-cyan-500 focus:outline-none"
+              >
+                <option value="featured">Destacados</option>
+                <option value="price-asc">Precio: Menor a Mayor</option>
+                <option value="price-desc">Precio: Mayor a Menor</option>
+                <option value="name-asc">Nombre: A - Z</option>
+              </select>
 
-            <button
-              onClick={handleShareCatalog}
-              className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition shrink-0 active:scale-95"
-              title="Compartir catálogo con los filtros actuales"
-            >
-              <Share2 className="w-3.5 h-3.5 text-cyan-600" />
-              <span className="hidden sm:inline">Compartir</span>
-            </button>
+              <button
+                onClick={handleShareCatalog}
+                className="flex items-center justify-center p-2.5 sm:px-3 sm:py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition shrink-0 active:scale-95"
+                title="Compartir catálogo con los filtros actuales"
+              >
+                <Share2 className="w-4 h-4 text-cyan-600" />
+                <span className="hidden sm:inline">Compartir</span>
+              </button>
 
-            <button
-              onClick={handlePrintCatalog}
-              className="flex items-center gap-1.5 px-3.5 py-2 bg-gradient-to-r from-cyan-600 to-cyan-500 hover:from-cyan-500 hover:to-cyan-400 text-white text-xs font-black rounded-xl shadow-xs transition shrink-0 active:scale-95"
-              title="Descargar o imprimir catálogo formal en PDF"
-            >
-              <Printer className="w-3.5 h-3.5" />
-              <span>Descargar Catálogo PDF</span>
-            </button>
+              <button
+                onClick={handlePrintCatalog}
+                className="flex items-center justify-center gap-1.5 p-2.5 sm:px-3.5 sm:py-2 bg-gradient-to-r from-cyan-600 to-cyan-500 hover:from-cyan-500 hover:to-cyan-400 text-white text-xs font-black rounded-xl shadow-xs transition shrink-0 active:scale-95"
+                title="Descargar o imprimir catálogo formal en PDF"
+              >
+                <Printer className="w-4 h-4" />
+                <span className="hidden sm:inline">Descargar Catálogo PDF</span>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -1137,12 +1260,13 @@ export default function TiendaPage() {
                     Color de Impresión (PLA): {modalSelectedColor ? <span className="text-cyan-600 font-extrabold">{modalSelectedColor}</span> : <span className="text-slate-400 font-normal">(Opcional)</span>}
                   </label>
                   <div className="flex items-center gap-2 flex-wrap">
-                    {activeProductModal.colors.map((colorName) => {
-                      const cObj = AVAILABLE_COLORS.find(c => c.name === colorName) || { name: colorName, hex: '#06b6d4' };
+                    {activeProductModal.colors.map((colorItem, idx) => {
+                      const colorName = typeof colorItem === 'string' ? colorItem : colorItem.name;
+                      const hexColor = typeof colorItem === 'object' && colorItem.hex ? colorItem.hex : (AVAILABLE_COLORS.find(c => c.name === colorName)?.hex || '#06b6d4');
                       const isSelected = modalSelectedColor === colorName;
                       return (
                         <button
-                          key={colorName}
+                          key={colorName || idx}
                           onClick={() => setModalSelectedColor(isSelected ? '' : colorName)}
                           className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border transition cursor-pointer ${
                             isSelected
@@ -1150,9 +1274,81 @@ export default function TiendaPage() {
                               : 'border-slate-200 text-slate-700 bg-white hover:bg-slate-50'
                           }`}
                         >
-                          <span className="w-3 h-3 rounded-full border border-slate-300 shrink-0" style={{ backgroundColor: cObj.hex }} />
+                          <span className="w-3 h-3 rounded-full border border-slate-300 shrink-0" style={{ backgroundColor: hexColor }} />
                           <span>{colorName}</span>
                         </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Piezas / Components Selection */}
+              {activeProductModal.piezas && activeProductModal.piezas.length > 0 && (
+                <div className="mt-4 bg-indigo-50/70 p-3.5 rounded-2xl border border-indigo-100/90 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-black text-indigo-950 flex items-center gap-1.5 uppercase tracking-wide">
+                      🧩 Seleccionar Piezas del Set
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const allOn: Record<string, boolean> = {};
+                          activeProductModal.piezas?.forEach(p => { allOn[p.id || p.nombre] = true; });
+                          setModalSelectedPiezas(allOn);
+                        }}
+                        className="text-[10px] font-extrabold text-indigo-600 hover:text-indigo-800 underline"
+                      >
+                        Marcar todas
+                      </button>
+                      <span className="text-indigo-300">|</span>
+                      <button
+                        type="button"
+                        onClick={() => setModalSelectedPiezas({})}
+                        className="text-[10px] font-extrabold text-slate-500 hover:text-slate-700 underline"
+                      >
+                        Desmarcar
+                      </button>
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-slate-600">
+                    Elegí las piezas que querés incluir en tu pedido:
+                  </p>
+                  <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                    {activeProductModal.piezas.map((pieza) => {
+                      const key = pieza.id || pieza.nombre;
+                      const isChecked = !!modalSelectedPiezas[key];
+                      return (
+                        <label
+                          key={key}
+                          className={`flex items-center justify-between p-2 rounded-xl border transition cursor-pointer ${
+                            isChecked
+                              ? 'border-indigo-500 bg-white shadow-2xs text-indigo-950 font-bold'
+                              : 'border-slate-200/80 bg-slate-50/70 text-slate-500 hover:bg-white'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={(e) => {
+                                setModalSelectedPiezas(prev => ({
+                                  ...prev,
+                                  [key]: e.target.checked
+                                }));
+                              }}
+                              className="w-4 h-4 rounded accent-indigo-600 cursor-pointer shrink-0"
+                            />
+                            {pieza.imagen_url && (
+                              <img src={pieza.imagen_url} alt={pieza.nombre} className="w-8 h-8 object-cover rounded-lg border border-slate-200 shrink-0" />
+                            )}
+                            <span className="text-xs truncate">{pieza.nombre}</span>
+                          </div>
+                          <span className="text-xs font-black text-indigo-700 shrink-0 ml-2">
+                            ${Number(pieza.precio).toLocaleString('es-AR')}
+                          </span>
+                        </label>
                       );
                     })}
                   </div>
@@ -1172,7 +1368,7 @@ export default function TiendaPage() {
                 <div>
                   <span className="text-xs text-slate-400 block">Precio Total</span>
                   <span className="text-xl font-black text-slate-900">
-                    ${activeProductModal.price.toLocaleString('es-AR')}
+                    ${calculatedModalPrice.toLocaleString('es-AR')}
                   </span>
                 </div>
 
@@ -1189,7 +1385,22 @@ export default function TiendaPage() {
                   <button
                     onClick={() => {
                       const finalColor = modalSelectedColor || 'Estándar';
-                      addToCart(activeProductModal, 1, finalColor);
+                      if (activeProductModal.piezas && activeProductModal.piezas.length > 0) {
+                        const selectedList = activeProductModal.piezas.filter(p => modalSelectedPiezas[p.id || p.nombre]);
+                        if (selectedList.length === 0) {
+                          showToast('Seleccioná al menos 1 pieza para agregar al carrito', 'error');
+                          return;
+                        }
+                        const piezaNames = selectedList.map(p => p.nombre).join(', ');
+                        const customProduct: StoreProduct = {
+                          ...activeProductModal,
+                          title: `${activeProductModal.title} (${selectedList.length} pieza${selectedList.length > 1 ? 's' : ''}: ${piezaNames})`,
+                          price: calculatedModalPrice
+                        };
+                        addToCart(customProduct, 1, finalColor);
+                      } else {
+                        addToCart(activeProductModal, 1, finalColor);
+                      }
                       setActiveProductModal(null);
                       setModalSelectedColor('');
                     }}
@@ -1260,58 +1471,67 @@ export default function TiendaPage() {
               </button>
             </div>
 
-            {/* Categories List */}
-            <div className="p-3 overflow-y-auto space-y-1.5 flex-1 divide-y divide-slate-50">
-              {categories.map((cat) => {
-                const active = selectedCategory === cat.id || (selectedCategory === 'all' && cat.id === 'all');
-                return (
-                  <button
-                    key={cat.id}
-                    onClick={() => {
-                      setSelectedCategory(cat.id);
-                      setSelectedSubcategory('all');
-                      setIsMobileCatMenuOpen(false);
-                    }}
-                    className={`w-full flex items-center justify-between p-3 rounded-2xl border transition-all text-left ${
-                      active
-                        ? 'bg-[#EFEBFC] border-[#6B66C8] text-[#6B66C8] shadow-xs ring-1 ring-[#6B66C8]'
-                        : 'bg-white border-slate-100 hover:bg-slate-50 text-slate-800'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100/80 border border-slate-200 text-xl shadow-2xs">
-                        {cat.icon}
-                      </span>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <p className="text-xs font-black truncate">{cat.name}</p>
-                          {cat.es_destacada && (
-                            <span className="text-[9px] bg-amber-100 text-amber-800 border border-amber-300 px-1.5 py-0.2 rounded font-bold flex items-center gap-0.5">
-                              <Star className="w-2.5 h-2.5 fill-amber-500 text-amber-500" /> Top
-                            </span>
-                          )}
-                        </div>
-                        {cat.subcategories && cat.subcategories.length > 1 && (
-                          <p className="text-[10px] text-slate-400 truncate mt-0.5">
-                            {cat.subcategories.filter(s => s !== 'Todos').slice(0, 3).join(', ')}
-                          </p>
+            {/* Categories Grid (2 Columnas con Foto en Celular) */}
+            <div className="p-3 overflow-y-auto max-h-[75vh] flex-1">
+              <div className="grid grid-cols-2 gap-2.5">
+                {categories.map((cat) => {
+                  const active = selectedCategory === cat.id || (selectedCategory === 'all' && cat.id === 'all');
+                  return (
+                    <button
+                      key={cat.id}
+                      onClick={() => {
+                        setSelectedCategory(cat.id);
+                        setSelectedSubcategory('all');
+                        setIsMobileCatMenuOpen(false);
+                      }}
+                      className={`group relative flex flex-col overflow-hidden rounded-2xl border transition-all text-left ${
+                        active
+                          ? 'border-[#6B66C8] ring-2 ring-[#6B66C8]/40 bg-[#EFEBFC] shadow-sm'
+                          : 'border-slate-200 bg-white hover:border-slate-300'
+                      }`}
+                    >
+                      {/* Imagen o Ícono destacado */}
+                      <div className="relative aspect-4/3 w-full overflow-hidden bg-slate-100 flex items-center justify-center">
+                        {cat.image ? (
+                          <img
+                            src={cat.image}
+                            alt={cat.name}
+                            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                          />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#6B66C8]/10 to-[#6B66C8]/25 text-3xl">
+                            {cat.icon || '✨'}
+                          </div>
+                        )}
+
+                        {/* Cantidad de productos */}
+                        {cat.productos_count !== undefined && cat.id !== 'all' && (
+                          <span className="absolute top-1.5 right-1.5 rounded-full bg-slate-900/75 backdrop-blur-xs px-2 py-0.5 text-[10px] font-extrabold text-white shadow-2xs">
+                            {cat.productos_count}
+                          </span>
+                        )}
+
+                        {/* Tag Top / Destacada */}
+                        {cat.es_destacada && (
+                          <span className="absolute top-1.5 left-1.5 rounded-full bg-amber-500 text-white text-[9px] font-bold px-1.5 py-0.2 shadow-2xs flex items-center gap-0.5">
+                            <Star className="w-2.5 h-2.5 fill-white text-white" /> Top
+                          </span>
                         )}
                       </div>
-                    </div>
 
-                    <div className="flex items-center gap-2 shrink-0 ml-2">
-                      {cat.productos_count !== undefined && cat.id !== 'all' && (
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                          active ? 'bg-[#6B66C8] text-white' : 'bg-slate-100 text-slate-500'
-                        }`}>
-                          {cat.productos_count}
-                        </span>
-                      )}
-                      <ChevronRight className={`w-4 h-4 ${active ? 'text-[#6B66C8]' : 'text-slate-400'}`} />
-                    </div>
-                  </button>
-                );
-              })}
+                      {/* Info Nombre e Ícono */}
+                      <div className="p-2.5 flex items-center justify-between gap-1">
+                        <div className="min-w-0 flex-1">
+                          <p className={`text-xs font-black truncate leading-tight ${active ? 'text-[#6B66C8]' : 'text-slate-900'}`}>
+                            {cat.name}
+                          </p>
+                        </div>
+                        <span className="text-xs shrink-0">{cat.icon}</span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
         </div>
@@ -1355,6 +1575,31 @@ export default function TiendaPage() {
           <span className="text-[10px] font-semibold mt-0.5">Carrito</span>
         </button>
       </nav>
+
+      {/* Floating Advisor WhatsApp Button */}
+      <div className="fixed bottom-20 right-4 md:bottom-6 md:right-6 z-[60] flex items-center group print:hidden">
+        {/* Tooltip visible on hover */}
+        <div className="pointer-events-none absolute right-full mr-3 whitespace-nowrap rounded-xl bg-slate-900/90 backdrop-blur-md px-3.5 py-2 text-xs font-semibold text-white shadow-xl opacity-0 translate-x-2 transition-all duration-200 group-hover:opacity-100 group-hover:translate-x-0 flex items-center gap-1.5 border border-slate-700/50">
+          <Headset className="w-3.5 h-3.5 text-emerald-400" />
+          <span>Contactar a un asesor</span>
+          <div className="absolute left-full top-1/2 -translate-y-1/2 border-4 border-transparent border-l-slate-900/90" />
+        </div>
+
+        <a
+          href={getAdvisorWhatsAppUrl()}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="Contactar a un asesor por WhatsApp"
+          className="relative flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] hover:bg-[#20ba5a] text-white shadow-lg shadow-emerald-600/30 hover:shadow-xl hover:shadow-emerald-600/50 transition-all duration-300 hover:scale-110 active:scale-95 border-2 border-white/40"
+        >
+          {/* Status indicator badge */}
+          <span className="absolute -top-0.5 -right-0.5 flex h-3.5 w-3.5">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-200 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-400 border-2 border-white"></span>
+          </span>
+          <Headset className="w-7 h-7" />
+        </a>
+      </div>
       </div>
 
       {/* Styles for Window Print / PDF Export */}
@@ -1409,52 +1654,67 @@ export default function TiendaPage() {
           </div>
         </div>
 
-        {/* 2-Column Product Cards Grid */}
-        <div className="grid grid-cols-2 gap-3">
-          {filteredProducts.map((p) => (
-            <div
-              key={p.id}
-              className="border border-slate-300 rounded-xl p-3 flex flex-col justify-between break-inside-avoid bg-white shadow-none text-slate-900"
-            >
-              <div>
-                <div className="h-36 w-full bg-slate-100 rounded-lg overflow-hidden mb-2 border border-slate-200">
-                  <img src={p.image} alt={p.title} className="w-full h-full object-cover" />
-                </div>
-                <div className="flex items-center justify-between gap-1 mb-1">
-                  <span className="text-[9px] font-extrabold text-cyan-800 uppercase tracking-wide">
-                    {p.subcategory || p.category}
-                  </span>
-                  <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded ${p.stockStatus === 'ready' ? 'bg-emerald-100 text-emerald-900 border border-emerald-200' : 'bg-slate-100 text-slate-700 border border-slate-200'}`}>
-                    {p.stockStatus === 'ready' ? 'En Stock' : 'A Pedido'}
-                  </span>
-                </div>
-                <h3 className="text-xs font-bold text-slate-900 leading-tight">{p.title}</h3>
-                <p className="text-[10px] text-slate-600 mt-1 leading-snug line-clamp-2">
-                  {p.description}
-                </p>
-                {hasValidSize(p.size) && (
-                  <p className="text-[9px] font-semibold text-slate-500 mt-1.5">
-                    📏 Medidas: {p.size}
-                  </p>
-                )}
+        {/* Product Cards Grid: Ordered by category when multiple categories exist */}
+        {printCategoriesGrouped.groups.map((group, gIdx) => (
+          <div key={group.categoryKey || gIdx} className="mb-6 last:mb-0">
+            {printCategoriesGrouped.hasMultiple && (
+              <div className="mb-3 pb-1 border-b-2 border-slate-900 flex items-center justify-between break-after-avoid">
+                <h2 className="text-xs font-black uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
+                  <span>📂 {group.categoryName}</span>
+                </h2>
+                <span className="text-[9px] font-bold bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full border border-slate-300">
+                  {group.products.length} {group.products.length === 1 ? 'artículo' : 'artículos'}
+                </span>
               </div>
+            )}
 
-              <div className="mt-3 pt-2 border-t border-slate-200 flex items-center justify-between">
-                <div>
-                  {p.oldPrice && (
-                    <span className="text-[9px] text-slate-400 line-through mr-1 font-semibold">
-                      ${p.oldPrice.toLocaleString('es-AR')}
-                    </span>
-                  )}
-                  <span className="text-xs font-black text-slate-900">
-                    ${p.price.toLocaleString('es-AR')}
-                  </span>
+            <div className="grid grid-cols-2 gap-3 mb-3">
+              {group.products.map((p) => (
+                <div
+                  key={p.id}
+                  className="border border-slate-300 rounded-xl p-3 flex flex-col justify-between break-inside-avoid bg-white shadow-none text-slate-900"
+                >
+                  <div>
+                    <div className="aspect-[4/3] w-full bg-slate-50 rounded-lg overflow-hidden mb-2 border border-slate-200 flex items-center justify-center p-1">
+                      <img src={p.image} alt={p.title} className="w-full h-full object-contain" />
+                    </div>
+                    <div className="flex items-center justify-between gap-1 mb-1">
+                      <span className="text-[9px] font-extrabold text-cyan-800 uppercase tracking-wide">
+                        {p.subcategory || p.category}
+                      </span>
+                      <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded ${p.stockStatus === 'ready' ? 'bg-emerald-100 text-emerald-900 border border-emerald-200' : 'bg-slate-100 text-slate-700 border border-slate-200'}`}>
+                        {p.stockStatus === 'ready' ? 'En Stock' : 'A Pedido'}
+                      </span>
+                    </div>
+                    <h3 className="text-xs font-bold text-slate-900 leading-tight">{p.title}</h3>
+                    <p className="text-[10px] text-slate-600 mt-1 leading-snug line-clamp-2">
+                      {p.description}
+                    </p>
+                    {hasValidSize(p.size) && (
+                      <p className="text-[9px] font-semibold text-slate-500 mt-1.5">
+                        📏 Medidas: {p.size}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="mt-3 pt-2 border-t border-slate-200 flex items-center justify-between">
+                    <div>
+                      {p.oldPrice && (
+                        <span className="text-[9px] text-slate-400 line-through mr-1 font-semibold">
+                          ${p.oldPrice.toLocaleString('es-AR')}
+                        </span>
+                      )}
+                      <span className="text-xs font-black text-slate-900">
+                        ${p.price.toLocaleString('es-AR')}
+                      </span>
+                    </div>
+                    <span className="text-[9px] font-bold text-slate-400">3LD Taller 3D</span>
+                  </div>
                 </div>
-                <span className="text-[9px] font-bold text-slate-400">3LD Taller 3D</span>
-              </div>
+              ))}
             </div>
-          ))}
-        </div>
+          </div>
+        ))}
 
         {/* Footer */}
         <div className="mt-6 pt-3 border-t border-slate-300 flex items-center justify-between text-[9px] text-slate-500">

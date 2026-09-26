@@ -28,7 +28,7 @@ class CategoriasController
             $db = (new Database($this->config))->getConnection();
 
             $stmt = $db->prepare(
-                "SELECT c.id, c.nombre, c.descripcion, c.icono, c.es_destacada, c.created_at,
+                "SELECT c.id, c.nombre, c.descripcion, c.icono, c.imagen_url, c.es_destacada, c.created_at,
                         (SELECT COUNT(*) FROM productos p WHERE p.categoria_id = c.id AND p.activo = 1) AS productos_count
                  FROM categorias_producto c
                  ORDER BY c.es_destacada DESC, c.nombre ASC"
@@ -56,18 +56,19 @@ class CategoriasController
             }
 
             $stmt = $db->prepare(
-                "INSERT INTO categorias_producto (nombre, descripcion, icono, es_destacada, created_at)
-                 VALUES (?, ?, ?, ?, NOW())"
+                "INSERT INTO categorias_producto (nombre, descripcion, icono, imagen_url, es_destacada, created_at)
+                 VALUES (?, ?, ?, ?, ?, NOW())"
             );
             $stmt->execute([
                 trim($body['nombre']),
                 $body['descripcion'] ?? null,
                 $body['icono'] ?? '✨',
+                $body['imagen_url'] ?? null,
                 !empty($body['es_destacada']) ? 1 : 0,
             ]);
 
             $newId = (int) $db->lastInsertId();
-            $stmt2 = $db->prepare("SELECT id, nombre, descripcion, icono, es_destacada, created_at, 0 AS productos_count FROM categorias_producto WHERE id = ?");
+            $stmt2 = $db->prepare("SELECT id, nombre, descripcion, icono, imagen_url, es_destacada, created_at, 0 AS productos_count FROM categorias_producto WHERE id = ?");
             $stmt2->execute([$newId]);
 
             return Response::success($stmt2->fetch(), 201);
@@ -90,17 +91,18 @@ class CategoriasController
                 return Response::error('El nombre de la categoría es requerido', 422);
             }
 
-            $stmt = $db->prepare("UPDATE categorias_producto SET nombre = ?, descripcion = ?, icono = ?, es_destacada = ? WHERE id = ?");
+            $stmt = $db->prepare("UPDATE categorias_producto SET nombre = ?, descripcion = ?, icono = ?, imagen_url = ?, es_destacada = ? WHERE id = ?");
             $stmt->execute([
                 trim($body['nombre']),
                 $body['descripcion'] ?? null,
                 $body['icono'] ?? '✨',
+                $body['imagen_url'] ?? null,
                 !empty($body['es_destacada']) ? 1 : 0,
                 $id
             ]);
 
             $stmt2 = $db->prepare(
-                "SELECT c.id, c.nombre, c.descripcion, c.icono, c.es_destacada, c.created_at,
+                "SELECT c.id, c.nombre, c.descripcion, c.icono, c.imagen_url, c.es_destacada, c.created_at,
                         (SELECT COUNT(*) FROM productos p WHERE p.categoria_id = c.id AND p.activo = 1) AS productos_count
                  FROM categorias_producto c WHERE c.id = ?"
             );

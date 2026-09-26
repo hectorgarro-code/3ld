@@ -103,7 +103,7 @@ export function CostoImpresionModal({
                 <div className="relative">
                   <input
                     type="number"
-                    step="0.1"
+                    step="any"
                     min="0"
                     value={horas}
                     onChange={(e) => setHoras(parseFloat(e.target.value) || 0)}
@@ -121,7 +121,7 @@ export function CostoImpresionModal({
                 <div className="relative">
                   <input
                     type="number"
-                    step="1"
+                    step="any"
                     min="0"
                     value={gramos}
                     onChange={(e) => setGramos(parseInt(e.target.value) || 0)}

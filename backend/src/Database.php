@@ -73,12 +73,22 @@ class Database
             // Se ignora si la columna ya existe
         }
         try {
+            $db->exec("ALTER TABLE productos ADD COLUMN piezas TEXT NULL");
+        } catch (\Throwable $e) {
+            // Se ignora si ya existe
+        }
+        try {
             $db->exec("ALTER TABLE categorias_producto ADD COLUMN icono VARCHAR(50) NULL DEFAULT '✨'");
         } catch (\Throwable $e) {
             // Se ignora si ya existe
         }
         try {
             $db->exec("ALTER TABLE categorias_producto ADD COLUMN es_destacada TINYINT(1) NOT NULL DEFAULT 0");
+        } catch (\Throwable $e) {
+            // Se ignora si ya existe
+        }
+        try {
+            $db->exec("ALTER TABLE categorias_producto ADD COLUMN imagen_url VARCHAR(500) NULL");
         } catch (\Throwable $e) {
             // Se ignora si ya existe
         }

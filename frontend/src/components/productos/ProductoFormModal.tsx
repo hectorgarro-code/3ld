@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { X, Loader2, ImagePlus, Trash2, Plus, Sparkles, ExternalLink, Star } from 'lucide-react'
 import api from '@/lib/api'
-import type { Producto } from '@/types'
+import type { Producto, ProductoPieza } from '@/types'
 import { compressImage } from '@/lib/imageUtils'
 import { useCreateProducto, useUpdateProducto, useCategorias, useProductos } from '@/hooks/useProductos'
 import { toast } from '@/store/toastStore'
@@ -64,6 +64,7 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
 
   const [imagesBase64, setImagesBase64] = useState<string[]>([])
   const [selectedColors, setSelectedColors] = useState<string[]>([])
+  const [piezas, setPiezas] = useState<ProductoPieza[]>([])
   const [isCompressing, setIsCompressing] = useState(false)
   const [isGeneratingAi, setIsGeneratingAi] = useState(false)
   const [receta, setReceta] = useState<{insumo_id: number, cantidad: number, insumo_nombre?: string, precio_costo?: number, unidad_medida?: string}[]>([])
@@ -169,8 +170,20 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
         } catch (e) {}
       }
       setSelectedColors(existingCol)
+
+      let existingPiezas: ProductoPieza[] = []
+      if (Array.isArray(p.piezas)) {
+        existingPiezas = p.piezas
+      } else if (typeof p.piezas === 'string' && p.piezas.trim()) {
+        try {
+          const parsed = JSON.parse(p.piezas)
+          if (Array.isArray(parsed)) existingPiezas = parsed
+        } catch (e) {}
+      }
+      setPiezas(existingPiezas)
     } else if (isOpen && !producto) {
       setSelectedColors([])
+      setPiezas([])
       const savedCatId = localStorage.getItem('last_categoria_id')
       const savedSubcat = localStorage.getItem('last_subcategoria')
       reset({
@@ -219,7 +232,7 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
       const savedHora = parseFloat(localStorage.getItem('costo_hora_maquina_default') || '500')
       const autoCost = Math.round((gramos / 1000) * savedFil + horas * savedHora)
       setValue('precio_costo', autoCost)
-      setValue('precio_venta', Math.round(autoCost * 2))
+      setValue('precio_venta', autoCost)
     }
   }
 
@@ -294,6 +307,7 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
       const payload = {
         ...data,
         colores: selectedColors,
+        piezas: piezas.filter((p) => p.nombre.trim() !== ''),
         categoria_id: data.categoria_id || undefined,
         variante: data.variante || undefined,
         archivo_url: data.archivo_url?.trim() || null,
@@ -571,6 +585,97 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
                   </div>
                 </div>
 
+                {/* Sección de Piezas / Kit Configurable */}
+                <div className="md:col-span-2 bg-indigo-50/60 p-4 rounded-2xl border border-indigo-200/80 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-black uppercase tracking-wider text-indigo-950 flex items-center gap-1.5">
+                      🧩 Piezas / Kit Configurable (Opcional)
+                    </label>
+                    <span className="text-[10px] font-bold text-indigo-600">
+                      {piezas.length > 0 ? `${piezas.length} pieza(s) configurada(s)` : 'Sin piezas (Producto individual)'}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-600">
+                    Si este producto se compone de varias piezas que el cliente puede seleccionar individualmente (ej. Sets de decoración, juegos con piezas opcionales), agregalas acá con su precio.
+                  </p>
+
+                  {piezas.length > 0 && (
+                    <div className="space-y-2">
+                      {piezas.map((pieza, idx) => (
+                        <div key={pieza.id || idx} className="flex flex-wrap sm:flex-nowrap items-center gap-2 bg-white p-2.5 rounded-xl border border-indigo-100 shadow-2xs">
+                          {pieza.imagen_url && (
+                            <img src={pieza.imagen_url} alt={pieza.nombre} className="w-10 h-10 object-cover rounded-lg border border-slate-200 shrink-0" />
+                          )}
+                          <div className="flex-1 min-w-[140px]">
+                            <input
+                              type="text"
+                              placeholder="Nombre de la pieza"
+                              value={pieza.nombre}
+                              onChange={(e) => {
+                                const copy = [...piezas]
+                                copy[idx].nombre = e.target.value
+                                setPiezas(copy)
+                              }}
+                              className="w-full text-xs font-bold text-slate-800 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 outline-none focus:border-indigo-500"
+                            />
+                          </div>
+                          <div className="w-24 shrink-0">
+                            <input
+                              type="number"
+                              placeholder="Precio ($)"
+                              value={pieza.precio}
+                              onChange={(e) => {
+                                const copy = [...piezas]
+                                copy[idx].precio = parseFloat(e.target.value) || 0
+                                setPiezas(copy)
+                              }}
+                              className="w-full text-xs font-bold text-slate-800 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 outline-none focus:border-indigo-500"
+                            />
+                          </div>
+                          <div className="flex-1 min-w-[120px]">
+                            <input
+                              type="text"
+                              placeholder="URL Foto (opcional)"
+                              value={pieza.imagen_url || ''}
+                              onChange={(e) => {
+                                const copy = [...piezas]
+                                copy[idx].imagen_url = e.target.value
+                                setPiezas(copy)
+                              }}
+                              className="w-full text-[11px] font-medium text-slate-600 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 outline-none focus:border-indigo-500"
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setPiezas(piezas.filter((_, i) => i !== idx))}
+                            className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors shrink-0"
+                            title="Eliminar pieza"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const newPieza: ProductoPieza = {
+                        id: 'pieza_' + Math.random().toString(36).substring(2, 7),
+                        nombre: '',
+                        precio: 0,
+                        imagen_url: ''
+                      }
+                      setPiezas([...piezas, newPieza])
+                    }}
+                    className="w-full py-2 bg-indigo-100/70 hover:bg-indigo-200/80 text-indigo-900 font-extrabold text-xs rounded-xl flex items-center justify-center gap-1.5 transition"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>+ Agregar Pieza / Componente al Set</span>
+                  </button>
+                </div>
+
                 <div>
                   <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-500">
                     Precio de Venta ($) *
@@ -639,7 +744,7 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
                       </label>
                       <input
                         type="number"
-                        step="0.1"
+                        step="any"
                         {...register('alto_mm', { valueAsNumber: true })}
                         className="w-full rounded-xl border border-amber-200 bg-white px-3 py-2 text-xs font-bold text-slate-800 outline-none focus:border-amber-500"
                         placeholder="0"
@@ -651,7 +756,7 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
                       </label>
                       <input
                         type="number"
-                        step="0.1"
+                        step="any"
                         {...register('ancho_mm', { valueAsNumber: true })}
                         className="w-full rounded-xl border border-amber-200 bg-white px-3 py-2 text-xs font-bold text-slate-800 outline-none focus:border-amber-500"
                         placeholder="0"
@@ -663,7 +768,7 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
                       </label>
                       <input
                         type="number"
-                        step="0.1"
+                        step="any"
                         {...register('profundidad_mm', { valueAsNumber: true })}
                         className="w-full rounded-xl border border-amber-200 bg-white px-3 py-2 text-xs font-bold text-slate-800 outline-none focus:border-amber-500"
                         placeholder="0"
@@ -675,7 +780,7 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
                       </label>
                       <input
                         type="number"
-                        step="1"
+                        step="any"
                         {...register('peso_gramos', {
                           valueAsNumber: true,
                           onChange: (e) => handleRecalculateAutoCost(parseFloat(e.target.value) || 0, undefined)
@@ -690,7 +795,7 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
                       </label>
                       <input
                         type="number"
-                        step="0.1"
+                        step="any"
                         {...register('horas_impresion', {
                           valueAsNumber: true,
                           onChange: (e) => handleRecalculateAutoCost(undefined, parseFloat(e.target.value) || 0)

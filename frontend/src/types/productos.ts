@@ -5,9 +5,17 @@ export interface Categoria {
   nombre: string
   descripcion?: string
   icono?: string
+  imagen_url?: string | null
   es_destacada?: boolean | number
   productos_count?: number
   created_at: string
+}
+
+export interface ProductoPieza {
+  id: string
+  nombre: string
+  precio: number
+  imagen_url?: string
 }
 
 export interface Producto {
@@ -26,6 +34,8 @@ export interface Producto {
   stock_minimo: number
   imagen_url?: string
   imagenes?: string[]
+  colores?: string[] | any
+  piezas?: ProductoPieza[]
   activo: number // 1 o 0
   es_vendible: number
   es_insumo: number

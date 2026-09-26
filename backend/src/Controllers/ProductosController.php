@@ -58,6 +58,20 @@ class ProductosController
     }
 
     /**
+     * GET /api/v1/productos/{id}/movimientos
+     */
+    public function movimientos(ServerRequestInterface $request, ResponseInterface $response, array $args): ResponseInterface
+    {
+        try {
+            $id = (int) $args['id'];
+            $movimientos = $this->repository->getMovimientos($id);
+            return Response::success($movimientos);
+        } catch (Throwable $e) {
+            return Response::error('Error al obtener movimientos: ' . $e->getMessage(), 500);
+        }
+    }
+
+    /**
      * POST /api/v1/productos
      */
     public function create(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface

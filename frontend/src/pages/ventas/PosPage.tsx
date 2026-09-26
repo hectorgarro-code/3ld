@@ -103,6 +103,7 @@ export default function PosPage() {
   const [quickQty, setQuickQty] = useState<number>(1)
   const [quickPrice, setQuickPrice] = useState<number>(0)
   const [quickNota, setQuickNota] = useState<string>('')
+  const [posSelectedPiezas, setPosSelectedPiezas] = useState<Record<string, boolean>>({})
 
   // Auto select default client
   const defaultClienteId = useMemo(() => {

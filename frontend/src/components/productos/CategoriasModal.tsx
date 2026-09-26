@@ -122,6 +122,7 @@ export function CategoriasModal({ isOpen, onClose }: CategoriasModalProps) {
   const [nombre, setNombre] = useState('')
   const [descripcion, setDescripcion] = useState('')
   const [icono, setIcono] = useState('✨')
+  const [imagenUrl, setImagenUrl] = useState('')
   const [esDestacada, setEsDestacada] = useState(false)
 
   const [activeEmojiCategory, setActiveEmojiCategory] = useState(0)
@@ -134,6 +135,7 @@ export function CategoriasModal({ isOpen, onClose }: CategoriasModalProps) {
     setNombre('')
     setDescripcion('')
     setIcono('✨')
+    setImagenUrl('')
     setEsDestacada(false)
   }
 
@@ -142,6 +144,7 @@ export function CategoriasModal({ isOpen, onClose }: CategoriasModalProps) {
     setNombre(cat.nombre)
     setDescripcion(cat.descripcion || '')
     setIcono(cat.icono || '✨')
+    setImagenUrl(cat.imagen_url || '')
     setEsDestacada(Boolean(cat.es_destacada))
   }
 
@@ -158,6 +161,7 @@ export function CategoriasModal({ isOpen, onClose }: CategoriasModalProps) {
         nombre: cleanNombre,
         descripcion: descripcion.trim() || undefined,
         icono: icono.trim() || '✨',
+        imagen_url: imagenUrl.trim() || undefined,
         es_destacada: esDestacada ? 1 : 0
       }
 
@@ -370,6 +374,26 @@ export function CategoriasModal({ isOpen, onClose }: CategoriasModalProps) {
                   onChange={(e) => setDescripcion(e.target.value)}
                   className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs text-slate-800 focus:border-[#6B66C8] focus:outline-none focus:ring-2 focus:ring-[#6B66C8]/20 transition resize-none"
                 />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center justify-between">
+                  <span>URL Foto de la Categoría (Opcional)</span>
+                  {imagenUrl && <span className="text-[10px] text-emerald-600 font-bold">✓ Con Foto</span>}
+                </label>
+                <input
+                  type="url"
+                  placeholder="https://ejemplo.com/imagen-categoria.jpg"
+                  value={imagenUrl}
+                  onChange={(e) => setImagenUrl(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs text-slate-800 focus:border-[#6B66C8] focus:outline-none focus:ring-2 focus:ring-[#6B66C8]/20 transition"
+                />
+                {imagenUrl && (
+                  <div className="mt-1.5 flex items-center gap-2">
+                    <img src={imagenUrl} alt="Vista previa" className="h-10 w-10 object-cover rounded-lg border border-slate-200" onError={(e) => (e.currentTarget.style.display = 'none')} />
+                    <span className="text-[10px] text-slate-400">Vista previa en celular</span>
+                  </div>
+                )}
               </div>
 
               {/* Destacar como más utilizada */}

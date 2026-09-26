@@ -17,25 +17,35 @@ class OpenAiService
         $this->model  = $config['openai']['model'] ?? 'gpt-4o-mini';
     }
 
-    /**
-     * Optimiza título, descripción y sugiere precio y categoría para un producto extraído de MakerWorld
-     */
-    public function optimizeProductForSales(string $rawTitle, string $rawDescription): array
+    public function optimizeProductForSales(string $rawTitle, string $rawDescription, array $extraContext = []): array
     {
-        $prompt = "Eres un experto en e-commerce y marketing para un taller de impresión 3D llamado '3LD'.
-Dado este modelo 3D de MakerWorld:
-Título original: {$rawTitle}
-Descripción original: {$rawDescription}
+        $tagsStr = !empty($extraContext['tags']) && is_array($extraContext['tags']) ? implode(', ', $extraContext['tags']) : '';
 
-Genera un JSON estrictamente válido con los siguientes campos:
+        $prompt = "Eres un redactor experto en e-commerce y marketing para el taller de impresión 3D llamado '3LD'.
+Se te proporciona el contenido y la descripción original completa extraída de la página de un modelo 3D en MakerWorld.
+Tu objetivo es USAR ESTE CONTEXTO COMPLETO (detalles del modelo, partes incluidas, estética, utilidades y recomendaciones del creador) para redactar una propuesta comercial de venta en español súper atractiva para la tienda web.
+
+INFORMACIÓN DE LA PÁGINA MAKERWORLD:
+- Título original: {$rawTitle}
+- Descripción del modelo (CONTEXTO PRINCIPAL):
+{$rawDescription}
+" . (!empty($tagsStr) ? "- Etiquetas / Tags: {$tagsStr}\n" : "") . "
+
+REGLAS DE GENERACIÓN OBLIGATORIAS:
+1. Traduce e interpreta el contexto original (esté en inglés, chino u otro idioma) al español rioplatense/latino neutro.
+2. Analiza los elementos específicos que menciona el creador en la descripción (ej: letrero, bandeja, accesorios, florero, velas LED, montaje, etc.) e inclúyelos en la venta comercial. NO inventes características ajenas ni uses explicaciones genéricas sin contenido.
+3. Genera un título comercial en español (máx. 70 caracteres) que represente el producto real.
+4. Genera una descripción orientada a la venta en español (2 a 3 párrafos), destacando qué es, sus componentes, calidad de fabricación en PLA/PETG y llamado a la compra.
+5. Elige la categoría más adecuada entre: cortantes, ceramica, didacticos, moldes, figuras, personalizados, accesorio.
+6. Sugiere un precio estimado de venta en pesos ($).
+
+Genera ÚNICAMENTE un objeto JSON sintácticamente válido:
 {
-  \"title\": \"Título comercial atractivo en español (máx 70 caracteres)\",
-  \"description\": \"Descripción orientada a la venta en español, destacando utilidades, calidad de acabado, durabilidad en PLA/PETG y llamado a la acción (2 párrafos)\",
-  \"category\": \"Una de estas categorías: cortantes, ceramica, didacticos, moldes, figuras, personalizados, accesorio\",
+  \"title\": \"Título comercial descriptivo en español\",
+  \"description\": \"Descripción detallada orientada a la venta usando el contexto real del modelo\",
+  \"category\": \"categoría_elegida\",
   \"suggested_price\": 9500
-}
-
-RESPONDE ÚNICAMENTE CON EL OBJETO JSON SINTÁCTICAMENTE VÁLIDO SIN MARKDOWN O TEXTO EXTRA.";
+}";
 
         $jsonResponse = $this->callOpenAi($prompt);
         

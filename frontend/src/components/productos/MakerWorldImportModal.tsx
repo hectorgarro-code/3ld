@@ -105,7 +105,8 @@ export function MakerWorldImportModal({ isOpen, onClose, onSuccess }: Props) {
         }
 
         setPrecioCosto(calcCost)
-        setPrecioVenta(calcCost > 0 ? Math.round(calcCost * 2) : (d.suggested_price || 0))
+        setPrecioVenta(calcCost > 0 ? calcCost : (d.suggested_price || 0))
+        setStockActual(0)
 
         setArchivoUrl(d.source_url || url.trim())
         if (d.images && d.images.length > 0) {
@@ -391,7 +392,7 @@ export function MakerWorldImportModal({ isOpen, onClose, onSuccess }: Props) {
                       onChange={(e) => {
                         const val = parseFloat(e.target.value) || 0
                         setPrecioCosto(val)
-                        setPrecioVenta(Math.round(val * 2))
+                        setPrecioVenta(val)
                       }}
                       className="w-full p-2 bg-white border border-slate-200 rounded-xl font-bold text-slate-900"
                     />
@@ -438,7 +439,7 @@ export function MakerWorldImportModal({ isOpen, onClose, onSuccess }: Props) {
                       </label>
                       <input
                         type="number"
-                        step="0.1"
+                        step="any"
                         value={altoMm}
                         onChange={(e) => setAltoMm(parseFloat(e.target.value) || 0)}
                         className="w-full rounded-xl border border-amber-200 bg-white px-3 py-2 text-xs font-bold text-slate-800 outline-none focus:border-amber-500"
@@ -451,7 +452,7 @@ export function MakerWorldImportModal({ isOpen, onClose, onSuccess }: Props) {
                       </label>
                       <input
                         type="number"
-                        step="0.1"
+                        step="any"
                         value={anchoMm}
                         onChange={(e) => setAnchoMm(parseFloat(e.target.value) || 0)}
                         className="w-full rounded-xl border border-amber-200 bg-white px-3 py-2 text-xs font-bold text-slate-800 outline-none focus:border-amber-500"
@@ -464,7 +465,7 @@ export function MakerWorldImportModal({ isOpen, onClose, onSuccess }: Props) {
                       </label>
                       <input
                         type="number"
-                        step="0.1"
+                        step="any"
                         value={profundidadMm}
                         onChange={(e) => setProfundidadMm(parseFloat(e.target.value) || 0)}
                         className="w-full rounded-xl border border-amber-200 bg-white px-3 py-2 text-xs font-bold text-slate-800 outline-none focus:border-amber-500"
@@ -477,7 +478,7 @@ export function MakerWorldImportModal({ isOpen, onClose, onSuccess }: Props) {
                       </label>
                       <input
                         type="number"
-                        step="1"
+                        step="any"
                         value={pesoGramos}
                         onChange={(e) => setPesoGramos(parseInt(e.target.value) || 0)}
                         className="w-full rounded-xl border border-amber-200 bg-white px-3 py-2 text-xs font-bold text-slate-800 outline-none focus:border-amber-500"
@@ -490,7 +491,7 @@ export function MakerWorldImportModal({ isOpen, onClose, onSuccess }: Props) {
                       </label>
                       <input
                         type="number"
-                        step="0.1"
+                        step="any"
                         value={horasImpresion}
                         onChange={(e) => setHorasImpresion(parseFloat(e.target.value) || 0)}
                         className="w-full rounded-xl border border-amber-200 bg-white px-3 py-2 text-xs font-bold text-slate-800 outline-none focus:border-amber-500"

@@ -167,6 +167,13 @@ class ProductoRepository
             $producto['imagenes'] = !empty($producto['imagen_url']) ? [$producto['imagen_url']] : [];
         }
 
+        if (!empty($producto['piezas'])) {
+            $decP = is_string($producto['piezas']) ? json_decode($producto['piezas'], true) : $producto['piezas'];
+            $producto['piezas'] = is_array($decP) ? array_values($decP) : [];
+        } else {
+            $producto['piezas'] = [];
+        }
+
         return $producto;
     }
 
@@ -286,8 +293,8 @@ class ProductoRepository
             'categoria_id'  => 'int',
             'precio_venta'  => 'float',
             'precio_costo'  => 'float',
-            'stock_actual'  => 'int',
-            'stock_minimo'  => 'int',
+            'stock_actual'  => 'float',
+            'stock_minimo'  => 'float',
             'unidad_medida' => 'string',
             'imagen_url'    => 'string',
             'imagenes'      => 'json',
@@ -306,7 +313,26 @@ class ProductoRepository
             'es_destacado'  => 'int',
             'archivo_url'   => 'string',
             'colores'       => 'json',
+            'piezas'        => 'json',
         ];
+
+        // Registrar ajuste en historial si se modificó el stock_actual
+        if (array_key_exists('stock_actual', $data)) {
+            $currentStock = (float) ($current['stock_actual'] ?? 0);
+            $newStock     = (float) $data['stock_actual'];
+            $delta        = $newStock - $currentStock;
+            if (abs($delta) > 0.0001) {
+                $notas = $data['motivo_ajuste'] ?? ($data['notas_stock'] ?? 'Ajuste manual de stock');
+                try {
+                    $stmtMov = $this->db->prepare(
+                        "INSERT INTO movimientos_stock (producto_id, cantidad, tipo_movimiento, notas) VALUES (?, ?, 'ajuste_manual', ?)"
+                    );
+                    $stmtMov->execute([$id, $delta, $notas]);
+                } catch (\Throwable $e) {
+                    error_log("Error al registrar movimiento_stock: " . $e->getMessage());
+                }
+            }
+        }
 
         foreach ($map as $col => $type) {
             if (array_key_exists($col, $data)) {
@@ -341,6 +367,22 @@ class ProductoRepository
         }
 
         return $this->findById($id);
+    }
+
+    public function getMovimientos(int $productoId): array
+    {
+        try {
+            $stmt = $this->db->prepare(
+                "SELECT id, producto_id, cantidad, tipo_movimiento, referencia_id, notas, created_at 
+                 FROM movimientos_stock 
+                 WHERE producto_id = ? 
+                 ORDER BY created_at DESC, id DESC"
+            );
+            $stmt->execute([$productoId]);
+            return $stmt->fetchAll(\PDO::FETCH_ASSOC);
+        } catch (\Throwable $e) {
+            return [];
+        }
     }
 
     public function delete(int $id): bool
