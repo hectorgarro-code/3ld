@@ -147,19 +147,66 @@ export default function PosPage() {
     })
   }, [productosData, selectedCategory, search])
 
+  const parsedModalPiezas = useMemo(() => {
+    if (!selectedProductForAdd) return []
+    if (Array.isArray(selectedProductForAdd.piezas)) return selectedProductForAdd.piezas
+    if (typeof selectedProductForAdd.piezas === 'string' && selectedProductForAdd.piezas.trim()) {
+      try {
+        const parsed = JSON.parse(selectedProductForAdd.piezas)
+        if (Array.isArray(parsed)) return parsed
+      } catch (e) {}
+    }
+    return []
+  }, [selectedProductForAdd])
+
   // Open Quick Add Modal
   const handleOpenQuickAdd = (p: any) => {
     setSelectedProductForAdd(p)
     setQuickQty(1)
-    setQuickPrice(p.precio_venta || 0)
     setQuickNota('')
+
+    let parsedPiezas: any[] = []
+    if (Array.isArray(p.piezas)) {
+      parsedPiezas = p.piezas
+    } else if (typeof p.piezas === 'string' && p.piezas.trim()) {
+      try {
+        const parsed = JSON.parse(p.piezas)
+        if (Array.isArray(parsed)) parsedPiezas = parsed
+      } catch (e) {}
+    }
+
+    if (parsedPiezas.length > 0) {
+      const initialMap: Record<string, boolean> = {}
+      let initialSum = 0
+      parsedPiezas.forEach(pieza => {
+        initialMap[pieza.id || pieza.nombre] = true
+        initialSum += (Number(pieza.precio) || 0)
+      })
+      setPosSelectedPiezas(initialMap)
+      setQuickPrice(initialSum > 0 ? initialSum : (p.precio_venta || 0))
+    } else {
+      setPosSelectedPiezas({})
+      setQuickPrice(p.precio_venta || 0)
+    }
   }
 
   // Confirm Quick Add to Cart
   const handleConfirmAddToCart = () => {
     if (!selectedProductForAdd) return
+
+    let itemNombre = selectedProductForAdd.nombre
+    if (parsedModalPiezas.length > 0) {
+      const selectedList = parsedModalPiezas.filter((p: any) => posSelectedPiezas[p.id || p.nombre])
+      if (selectedList.length === 0) {
+        toast('Seleccioná al menos 1 pieza para agregar a la venta', 'error')
+        return
+      }
+      const names = selectedList.map((p: any) => p.nombre).join(', ')
+      itemNombre = `${selectedProductForAdd.nombre} (${selectedList.length} pieza${selectedList.length > 1 ? 's' : ''}: ${names})`
+    }
+
     const existingIndex = cart.findIndex(
-      (item) => item.producto_id === selectedProductForAdd.id && item.notas === quickNota
+      (item) => item.producto_id === selectedProductForAdd.id && item.nombre === itemNombre && item.notas === quickNota
     )
 
     if (existingIndex >= 0) {
@@ -172,7 +219,7 @@ export default function PosPage() {
         ...prev,
         {
           producto_id: selectedProductForAdd.id,
-          nombre: selectedProductForAdd.nombre,
+          nombre: itemNombre,
           imagen_url: selectedProductForAdd.imagen_url,
           cantidad: quickQty,
           precio_unit: quickPrice,
@@ -182,7 +229,7 @@ export default function PosPage() {
     }
 
     setSelectedProductForAdd(null)
-    toast(`"${selectedProductForAdd.nombre}" agregado a la venta`, 'success')
+    toast(`"${itemNombre}" agregado a la venta`, 'success')
   }
 
   // Cart operations
@@ -974,6 +1021,82 @@ export default function PosPage() {
             </p>
 
             <div className="space-y-3 text-xs">
+              {/* Sección de Piezas Opcionales en POS */}
+              {parsedModalPiezas.length > 0 && (
+                <div className="bg-indigo-50/70 p-3 rounded-2xl border border-indigo-100 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[11px] font-black text-indigo-950 uppercase tracking-wide">
+                      🧩 Piezas del Set
+                    </label>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const allOn: Record<string, boolean> = {}
+                          let sum = 0
+                          parsedModalPiezas.forEach((p: any) => {
+                            allOn[p.id || p.nombre] = true
+                            sum += (Number(p.precio) || 0)
+                          })
+                          setPosSelectedPiezas(allOn)
+                          setQuickPrice(sum)
+                        }}
+                        className="text-[10px] font-extrabold text-indigo-600 hover:text-indigo-800 underline"
+                      >
+                        Todas
+                      </button>
+                      <span className="text-indigo-300">|</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPosSelectedPiezas({})
+                          setQuickPrice(0)
+                        }}
+                        className="text-[10px] font-extrabold text-slate-500 hover:text-slate-700 underline"
+                      >
+                        Ninguna
+                      </button>
+                    </div>
+                  </div>
+                  <div className="space-y-1 max-h-36 overflow-y-auto pr-1">
+                    {parsedModalPiezas.map((pieza: any) => {
+                      const key = pieza.id || pieza.nombre
+                      const isChecked = !!posSelectedPiezas[key]
+                      return (
+                        <label
+                          key={key}
+                          className={`flex items-center justify-between p-1.5 rounded-lg border transition cursor-pointer text-xs ${
+                            isChecked
+                              ? 'border-indigo-500 bg-white font-bold text-indigo-950 shadow-2xs'
+                              : 'border-slate-200 bg-slate-50/70 text-slate-500'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={(e) => {
+                                const nextState: Record<string, boolean> = { ...posSelectedPiezas, [key]: e.target.checked }
+                                setPosSelectedPiezas(nextState)
+                                const newSum = parsedModalPiezas.reduce((sum: number, p: any) => {
+                                  return sum + (nextState[p.id || p.nombre] ? (Number(p.precio) || 0) : 0)
+                                }, 0)
+                                setQuickPrice(newSum)
+                              }}
+                              className="w-3.5 h-3.5 rounded accent-indigo-600 shrink-0"
+                            />
+                            <span className="truncate">{pieza.nombre}</span>
+                          </div>
+                          <span className="font-extrabold text-indigo-700 shrink-0 ml-1">
+                            ${Number(pieza.precio).toLocaleString('es-AR')}
+                          </span>
+                        </label>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
               <div>
                 <label className="font-bold text-slate-700 block mb-1">NOTA BREVE (Especificaciones)</label>
                 <input
