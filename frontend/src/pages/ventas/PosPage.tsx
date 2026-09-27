@@ -41,6 +41,7 @@ export interface PosCartItem {
   imagen_url?: string
   cantidad: number
   precio_unit: number
+  costo_unitario?: number
   notas: string
 }
 
@@ -102,6 +103,7 @@ export default function PosPage() {
   const [selectedProductForAdd, setSelectedProductForAdd] = useState<any | null>(null)
   const [quickQty, setQuickQty] = useState<number>(1)
   const [quickPrice, setQuickPrice] = useState<number>(0)
+  const [quickCosto, setQuickCosto] = useState<number>(0)
   const [quickNota, setQuickNota] = useState<string>('')
   const [posSelectedPiezas, setPosSelectedPiezas] = useState<Record<string, boolean>>({})
 
@@ -176,12 +178,14 @@ export default function PosPage() {
     }
 
     let basePrice = p.precio_venta || 0
+    let baseCosto = Number(p.precio_costo) || 0
     if (parsedPiezas.length > 0) {
       const initialMap: Record<string, boolean> = {}
       const first = parsedPiezas[0]
       if (first) {
         initialMap[first.id || first.nombre] = true
         basePrice = Number(first.precio) || p.precio_venta || 0
+        baseCosto = Number(first.precio_costo) || Number(p.precio_costo) || 0
       }
       setPosSelectedPiezas(initialMap)
     } else {
@@ -203,6 +207,7 @@ export default function PosPage() {
     }
 
     setQuickPrice(basePrice)
+    setQuickCosto(baseCosto)
   }
 
   // Confirm Quick Add to Cart
@@ -228,6 +233,7 @@ export default function PosPage() {
       const updated = [...cart]
       updated[existingIndex].cantidad += quickQty
       updated[existingIndex].precio_unit = quickPrice
+      updated[existingIndex].costo_unitario = quickCosto
       setCart(updated)
     } else {
       setCart((prev) => [
@@ -238,6 +244,7 @@ export default function PosPage() {
           imagen_url: selectedProductForAdd.imagen_url,
           cantidad: quickQty,
           precio_unit: quickPrice,
+          costo_unitario: quickCosto,
           notas: quickNota,
         },
       ])
@@ -350,12 +357,14 @@ export default function PosPage() {
         descripcion?: string
         cantidad: number
         precio_unit: number
+        costo_unitario?: number
         subtotal: number
         notas?: string
       }> = cart.map((item) => ({
         producto_id: item.producto_id,
         cantidad: item.cantidad,
         precio_unit: item.precio_unit,
+        costo_unitario: item.costo_unitario,
         subtotal: item.cantidad * item.precio_unit,
         notas: item.notas,
       }))
@@ -1114,25 +1123,36 @@ export default function PosPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-2">
                 <div>
-                  <label className="font-bold text-slate-700 block mb-1">Cantidad</label>
+                  <label className="font-bold text-slate-700 block mb-1 text-[11px]">Cantidad</label>
                   <input
                     type="number"
                     min="1"
                     value={quickQty}
                     onChange={(e) => setQuickQty(parseInt(e.target.value) || 1)}
-                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900"
+                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 text-xs"
                   />
                 </div>
                 <div>
-                  <label className="font-bold text-slate-700 block mb-1">Precio Unitario ($)</label>
+                  <label className="font-bold text-slate-700 block mb-1 text-[11px]">Precio Unit. ($)</label>
                   <input
                     type="number"
                     step="any"
                     value={quickPrice}
                     onChange={(e) => setQuickPrice(parseFloat(e.target.value) || 0)}
-                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900"
+                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1 text-[11px]">Costo Unit. ($)</label>
+                  <input
+                    type="number"
+                    step="any"
+                    value={quickCosto}
+                    onChange={(e) => setQuickCosto(parseFloat(e.target.value) || 0)}
+                    placeholder="0.00"
+                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 text-xs"
                   />
                 </div>
               </div>

@@ -235,11 +235,12 @@ class PedidoRepository
                 $subtotal    = $cantidad * $precioUnit * (1 - $descuentoPct / 100);
 
                 $productoId  = !empty($item['producto_id']) ? (int) $item['producto_id'] : null;
+                $costoUnit   = isset($item['costo_unitario']) ? (float) $item['costo_unitario'] : (isset($item['precio_costo']) ? (float) $item['precio_costo'] : null);
                 $stmtItem = $this->db->prepare(
                     "INSERT INTO pedido_items
                         (pedido_id, producto_id, descripcion, cantidad, precio_unit,
-                         descuento_pct, subtotal, notas, created_at)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())"
+                         costo_unitario, descuento_pct, subtotal, notas, created_at)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())"
                 );
                 $stmtItem->execute([
                     $pedidoId,
@@ -247,6 +248,7 @@ class PedidoRepository
                     $item['descripcion'] ?? null,
                     $cantidad,
                     $precioUnit,
+                    $costoUnit,
                     $descuentoPct,
                     $subtotal,
                     $item['notas'] ?? null,
@@ -316,11 +318,12 @@ class PedidoRepository
         $descuentoPct = (float) ($body['descuento_pct'] ?? 0);
         $subtotal     = $cantidad * $precioUnit * (1 - $descuentoPct / 100);
 
+        $costoUnit    = isset($body['costo_unitario']) ? (float) $body['costo_unitario'] : (isset($body['precio_costo']) ? (float) $body['precio_costo'] : null);
         $stmt = $this->db->prepare(
             "INSERT INTO pedido_items
                 (pedido_id, producto_id, descripcion, cantidad, precio_unit,
-                 descuento_pct, subtotal, notas, created_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())"
+                 costo_unitario, descuento_pct, subtotal, notas, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())"
         );
         $stmt->execute([
             $pedidoId,
@@ -328,6 +331,7 @@ class PedidoRepository
             $body['descripcion'] ?? null,
             $cantidad,
             $precioUnit,
+            $costoUnit,
             $descuentoPct,
             $subtotal,
 
