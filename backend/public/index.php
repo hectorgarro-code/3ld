@@ -30,6 +30,7 @@ use App\Controllers\TiendaController;
 use App\Controllers\AiController;
 use App\Services\OpenAiService;
 use App\Services\MakerWorldScraper;
+use App\Helpers\UploadHelper;
 use App\Repositories\TiendaRepository;
 use App\Middleware\AuthMiddleware;
 use App\Middleware\CorsMiddleware;
@@ -584,6 +585,7 @@ $app->get('/api/v1/health', function ($req, $res) {
 });
 
 try {
+    UploadHelper::syncAllExistingFiles();
     $app->run();
 } catch (\Throwable $e) {
     http_response_code(500);

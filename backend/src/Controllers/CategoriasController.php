@@ -6,6 +6,7 @@ namespace App\Controllers;
 
 use App\Database;
 use App\Helpers\Response;
+use App\Helpers\UploadHelper;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Throwable;
@@ -123,30 +124,7 @@ class CategoriasController
         if (empty($img)) {
             return null;
         }
-        $img = trim($img);
-
-        if (str_starts_with($img, 'data:image/')) {
-            $uploadDir = __DIR__ . '/../../public/uploads/productos/';
-            if (!is_dir($uploadDir)) {
-                mkdir($uploadDir, 0777, true);
-            }
-            preg_match('/data:image\/(.*?);base64/', $img, $type);
-            $base64Data = substr($img, strpos($img, ',') + 1);
-            $ext = strtolower($type[1] ?? 'jpg');
-            if (!in_array($ext, ['jpg', 'jpeg', 'png', 'webp'])) {
-                $ext = 'jpg';
-            }
-            $decoded = base64_decode($base64Data);
-            if ($decoded !== false) {
-                $fileName = uniqid('cat_') . '.' . $ext;
-                $filePath = $uploadDir . $fileName;
-                if (file_put_contents($filePath, $decoded)) {
-                    return '/backend/public/uploads/productos/' . $fileName;
-                }
-            }
-        }
-
-        return $img;
+        return UploadHelper::processSingleImage($img);
     }
 
     /**

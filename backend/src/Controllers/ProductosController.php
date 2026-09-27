@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Controllers;
 
 use App\Helpers\Response;
+use App\Helpers\UploadHelper;
 use App\Repositories\ProductoRepository;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -132,68 +133,14 @@ class ProductosController
         }
     }
 
-    private function processSingleImage(string $img, string $uploadDir): ?string
+    private function processSingleImage(string $img): ?string
     {
-        $img = trim($img);
-        if (empty($img)) {
-            return null;
-        }
-
-        // Caso 1: Imagen Base64
-        if (preg_match('/^data:image\/(\w+);base64,/', $img, $type)) {
-            $base64Data = substr($img, strpos($img, ',') + 1);
-            $ext = strtolower($type[1]);
-            if (!in_array($ext, ['jpg', 'jpeg', 'png', 'webp'])) {
-                $ext = 'jpg';
-            }
-            $decoded = base64_decode($base64Data);
-            if ($decoded !== false) {
-                $fileName = uniqid('prd_') . '.' . $ext;
-                $filePath = $uploadDir . $fileName;
-                if (file_put_contents($filePath, $decoded)) {
-                    return '/backend/public/uploads/productos/' . $fileName;
-                }
-            }
-        }
-
-        // Caso 2: Imagen desde Proxy MakerWorld
-        if (str_contains($img, 'proxy-image')) {
-            $parsed = parse_url($img);
-            parse_str($parsed['query'] ?? '', $qParams);
-            if (!empty($qParams['url'])) {
-                $rawUrl = $qParams['url'];
-                $hashName = 'mw_' . md5($rawUrl) . '.jpg';
-                $destPath = $uploadDir . $hashName;
-                if (!file_exists($destPath) || filesize($destPath) < 500) {
-                    $ch = curl_init();
-                    curl_setopt($ch, CURLOPT_URL, $rawUrl);
-                    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-                    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-                    curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36');
-                    curl_setopt($ch, CURLOPT_TIMEOUT, 15);
-                    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-                    $data = curl_exec($ch);
-                    curl_close($ch);
-                    if (!empty($data) && strlen($data) > 500) {
-                        file_put_contents($destPath, $data);
-                    }
-                }
-                if (file_exists($destPath) && filesize($destPath) > 500) {
-                    return '/backend/public/uploads/productos/' . $hashName;
-                }
-            }
-        }
-
-        // Caso 3: URL ya existente o remota válida
-        return $img;
+        return UploadHelper::processSingleImage($img);
     }
 
     private function handleImageUpload(array &$body): void
     {
-        $uploadDir = __DIR__ . '/../../public/uploads/productos/';
-        if (!is_dir($uploadDir)) {
-            mkdir($uploadDir, 0777, true);
-        }
+        UploadHelper::syncAllExistingFiles();
 
         $processedImages = [];
 
@@ -201,7 +148,7 @@ class ProductosController
         if (!empty($body['imagenes']) && is_array($body['imagenes'])) {
             foreach (array_slice($body['imagenes'], 0, 5) as $imgItem) {
                 if (is_string($imgItem)) {
-                    $res = $this->processSingleImage($imgItem, $uploadDir);
+                    $res = UploadHelper::processSingleImage($imgItem);
                     if ($res) {
                         $processedImages[] = $res;
                     }
@@ -211,7 +158,7 @@ class ProductosController
 
         // Si se envió imagen_base64 individual
         if (!empty($body['imagen_base64'])) {
-            $single = $this->processSingleImage($body['imagen_base64'], $uploadDir);
+            $single = UploadHelper::processSingleImage($body['imagen_base64']);
             if ($single && !in_array($single, $processedImages, true)) {
                 array_unshift($processedImages, $single);
             }
@@ -219,7 +166,7 @@ class ProductosController
 
         // Si se envió imagen_url individual
         if (!empty($body['imagen_url'])) {
-            $single = $this->processSingleImage($body['imagen_url'], $uploadDir);
+            $single = UploadHelper::processSingleImage($body['imagen_url']);
             if ($single && !in_array($single, $processedImages, true)) {
                 if (empty($processedImages)) {
                     $processedImages[] = $single;
@@ -240,7 +187,7 @@ class ProductosController
             if (is_array($pzList)) {
                 foreach ($pzList as &$pz) {
                     if (is_array($pz) && !empty($pz['imagen_url']) && is_string($pz['imagen_url'])) {
-                        $res = $this->processSingleImage($pz['imagen_url'], $uploadDir);
+                        $res = UploadHelper::processSingleImage($pz['imagen_url']);
                         if ($res) {
                             $pz['imagen_url'] = $res;
                         }

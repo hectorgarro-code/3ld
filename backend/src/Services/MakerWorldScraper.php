@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Helpers\UploadHelper;
 use RuntimeException;
 
 class MakerWorldScraper
@@ -201,11 +202,6 @@ class MakerWorldScraper
                 $imgUrl = 'https://' . ltrim($imgUrl, '/');
             }
 
-            $uploadDir = __DIR__ . '/../../public/uploads/productos/';
-            if (!is_dir($uploadDir)) {
-                mkdir($uploadDir, 0777, true);
-            }
-
             $parsedPath = parse_url($imgUrl, PHP_URL_PATH) ?? '';
             $ext = strtolower(pathinfo($parsedPath, PATHINFO_EXTENSION));
             if (empty($ext) || !in_array($ext, ['jpg', 'jpeg', 'png', 'webp'])) {
@@ -213,12 +209,13 @@ class MakerWorldScraper
             }
 
             $filename = 'mw_' . md5($imgUrl) . '.' . $ext;
-            $destPath = $uploadDir . $filename;
-            $publicUrl = '/uploads/productos/' . $filename;
 
-            // Si ya fue descargada previamente, retornar la URL directamente
-            if (file_exists($destPath) && filesize($destPath) > 1000) {
-                return $publicUrl;
+            // Si ya fue descargada previamente en alguna carpeta
+            $dirs = UploadHelper::getTargetDirectories();
+            foreach ($dirs as $d) {
+                if (file_exists($d . $filename) && filesize($d . $filename) > 1000) {
+                    return '/backend/public/uploads/productos/' . $filename;
+                }
             }
 
             $ch = curl_init();
@@ -234,8 +231,7 @@ class MakerWorldScraper
             curl_close($ch);
 
             if ($httpCode === 200 && !empty($data) && strlen($data) > 1000) {
-                file_put_contents($destPath, $data);
-                return $publicUrl;
+                return UploadHelper::saveImageBinary($filename, $data);
             }
         } catch (\Throwable $e) {
             // Si falla la descarga, retornar la URL remota normalizada
