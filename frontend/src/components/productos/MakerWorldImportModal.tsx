@@ -104,8 +104,10 @@ export function MakerWorldImportModal({ isOpen, onClose, onSuccess }: Props) {
           calcCost = Math.round(d.suggested_price * 0.5)
         }
 
+        const calculatedVenta = calcCost > 0 ? Math.round(calcCost * 2) : (d.suggested_price ? Math.round(d.suggested_price) : 0)
+
         setPrecioCosto(calcCost)
-        setPrecioVenta(calcCost > 0 ? calcCost : (d.suggested_price || 0))
+        setPrecioVenta(calculatedVenta)
         setStockActual(0)
 
         setArchivoUrl(d.source_url || url.trim())
@@ -392,7 +394,7 @@ export function MakerWorldImportModal({ isOpen, onClose, onSuccess }: Props) {
                       onChange={(e) => {
                         const val = parseFloat(e.target.value) || 0
                         setPrecioCosto(val)
-                        setPrecioVenta(val)
+                        setPrecioVenta(Math.round(val * 2))
                       }}
                       className="w-full p-2 bg-white border border-slate-200 rounded-xl font-bold text-slate-900"
                     />

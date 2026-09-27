@@ -20,29 +20,41 @@ class OpenAiService
     public function optimizeProductForSales(string $rawTitle, string $rawDescription, array $extraContext = []): array
     {
         $tagsStr = !empty($extraContext['tags']) && is_array($extraContext['tags']) ? implode(', ', $extraContext['tags']) : '';
+        $urlStr  = !empty($extraContext['url']) ? $extraContext['url'] : '';
 
-        $prompt = "Eres un redactor experto en e-commerce y marketing para el taller de impresión 3D llamado '3LD'.
-Se te proporciona el contenido y la descripción original completa extraída de la página de un modelo 3D en MakerWorld.
-Tu objetivo es USAR ESTE CONTEXTO COMPLETO (detalles del modelo, partes incluidas, estética, utilidades y recomendaciones del creador) para redactar una propuesta comercial de venta en español súper atractiva para la tienda web.
+        $prompt = "Actuá como un copywriter senior especializado en e-commerce, SEO y conversión para productos impresos en 3D.
 
-INFORMACIÓN DE LA PÁGINA MAKERWORLD:
+Tu tarea es analizar una página de MakerWorld y convertir ese modelo en una publicación para vender el OBJETO FÍSICO YA IMPRESO, no el archivo STL.
+
+CONTEXTO DE MI NEGOCIO:
+- Marca: 3LD Impresiones
+- Vendo únicamente productos impresos en 3D.
+- Los productos se fabrican bajo pedido.
+- Material habitual: PLA de alta calidad.
+- Público: Mercado Libre, Tienda Nube y redes sociales.
+
+INFORMACIÓN EXTRAÍDA DE LA PÁGINA MAKERWORLD:
 - Título original: {$rawTitle}
-- Descripción del modelo (CONTEXTO PRINCIPAL):
+- Descripción original del modelo (CONTEXTO PRINCIPAL):
 {$rawDescription}
 " . (!empty($tagsStr) ? "- Etiquetas / Tags: {$tagsStr}\n" : "") . "
+" . (!empty($urlStr) ? "- URL del modelo: {$urlStr}\n" : "") . "
 
-REGLAS DE GENERACIÓN OBLIGATORIAS:
-1. Traduce e interpreta el contexto original (esté en inglés, chino u otro idioma) al español rioplatense/latino neutro.
-2. Analiza los elementos específicos que menciona el creador en la descripción (ej: letrero, bandeja, accesorios, florero, velas LED, montaje, etc.) e inclúyelos en la venta comercial. NO inventes características ajenas ni uses explicaciones genéricas sin contenido.
-3. Genera un título comercial en español (máx. 70 caracteres) que represente el producto real.
-4. Genera una descripción orientada a la venta en español (2 a 3 párrafos), destacando qué es, sus componentes, calidad de fabricación en PLA/PETG y llamado a la compra.
-5. Elige la categoría más adecuada entre: cortantes, ceramica, didacticos, moldes, figuras, personalizados, accesorio.
-6. Sugiere un precio estimado de venta en pesos ($).
+INSTRUCCIONES OBLIGATORIAS:
+1. Analizá toda la información disponible en la página (título, descripción, imágenes, medidas, cantidad de piezas, instrucciones y usos).
+2. Reescribí el contenido pensando en un comprador final del objeto impreso.
+3. NUNCA menciones STL, descarga, MakerWorld, Bambu Studio, impresión casera, slicer o archivos digitales.
+4. No inventes funciones que el producto no tenga.
+5. Si una medida no está disponible, no la inventes.
+6. TÍTULO: Debe tener entre 55 y 70 caracteres, optimizado para SEO, con las palabras clave con mayor intención de compra, natural y atractivo, sin exceso de mayúsculas ni emojis.
+7. DESCRIPCIÓN: Debe tener entre 500 y 1200 caracteres. Empezá con un gancho que despierte interés, explicá qué es, para quién sirve y qué beneficios aporta, convertí las características técnicas en beneficios para el comprador, incorporá naturalmente las palabras clave SEO y terminá con un llamado a la acción para comprar.
+8. Elegí la categoría más adecuada entre: cortantes, ceramica, didacticos, moldes, figuras, personalizados, accesorio.
+9. Sugiere un precio estimado de venta razonable en pesos ($).
 
-Genera ÚNICAMENTE un objeto JSON sintácticamente válido:
+Entregá ÚNICAMENTE un objeto JSON sintácticamente válido:
 {
-  \"title\": \"Título comercial descriptivo en español\",
-  \"description\": \"Descripción detallada orientada a la venta usando el contexto real del modelo\",
+  \"title\": \"Título comercial optimizado entre 55 y 70 caracteres\",
+  \"description\": \"Descripción vendedora entre 500 y 1200 caracteres enfocado en el producto físico ya impreso\",
   \"category\": \"categoría_elegida\",
   \"suggested_price\": 9500
 }";
@@ -55,7 +67,7 @@ Genera ÚNICAMENTE un objeto JSON sintácticamente válido:
 
         if (!is_array($data) || !isset($data['title'])) {
             return [
-                'title'           => $rawTitle,
+                'title'           => mb_substr($rawTitle, 0, 70),
                 'description'     => $rawDescription,
                 'category'        => 'accesorio',
                 'suggested_price' => 8500,
@@ -70,15 +82,22 @@ Genera ÚNICAMENTE un objeto JSON sintácticamente válido:
      */
     public function generateSalesCopy(string $title, string $details): array
     {
-        $prompt = "Eres un redactor creativo de marketing para e-commerce de productos 3D.
-Crea un título publicitario mejorado y una descripción persuasiva en español para este producto:
-Nombre/Ref: {$title}
-Detalles adicionales: {$details}
+        $prompt = "Actuá como un copywriter senior especializado en e-commerce, SEO y conversión para productos impresos en 3D (3LD Impresiones).
+Tu tarea es escribir una publicación para vender el OBJETO FÍSICO YA IMPRESO en PLA de alta calidad bajo pedido.
 
-Responde en formato JSON único:
+INFORMACIÓN BASE DEL PRODUCTO:
+- Nombre/Ref: {$title}
+- Detalles: {$details}
+
+INSTRUCCIONES:
+1. Jamás menciones STL, descargas, archivos digitales, MakerWorld o impresión casera.
+2. TÍTULO: Entre 55 y 70 caracteres. Optimizado para SEO y conversión.
+3. DESCRIPCIÓN: Entre 500 y 1200 caracteres. Gancho inicial, explicá qué es y sus beneficios para el comprador final, llamado a la acción para comprar.
+
+Responde ÚNICAMENTE en JSON sintácticamente válido:
 {
-  \"title\": \"Título mejorado comercial\",
-  \"description\": \"Descripción detallada enfocada en beneficios y llamado a la compra\"
+  \"title\": \"Título comercial SEO (55 a 70 caracteres)\",
+  \"description\": \"Descripción de venta (500 a 1200 caracteres)\"
 }";
 
         $jsonResponse = $this->callOpenAi($prompt);
