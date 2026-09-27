@@ -248,10 +248,10 @@ export default function TiendaPage() {
           api.get('/tienda/categorias').catch(() => ({ data: { data: [] } }))
         ]);
 
-        const loadedProducts = (prodRes.data?.data && Array.isArray(prodRes.data.data)) ? prodRes.data.data : [];
-        if (loadedProducts.length > 0) {
-          setProducts(loadedProducts);
+        if (prodRes.data?.success && Array.isArray(prodRes.data.data)) {
+          setProducts(prodRes.data.data);
         }
+        const loadedProducts = (prodRes.data?.data && Array.isArray(prodRes.data.data)) ? prodRes.data.data : [];
 
         const allCat: Category = { id: 'all', name: 'Todo el Catálogo', icon: '✨', subcategories: [] };
         let dynamicCats: Category[] = [];
@@ -267,7 +267,7 @@ export default function TiendaPage() {
               icon: c.icon || '✨',
               subcategories: c.subcategories || [],
               es_destacada: Boolean(c.es_destacada),
-              productos_count: loadedProducts.length > 0 ? countFromProds : (c.productos_count || 0)
+              productos_count: countFromProds
             };
           });
         } else if (loadedProducts.length > 0) {

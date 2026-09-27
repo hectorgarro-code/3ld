@@ -70,12 +70,24 @@ const TiendaAdminPage = lazy(() => import('@/pages/tienda/TiendaAdminPage'))
 const TiendaBuilderPage = lazy(() => import('@/pages/tienda/TiendaBuilderPage'))
 const ConfiguracionPage = lazy(() => import('@/pages/configuracion/ConfiguracionPage'))
 
+function RootEntryPage() {
+  const isSistemaSubdomain = typeof window !== 'undefined' && window.location.hostname.toLowerCase().startsWith('sistema.')
+  if (isSistemaSubdomain) {
+    return (
+      <ProtectedRoute>
+        <AppShell />
+      </ProtectedRoute>
+    )
+  }
+  return <TiendaPage />
+}
+
 export const router = createBrowserRouter([
   {
-    path: '/',
+    path: '/login',
     element: (
       <Suspense fallback={<PageLoader />}>
-        <TiendaPage />
+        <LoginPage />
       </Suspense>
     ),
   },
@@ -88,22 +100,22 @@ export const router = createBrowserRouter([
     ),
   },
   {
-    path: '/login',
-    element: (
-      <Suspense fallback={<PageLoader />}>
-        <LoginPage />
-      </Suspense>
-    ),
-  },
-  {
     path: '/',
     errorElement: <RootErrorFallback />,
     element: (
-      <ProtectedRoute>
-        <AppShell />
-      </ProtectedRoute>
+      <Suspense fallback={<PageLoader />}>
+        <RootEntryPage />
+      </Suspense>
     ),
     children: [
+      {
+        index: true,
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            <DashboardPage />
+          </Suspense>
+        ),
+      },
       {
         path: 'dashboard',
         element: (

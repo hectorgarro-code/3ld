@@ -26,7 +26,7 @@ class TiendaRepository
         $stockStatus = $params['stock_status'] ?? '';
         $sort = $params['sort'] ?? 'featured';
 
-        $where = "WHERE p.activo = 1 AND (p.es_tienda = 1 OR p.es_vendible = 1)";
+        $where = "WHERE p.activo = 1";
         $binds = [];
 
         if (!empty($q)) {
