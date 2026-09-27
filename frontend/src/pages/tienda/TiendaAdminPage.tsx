@@ -1322,18 +1322,21 @@ export default function TiendaAdminPage() {
           </thead>
           <tbody className="divide-y divide-slate-200">
             {printProducts.map((p) => {
-              const costo = p.precio_costo || 0
-              const venta = p.precio_venta || 0
-              const margenPct = costo > 0 ? Math.round(((venta - costo) / costo) * 100) : null
-              const dimensionsStr = formatDimensions(p)
-              const printTimeStr = formatPrintTime(p)
-
               let parsedPiezas: any[] = []
               if (Array.isArray(p.piezas)) {
                 parsedPiezas = p.piezas
               } else if (typeof p.piezas === 'string' && p.piezas.trim()) {
                 try { parsedPiezas = JSON.parse(p.piezas) } catch (e) {}
               }
+
+              const sumPiezasVenta = parsedPiezas.reduce((acc, pz) => acc + (Number(pz.precio) || 0), 0)
+              const sumPiezasCosto = parsedPiezas.reduce((acc, pz) => acc + (Number(pz.precio_costo) || 0), 0)
+
+              const costo = sumPiezasCosto > 0 ? sumPiezasCosto : (p.precio_costo || 0)
+              const venta = sumPiezasVenta > 0 ? sumPiezasVenta : (p.precio_venta || 0)
+              const margenPct = costo > 0 ? Math.round(((venta - costo) / costo) * 100) : null
+              const dimensionsStr = formatDimensions(p)
+              const printTimeStr = formatPrintTime(p)
 
               return (
                 <React.Fragment key={p.id}>

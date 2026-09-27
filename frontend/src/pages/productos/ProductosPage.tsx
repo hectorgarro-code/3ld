@@ -413,6 +413,13 @@ export default function ProductosPage() {
               } else if (typeof p.piezas === 'string' && (p.piezas as string).trim()) {
                 try { parsedPiezas = JSON.parse(p.piezas as string) } catch (e) {}
               }
+
+              const sumPiezasVenta = parsedPiezas.reduce((acc, pz) => acc + (Number(pz.precio) || 0), 0)
+              const sumPiezasCosto = parsedPiezas.reduce((acc, pz) => acc + (Number(pz.precio_costo) || 0), 0)
+
+              const costoVal = sumPiezasCosto > 0 ? sumPiezasCosto : Number(p.precio_costo || 0)
+              const ventaVal = sumPiezasVenta > 0 ? sumPiezasVenta : Number(p.precio_venta || 0)
+
               const dimStr = (p.alto_mm || p.ancho_mm || p.profundidad_mm)
                 ? `${p.alto_mm || 0}x${p.ancho_mm || 0}x${p.profundidad_mm || 0} mm`
                 : (p.dimensiones || 'Sin medidas')
@@ -426,8 +433,8 @@ export default function ProductosPage() {
                     </td>
                     <td className="p-2 border border-slate-300">{p.categoria_nombre || p.categoria?.nombre || '-'}</td>
                     <td className="p-2 border border-slate-300">{dimStr}</td>
-                    <td className="p-2 border border-slate-300 text-right">${Number(p.precio_costo || 0).toLocaleString('es-AR')}</td>
-                    <td className="p-2 border border-slate-300 text-right font-black">${Number(p.precio_venta || 0).toLocaleString('es-AR')}</td>
+                    <td className="p-2 border border-slate-300 text-right">${costoVal.toLocaleString('es-AR')}</td>
+                    <td className="p-2 border border-slate-300 text-right font-black">${ventaVal.toLocaleString('es-AR')}</td>
                     <td className="p-2 border border-slate-300 text-center">{p.stock_actual}</td>
                   </tr>
                   {parsedPiezas.length > 0 && (

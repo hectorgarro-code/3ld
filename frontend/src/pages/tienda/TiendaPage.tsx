@@ -1005,17 +1005,19 @@ export default function TiendaPage() {
                     )}
                   </div>
 
-                  <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between">
-                    <div>
-                      {product.oldPrice && (
-                        <span className="text-[10px] text-slate-400 line-through mr-1 font-semibold">
-                          ${product.oldPrice.toLocaleString('es-AR')}
+                    <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between">
+                      <div>
+                        {product.oldPrice && (
+                          <span className="text-[10px] text-slate-400 line-through mr-1 font-semibold">
+                            ${product.oldPrice.toLocaleString('es-AR')}
+                          </span>
+                        )}
+                        <span className="text-sm font-black text-slate-900">
+                          ${((product.piezas && product.piezas.length > 0)
+                            ? product.piezas.reduce((acc, pz) => acc + (Number(pz.precio) || 0), 0)
+                            : product.price).toLocaleString('es-AR')}
                         </span>
-                      )}
-                      <span className="text-sm font-black text-slate-900">
-                        ${product.price.toLocaleString('es-AR')}
-                      </span>
-                    </div>
+                      </div>
 
                     <div className="flex items-center gap-1">
                       <button
@@ -1721,7 +1723,9 @@ export default function TiendaPage() {
                         </span>
                       )}
                       <span className="text-xs font-black text-slate-900">
-                        ${p.price.toLocaleString('es-AR')}
+                        ${((p.piezas && p.piezas.length > 0)
+                          ? p.piezas.reduce((acc, pz) => acc + (Number(pz.precio) || 0), 0)
+                          : p.price).toLocaleString('es-AR')}
                       </span>
                     </div>
                     <span className="text-[9px] font-bold text-slate-400">3LD Taller 3D</span>
