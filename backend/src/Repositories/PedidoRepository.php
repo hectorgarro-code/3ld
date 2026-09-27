@@ -279,6 +279,7 @@ class PedidoRepository
         $binds  = [];
 
         $map = [
+            'cliente_id'             => 'int',
             'notas'                  => 'string',
             'fecha_entrega_estimada' => 'string',
             'descuento_pct'          => 'float',
@@ -289,8 +290,9 @@ class PedidoRepository
         foreach ($map as $field => $type) {
             if (array_key_exists($field, $body)) {
                 $fields[] = "{$field} = ?";
-                if ($type === 'float')  $binds[] = (float) $body[$field];
-                else                    $binds[] = (string) $body[$field];
+                if ($type === 'float')       $binds[] = (float) $body[$field];
+                elseif ($type === 'int')     $binds[] = (int) $body[$field];
+                else                         $binds[] = (string) $body[$field];
             }
         }
 
@@ -305,10 +307,83 @@ class PedidoRepository
         return $this->getPedidoBase($id);
     }
 
-    public function delete(int $id): void
+    public function delete(int $id, ?int $usuarioId = null): void
     {
-        $this->db->prepare("UPDATE pedidos SET estado = 'anulado', updated_at = NOW() WHERE id = ?")
-           ->execute([$id]);
+        $this->cambiarEstado($id, 'anulado', 'Pedido anulado por usuario', $usuarioId);
+    }
+
+    public function updateItem(int $itemId, array $body, ?int $usuarioId = null): array
+    {
+        $stmt = $this->db->prepare("SELECT * FROM pedido_items WHERE id = ?");
+        $stmt->execute([$itemId]);
+        $item = $stmt->fetch();
+        if (!$item) {
+            throw new Exception("Item no encontrado");
+        }
+
+        $pedidoId = (int)$item['pedido_id'];
+        $cantidad = array_key_exists('cantidad', $body) ? (float)$body['cantidad'] : (float)$item['cantidad'];
+        $precioUnit = array_key_exists('precio_unit', $body) ? (float)$body['precio_unit'] : (float)$item['precio_unit'];
+        $descuentoPct = array_key_exists('descuento_pct', $body) ? (float)$body['descuento_pct'] : (float)($item['descuento_pct'] ?? 0);
+        $subtotal = $cantidad * $precioUnit * (1 - $descuentoPct / 100);
+
+        $costoUnit = array_key_exists('costo_unitario', $body)
+            ? ($body['costo_unitario'] !== null && $body['costo_unitario'] !== '' ? (float)$body['costo_unitario'] : null)
+            : (isset($item['costo_unitario']) ? (float)$item['costo_unitario'] : null);
+
+        $descripcion = array_key_exists('descripcion', $body) ? $body['descripcion'] : $item['descripcion'];
+        $notas = array_key_exists('notas', $body) ? $body['notas'] : $item['notas'];
+
+        $stmtUpdate = $this->db->prepare(
+            "UPDATE pedido_items SET
+                cantidad = ?,
+                precio_unit = ?,
+                costo_unitario = ?,
+                descuento_pct = ?,
+                subtotal = ?,
+                descripcion = ?,
+                notas = ?
+             WHERE id = ?"
+        );
+        $stmtUpdate->execute([
+            $cantidad,
+            $precioUnit,
+            $costoUnit,
+            $descuentoPct,
+            $subtotal,
+            $descripcion,
+            $notas,
+            $itemId
+        ]);
+
+        $this->recalcularTotales($pedidoId);
+        $this->sincronizarEstadoPedido($pedidoId, $usuarioId);
+
+        $stmtNew = $this->db->prepare(
+            "SELECT pi.*, pr.nombre AS producto_nombre FROM pedido_items pi
+             LEFT JOIN productos pr ON pr.id = pi.producto_id WHERE pi.id = ?"
+        );
+        $stmtNew->execute([$itemId]);
+        return $stmtNew->fetch() ?: [];
+    }
+
+    public function deleteItem(int $itemId, ?int $usuarioId = null): void
+    {
+        $stmt = $this->db->prepare("SELECT * FROM pedido_items WHERE id = ?");
+        $stmt->execute([$itemId]);
+        $item = $stmt->fetch();
+        if (!$item) return;
+
+        $pedidoId = (int)$item['pedido_id'];
+
+        if (!empty($item['stock_descontado']) && !empty($item['producto_id'])) {
+            $this->restaurarStockItem((int)$item['producto_id'], (float)$item['cantidad']);
+        }
+
+        $this->db->prepare("DELETE FROM pedido_items WHERE id = ?")->execute([$itemId]);
+
+        $this->recalcularTotales($pedidoId);
+        $this->sincronizarEstadoPedido($pedidoId, $usuarioId);
     }
 
     public function addItem(int $pedidoId, array $body, ?int $usuarioId): array
@@ -396,6 +471,14 @@ class PedidoRepository
                     "UPDATE clientes SET
                         total_compras     = total_compras + ?,
                         cantidad_pedidos  = cantidad_pedidos + 1,
+                        updated_at        = NOW()
+                     WHERE id = ?"
+                )->execute([$pedido['total'], $pedido['cliente_id']]);
+            } elseif ($pedido['estado'] === 'entregado' && $nuevoEstado === 'anulado') {
+                $this->db->prepare(
+                    "UPDATE clientes SET
+                        total_compras     = GREATEST(0, total_compras - ?),
+                        cantidad_pedidos  = GREATEST(0, cantidad_pedidos - 1),
                         updated_at        = NOW()
                      WHERE id = ?"
                 )->execute([$pedido['total'], $pedido['cliente_id']]);

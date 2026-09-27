@@ -1,12 +1,15 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { usePedido, useCambiarEstadoPedido } from '@/hooks/usePedidos'
+import { usePedido, useCambiarEstadoPedido, useAnularPedido, useDeletePedidoItem } from '@/hooks/usePedidos'
 import api from '@/lib/api'
 import { formatARS } from '@/lib/cost-calculator'
 import { formatDate, formatDateTime, cn } from '@/lib/utils'
 import { toast } from '@/store/toastStore'
-import { ChevronLeft, CheckCircle, Clock, Package, Truck, Ban, ExternalLink } from 'lucide-react'
-import type { PedidoEstado } from '@/types'
+import { ChevronLeft, CheckCircle, Clock, Package, Truck, Ban, ExternalLink, Pencil, Trash2, Plus, AlertTriangle, Edit3 } from 'lucide-react'
+import { EditItemModal } from '@/components/ventas/EditItemModal'
+import { AddItemModal } from '@/components/ventas/AddItemModal'
+import { EditPedidoModal } from '@/components/ventas/EditPedidoModal'
+import type { PedidoEstado, PedidoItem } from '@/types'
 
 const ESTADO_STEPS: PedidoEstado[] = [
   'presupuesto',
@@ -42,10 +45,18 @@ export default function PedidoDetailPage() {
   const navigate = useNavigate()
   const { data: pedido, isLoading } = usePedido(id)
   const cambiarEstado = useCambiarEstadoPedido()
+  const anularPedido = useAnularPedido()
+  const deleteItem = useDeletePedidoItem()
 
   const [showSimulacion, setShowSimulacion] = useState(false)
   const [simulacionData, setSimulacionData] = useState<any[]>([])
   const [isSimulating, setIsSimulating] = useState(false)
+
+  const [showEditPedido, setShowEditPedido] = useState(false)
+  const [editingItem, setEditingItem] = useState<PedidoItem | null>(null)
+  const [showAddItem, setShowAddItem] = useState(false)
+  const [showAnularModal, setShowAnularModal] = useState(false)
+  const [itemToDelete, setItemToDelete] = useState<number | null>(null)
 
   const handleCambiarEstado = async (nuevoEstado: PedidoEstado) => {
     if (!pedido) return
@@ -81,6 +92,28 @@ export default function PedidoDetailPage() {
     }
   }
 
+  const handleConfirmAnular = async () => {
+    if (!pedido) return
+    try {
+      await anularPedido.mutateAsync(pedido.id)
+      toast('Pedido anulado correctamente', 'success')
+      setShowAnularModal(false)
+    } catch (e: any) {
+      toast(e.response?.data?.message || 'Error al anular pedido', 'error')
+    }
+  }
+
+  const handleConfirmDeleteItem = async () => {
+    if (!itemToDelete) return
+    try {
+      await deleteItem.mutateAsync(itemToDelete)
+      toast('Ítem eliminado del pedido', 'success')
+      setItemToDelete(null)
+    } catch (e: any) {
+      toast(e.response?.data?.message || 'Error al eliminar ítem', 'error')
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="space-y-4">
@@ -105,35 +138,72 @@ export default function PedidoDetailPage() {
   return (
     <div className="space-y-4">
       {/* Back + Header */}
-      <div className="flex items-center gap-3">
-        <button
-          onClick={() => navigate(-1)}
-          className="flex h-9 w-9 items-center justify-center rounded-xl bg-white card-shadow text-slate-500 hover:text-slate-800"
-        >
-          <ChevronLeft className="h-5 w-5" />
-        </button>
-        <div>
-          <p className="text-xs font-bold text-slate-400">{pedido.numero_pedido}</p>
-          <h2 className="text-lg font-black text-slate-800">
-            {pedido.cliente_nombre ?? pedido.cliente?.nombre ?? 'Cliente'}
-          </h2>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => navigate(-1)}
+            className="flex h-9 w-9 items-center justify-center rounded-xl bg-white card-shadow text-slate-500 hover:text-slate-800"
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+          <div>
+            <p className="text-xs font-bold text-slate-400">{pedido.numero_pedido}</p>
+            <h2 className="text-lg font-black text-slate-800">
+              {pedido.cliente_nombre ?? pedido.cliente?.nombre ?? 'Cliente'}
+            </h2>
+          </div>
         </div>
-        <select
-          value={pedido.estado}
-          onChange={(e) => handleCambiarEstado(e.target.value as PedidoEstado)}
-          disabled={cambiarEstado.isPending || isSimulating}
-          className={cn(
-            'ml-auto appearance-none rounded-full px-4 py-1.5 text-center text-sm font-black outline-none transition-colors hover:ring-2 hover:ring-white/50 cursor-pointer',
-            estadoColors[pedido.estado]
+
+        <div className="flex items-center gap-2 ml-auto">
+          {pedido.estado !== 'anulado' && (
+            <>
+              <button
+                type="button"
+                onClick={() => setShowEditPedido(true)}
+                className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors card-shadow"
+              >
+                <Edit3 className="h-3.5 w-3.5" />
+                Editar Pedido
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowAnularModal(true)}
+                className="flex items-center gap-1.5 rounded-xl border border-red-200 bg-red-50/50 px-3 py-1.5 text-xs font-bold text-red-600 hover:bg-red-100 transition-colors"
+              >
+                <Ban className="h-3.5 w-3.5" />
+                Anular Pedido
+              </button>
+            </>
           )}
-        >
-          {Object.entries(estadoLabels).map(([val, label]) => (
-            <option key={val} value={val} className="bg-white text-slate-800">
-              {label}
-            </option>
-          ))}
-        </select>
+
+          <select
+            value={pedido.estado}
+            onChange={(e) => handleCambiarEstado(e.target.value as PedidoEstado)}
+            disabled={cambiarEstado.isPending || isSimulating}
+            className={cn(
+              'appearance-none rounded-full px-4 py-1.5 text-center text-sm font-black outline-none transition-colors hover:ring-2 hover:ring-white/50 cursor-pointer',
+              estadoColors[pedido.estado]
+            )}
+          >
+            {Object.entries(estadoLabels).map(([val, label]) => (
+              <option key={val} value={val} className="bg-white text-slate-800">
+                {label}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
+
+      {/* Banner if Anulado */}
+      {pedido.estado === 'anulado' && (
+        <div className="flex items-center gap-2 rounded-2xl bg-red-500/10 border border-red-500/20 p-4 text-red-500">
+          <Ban className="h-5 w-5 flex-shrink-0" />
+          <p className="text-sm font-bold">
+            Este pedido se encuentra <strong>ANULADO</strong>. Los movimientos de inventario asociados han sido restaurados.
+          </p>
+        </div>
+      )}
 
       {/* Totals card */}
       <div className="rounded-2xl border border-slate-100 bg-white card-shadow p-4">
@@ -156,6 +226,11 @@ export default function PedidoDetailPage() {
         {pedido.fecha_entrega_estimada && (
           <p className="mt-3 text-center text-xs text-slate-400">
             📅 Entrega estimada: {formatDate(pedido.fecha_entrega_estimada)}
+          </p>
+        )}
+        {pedido.notas && (
+          <p className="mt-2 text-center text-xs italic text-slate-500 bg-slate-50 rounded-lg p-2">
+            Nota general: {pedido.notas}
           </p>
         )}
       </div>
@@ -198,19 +273,32 @@ export default function PedidoDetailPage() {
       )}
 
       {/* Items */}
-      {pedido.items && pedido.items.length > 0 && (
-        <div className="rounded-2xl border border-slate-100 bg-white card-shadow p-4">
-          <p className="mb-3 text-xs font-bold uppercase tracking-wide text-slate-500">
-            Items ({pedido.items.length})
+      <div className="rounded-2xl border border-slate-100 bg-white card-shadow p-4">
+        <div className="mb-3 flex items-center justify-between">
+          <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
+            Items ({pedido.items ? pedido.items.length : 0})
           </p>
+          {pedido.estado !== 'anulado' && (
+            <button
+              type="button"
+              onClick={() => setShowAddItem(true)}
+              className="flex items-center gap-1 rounded-lg bg-primary/10 px-2.5 py-1 text-xs font-bold text-primary hover:bg-primary/20 transition-colors"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Agregar Ítem
+            </button>
+          )}
+        </div>
+
+        {pedido.items && pedido.items.length > 0 ? (
           <div className="space-y-2">
             {pedido.items.map((item) => (
               <div
                 key={item.id}
-                className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2"
+                className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2.5 hover:bg-slate-100/70 transition-colors"
               >
-                <div>
-                  <div className="flex items-center gap-2">
+                <div className="min-w-0 flex-1 pr-3">
+                  <div className="flex flex-wrap items-center gap-2">
                     <p className="text-sm font-bold text-slate-800">
                       {item.producto?.nombre ?? item.producto_nombre ?? item.descripcion ?? item.descripcion_custom ?? 'Ítem'}
                     </p>
@@ -230,27 +318,66 @@ export default function PedidoDetailPage() {
                   {item.notas && (
                     <p className="text-xs italic text-brand-purple">{item.notas}</p>
                   )}
-                  <p className="text-xs text-slate-400">
-                    {item.cantidad} × {formatARS(item.precio_unit ?? item.precio_unitario ?? 0)}
-                  </p>
+                  <div className="flex items-center gap-2 text-xs text-slate-400 mt-0.5">
+                    <span>
+                      {item.cantidad} × {formatARS(item.precio_unit ?? item.precio_unitario ?? 0)}
+                    </span>
+                    {item.costo_unitario != null && (
+                      <span className="text-[10px] bg-slate-200/70 rounded px-1.5 py-0.2 text-slate-600">
+                        Costo: {formatARS(item.costo_unitario)}
+                      </span>
+                    )}
+                    {item.descuento_pct && item.descuento_pct > 0 ? (
+                      <span className="text-[10px] text-primary font-bold">
+                        (-{item.descuento_pct}%)
+                      </span>
+                    ) : null}
+                  </div>
                 </div>
-                <p className="text-sm font-black text-primary">{formatARS(item.subtotal)}</p>
+
+                <div className="flex items-center gap-3 flex-shrink-0">
+                  <p className="text-sm font-black text-primary">{formatARS(item.subtotal)}</p>
+
+                  {pedido.estado !== 'anulado' && (
+                    <div className="flex items-center gap-1 border-l border-slate-200 pl-2">
+                      <button
+                        type="button"
+                        title="Editar ítem"
+                        onClick={() => setEditingItem(item)}
+                        className="rounded-lg p-1.5 text-slate-400 hover:bg-white hover:text-primary transition-colors"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        title="Eliminar ítem"
+                        onClick={() => setItemToDelete(item.id)}
+                        className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-500 transition-colors"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             ))}
           </div>
-          <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-3">
-            {(pedido.descuento ?? 0) > 0 && (
-              <div className="flex justify-between font-bold text-red-500">
-                <span>Descuento ({pedido.descuento_pct}%)</span>
-                <span>-{formatARS(pedido.descuento ?? 0)}</span>
-              </div>
-            )}
-            <p className="ml-auto text-base font-black text-slate-800">
-              Total: {formatARS(pedido.total)}
-            </p>
-          </div>
+        ) : (
+          <p className="text-center text-xs text-slate-400 py-4">No hay ítems en este pedido.</p>
+        )}
+
+        <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-3">
+          {(pedido.descuento ?? 0) > 0 && (
+            <div className="flex justify-between font-bold text-red-500">
+              <span>Descuento ({pedido.descuento_pct}%)</span>
+              <span>-{formatARS(pedido.descuento ?? 0)}</span>
+            </div>
+          )}
+          <p className="ml-auto text-base font-black text-slate-800">
+            Total: {formatARS(pedido.total)}
+          </p>
         </div>
-      )}
+      </div>
 
       {/* History timeline */}
       {pedido.historial && pedido.historial.length > 0 && (
@@ -267,6 +394,106 @@ export default function PedidoDetailPage() {
                 {(h.nota ?? h.notas) && <p className="text-xs italic text-slate-500">{h.nota ?? h.notas}</p>}
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Modal Editar Pedido */}
+      {showEditPedido && (
+        <EditPedidoModal
+          pedido={pedido}
+          onClose={() => setShowEditPedido(false)}
+        />
+      )}
+
+      {/* Modal Editar Ítem */}
+      {editingItem && (
+        <EditItemModal
+          item={editingItem}
+          onClose={() => setEditingItem(null)}
+        />
+      )}
+
+      {/* Modal Agregar Ítem */}
+      {showAddItem && (
+        <AddItemModal
+          pedidoId={pedido.id}
+          onClose={() => setShowAddItem(false)}
+        />
+      )}
+
+      {/* Modal Confirmar Anulación de Pedido */}
+      {showAnularModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-sm overflow-hidden rounded-2xl bg-white p-6 shadow-2xl border border-slate-100 space-y-4">
+            <div className="flex items-center gap-3 text-red-500">
+              <div className="rounded-full bg-red-100 p-2">
+                <AlertTriangle className="h-6 w-6" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-800">¿Anular Pedido?</h3>
+                <p className="text-xs text-slate-500 font-semibold">{pedido.numero_pedido}</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Esta acción marcará el pedido y sus artículos como anulados. Si el inventario había sido descontado, será restaurado a su estado anterior.
+            </p>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setShowAnularModal(false)}
+                disabled={anularPedido.isPending}
+                className="rounded-xl px-4 py-2 text-xs font-semibold text-slate-500 hover:bg-slate-100 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmAnular}
+                disabled={anularPedido.isPending}
+                className="rounded-xl bg-red-600 px-4 py-2 text-xs font-bold text-white shadow-md shadow-red-500/20 hover:bg-red-700 active:scale-95 transition-all disabled:opacity-50"
+              >
+                {anularPedido.isPending ? 'Anulando...' : 'Confirmar Anulación'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Confirmar Eliminar Ítem */}
+      {itemToDelete !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-sm overflow-hidden rounded-2xl bg-white p-6 shadow-2xl border border-slate-100 space-y-4">
+            <div className="flex items-center gap-3 text-red-500">
+              <div className="rounded-full bg-red-100 p-2">
+                <AlertTriangle className="h-6 w-6" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-800">¿Eliminar Ítem?</h3>
+                <p className="text-xs text-slate-500">Se recalcularán los totales del pedido.</p>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setItemToDelete(null)}
+                disabled={deleteItem.isPending}
+                className="rounded-xl px-4 py-2 text-xs font-semibold text-slate-500 hover:bg-slate-100 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeleteItem}
+                disabled={deleteItem.isPending}
+                className="rounded-xl bg-red-600 px-4 py-2 text-xs font-bold text-white shadow-md shadow-red-500/20 hover:bg-red-700 active:scale-95 transition-all disabled:opacity-50"
+              >
+                {deleteItem.isPending ? 'Eliminando...' : 'Eliminar'}
+              </button>
+            </div>
           </div>
         </div>
       )}

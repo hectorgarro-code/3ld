@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useCambiarEstadoItem } from '@/hooks/usePedidos'
+import { useCambiarEstadoItem, useAnularPedido } from '@/hooks/usePedidos'
 import { toast } from '@/store/toastStore'
 import { formatARS } from '@/lib/cost-calculator'
 import { formatDate, cn } from '@/lib/utils'
-import { ArrowUpDown } from 'lucide-react'
+import { ArrowUpDown, Pencil, Ban, ExternalLink, AlertTriangle } from 'lucide-react'
+import { EditItemModal } from './EditItemModal'
 import type { PedidoItemFlattened, PedidoEstado } from '@/types'
 
 const estadoColors: Record<PedidoEstado, string> = {
@@ -32,8 +33,11 @@ type SortKey = 'articulo' | 'nota' | 'cliente' | 'monto' | 'fecha' | 'fecha_est'
 export function ProductoTableView({ items }: { items: PedidoItemFlattened[] }) {
   const navigate = useNavigate()
   const cambiarEstado = useCambiarEstadoItem()
+  const anularPedido = useAnularPedido()
   const [sortKey, setSortKey] = useState<SortKey | null>(null)
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
+  const [editingItem, setEditingItem] = useState<PedidoItemFlattened | null>(null)
+  const [pedidoToAnular, setPedidoToAnular] = useState<{ id: number; numero: string } | null>(null)
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -41,6 +45,17 @@ export function ProductoTableView({ items }: { items: PedidoItemFlattened[] }) {
     } else {
       setSortKey(key)
       setSortOrder('asc')
+    }
+  }
+
+  const handleConfirmAnular = async () => {
+    if (!pedidoToAnular) return
+    try {
+      await anularPedido.mutateAsync(pedidoToAnular.id)
+      toast(`Pedido ${pedidoToAnular.numero} anulado correctamente`, 'success')
+      setPedidoToAnular(null)
+    } catch (err: any) {
+      toast(err.response?.data?.message || 'Error al anular pedido', 'error')
     }
   }
 
@@ -127,6 +142,9 @@ export function ProductoTableView({ items }: { items: PedidoItemFlattened[] }) {
                 <span className="text-[13px] opacity-70">📊</span> Estado {sortKey === 'estado' && <ArrowUpDown className="h-3 w-3" />}
               </div>
             </th>
+            <th className="px-4 py-3 text-right">
+              <span className="text-[13px] opacity-70">⚙️</span> Acciones
+            </th>
           </tr>
         </thead>
         <tbody className="divide-y divide-surface-elevated">
@@ -184,6 +202,38 @@ export function ProductoTableView({ items }: { items: PedidoItemFlattened[] }) {
                   ))}
                 </select>
               </td>
+              <td className="px-4 py-3 text-right" onClick={e => e.stopPropagation()}>
+                <div className="flex items-center justify-end gap-1.5">
+                  <button
+                    type="button"
+                    title="Editar Ítem (precio, costo, cantidad, nota)"
+                    onClick={() => setEditingItem(item)}
+                    className="rounded-lg p-1.5 text-slate-400 hover:bg-primary/10 hover:text-primary transition-colors"
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </button>
+
+                  {item.estado !== 'anulado' && (
+                    <button
+                      type="button"
+                      title="Anular Pedido"
+                      onClick={() => setPedidoToAnular({ id: item.pedido_id, numero: item.numero_pedido })}
+                      className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-500 transition-colors"
+                    >
+                      <Ban className="h-4 w-4" />
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    title="Ver Detalle del Pedido"
+                    onClick={() => navigate(`/pedidos/${item.pedido_id}`)}
+                    className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                  </button>
+                </div>
+              </td>
             </tr>
           ))}
         </tbody>
@@ -191,10 +241,58 @@ export function ProductoTableView({ items }: { items: PedidoItemFlattened[] }) {
           <tr>
             <td colSpan={3} className="px-4 py-3 text-right text-sm font-medium text-slate-500">Total</td>
             <td className="px-4 py-3 font-mono font-bold text-primary">{formatARS(total)}</td>
-            <td colSpan={3}></td>
+            <td colSpan={4}></td>
           </tr>
         </tfoot>
       </table>
+
+      {/* Edit Modal */}
+      {editingItem && (
+        <EditItemModal
+          item={editingItem}
+          onClose={() => setEditingItem(null)}
+        />
+      )}
+
+      {/* Anular Confirmation Dialog */}
+      {pedidoToAnular && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-sm overflow-hidden rounded-2xl bg-white p-6 shadow-2xl border border-slate-100 space-y-4">
+            <div className="flex items-center gap-3 text-red-500">
+              <div className="rounded-full bg-red-100 p-2">
+                <AlertTriangle className="h-6 w-6" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-800">¿Anular Pedido?</h3>
+                <p className="text-xs text-slate-500 font-semibold">{pedidoToAnular.numero}</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Esta acción marcará el pedido y sus artículos como anulados. Si el stock había sido descontado, será restaurado automáticamente.
+            </p>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setPedidoToAnular(null)}
+                disabled={anularPedido.isPending}
+                className="rounded-xl px-4 py-2 text-xs font-semibold text-slate-500 hover:bg-slate-100 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmAnular}
+                disabled={anularPedido.isPending}
+                className="rounded-xl bg-red-600 px-4 py-2 text-xs font-bold text-white shadow-md shadow-red-500/20 hover:bg-red-700 active:scale-95 transition-all disabled:opacity-50"
+              >
+                {anularPedido.isPending ? 'Anulando...' : 'Confirmar Anulación'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

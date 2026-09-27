@@ -126,6 +126,65 @@ export function useCambiarEstadoItem() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pedido_items'] })
       queryClient.invalidateQueries({ queryKey: ['pedidos'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+    },
+  })
+}
+
+export function useAnularPedido() {
+  const queryClient = useQueryClient()
+  return useMutation<void, Error, number>({
+    mutationFn: async (id: number) => {
+      await api.delete(`/pedidos/${id}`)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pedidos'] })
+      queryClient.invalidateQueries({ queryKey: ['pedido_items'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+    },
+  })
+}
+
+export function useUpdatePedidoItem() {
+  const queryClient = useQueryClient()
+  return useMutation<any, Error, { id: number; payload: Record<string, any> }>({
+    mutationFn: async ({ id, payload }) => {
+      const { data } = await api.put(`/pedidos/items/${id}`, payload)
+      return data.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pedidos'] })
+      queryClient.invalidateQueries({ queryKey: ['pedido_items'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+    },
+  })
+}
+
+export function useDeletePedidoItem() {
+  const queryClient = useQueryClient()
+  return useMutation<void, Error, number>({
+    mutationFn: async (id: number) => {
+      await api.delete(`/pedidos/items/${id}`)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pedidos'] })
+      queryClient.invalidateQueries({ queryKey: ['pedido_items'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+    },
+  })
+}
+
+export function useAddPedidoItem() {
+  const queryClient = useQueryClient()
+  return useMutation<any, Error, { pedidoId: number; payload: Record<string, any> }>({
+    mutationFn: async ({ pedidoId, payload }) => {
+      const { data } = await api.post(`/pedidos/${pedidoId}/items`, payload)
+      return data.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pedidos'] })
+      queryClient.invalidateQueries({ queryKey: ['pedido_items'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
     },
   })
 }

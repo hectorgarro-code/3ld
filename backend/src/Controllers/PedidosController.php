@@ -93,21 +93,46 @@ class PedidosController
     {
         try {
             $id = (int) $args['id'];
-            $estado = $this->repository->findEstado($id);
+            $user = $request->getAttribute('user');
 
-            if (!$estado) {
+            if (!$this->repository->exists($id)) {
                 return Response::error('Pedido no encontrado', 404);
             }
 
-            if (in_array($estado, ['en_produccion', 'terminado', 'entregado'], true)) {
-                return Response::error('No se puede eliminar un pedido en estado: ' . $estado, 409);
-            }
-
-            $this->repository->delete($id);
+            $this->repository->delete($id, $user['id'] ?? null);
 
             return Response::success(['message' => 'Pedido anulado correctamente']);
         } catch (Throwable $e) {
             return Response::error('Error al anular pedido: ' . $e->getMessage(), 500);
+        }
+    }
+
+    public function updateItem(ServerRequestInterface $request, ResponseInterface $response, array $args): ResponseInterface
+    {
+        try {
+            $itemId = (int) ($args['itemId'] ?? $args['id']);
+            $body = $request->getParsedBody() ?? [];
+            $user = $request->getAttribute('user');
+
+            $item = $this->repository->updateItem($itemId, $body, $user['id'] ?? null);
+
+            return Response::success($item);
+        } catch (Throwable $e) {
+            return Response::error('Error al actualizar item: ' . $e->getMessage(), 500);
+        }
+    }
+
+    public function deleteItem(ServerRequestInterface $request, ResponseInterface $response, array $args): ResponseInterface
+    {
+        try {
+            $itemId = (int) ($args['itemId'] ?? $args['id']);
+            $user = $request->getAttribute('user');
+
+            $this->repository->deleteItem($itemId, $user['id'] ?? null);
+
+            return Response::success(['message' => 'Item eliminado correctamente']);
+        } catch (Throwable $e) {
+            return Response::error('Error al eliminar item: ' . $e->getMessage(), 500);
         }
     }
 
