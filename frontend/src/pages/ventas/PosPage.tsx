@@ -178,13 +178,12 @@ export default function PosPage() {
     let basePrice = p.precio_venta || 0
     if (parsedPiezas.length > 0) {
       const initialMap: Record<string, boolean> = {}
-      let initialSum = 0
-      parsedPiezas.forEach(pieza => {
-        initialMap[pieza.id || pieza.nombre] = true
-        initialSum += (Number(pieza.precio) || 0)
-      })
+      const first = parsedPiezas[0]
+      if (first) {
+        initialMap[first.id || first.nombre] = true
+        basePrice = Number(first.precio) || p.precio_venta || 0
+      }
       setPosSelectedPiezas(initialMap)
-      basePrice = initialSum > 0 ? initialSum : (p.precio_venta || 0)
     } else {
       setPosSelectedPiezas({})
     }
@@ -508,31 +507,20 @@ export default function PosPage() {
               />
             </div>
 
-            {/* Category tabs */}
-            <div className="flex gap-1.5 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0 scrollbar-none text-xs font-bold">
-              <button
-                onClick={() => setSelectedCategory('all')}
-                className={`px-3 py-2 rounded-xl whitespace-nowrap transition ${
-                  selectedCategory === 'all'
-                    ? 'bg-teal-600 text-white shadow-xs'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
+            {/* Category dropdown */}
+            <div className="w-full sm:w-60 shrink-0">
+              <select
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value)}
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-bold text-slate-700 focus:ring-2 focus:ring-teal-500 focus:bg-white focus:outline-none transition cursor-pointer"
               >
-                Todos ({productosData?.data?.length || 0})
-              </button>
-              {categories.map((c) => (
-                <button
-                  key={c.name}
-                  onClick={() => setSelectedCategory(c.name)}
-                  className={`px-3 py-2 rounded-xl whitespace-nowrap transition ${
-                    selectedCategory === c.name
-                      ? 'bg-teal-600 text-white shadow-xs'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                  }`}
-                >
-                  {c.name} ({c.count})
-                </button>
-              ))}
+                <option value="all">Todas las Categorías ({productosData?.data?.length || 0})</option>
+                {categories.map((c) => (
+                  <option key={c.name} value={c.name}>
+                    {c.name} ({c.count})
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
         </div>
