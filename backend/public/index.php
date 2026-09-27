@@ -212,18 +212,31 @@ $app->group('/api/v1', function (RouteCollectorProxy $api) use ($config, $auth, 
     $api->get('/sync-uploads', function ($req, $res) {
         $pubHtml = dirname(__DIR__, 2);
         $domainsDir = dirname($pubHtml);
-        $destDir = __DIR__ . '/uploads/productos/';
-        if (!is_dir($destDir)) {
-            @mkdir($destDir, 0777, true);
+        
+        $destDirs = [
+            __DIR__ . '/uploads/productos/',
+            $pubHtml . '/backend/uploads/productos/',
+            $pubHtml . '/sistema/backend/public/uploads/productos/',
+            $pubHtml . '/sistema/uploads/productos/',
+            $domainsDir . '/sistema.3ld.com.ar/public_html/backend/public/uploads/productos/',
+            $domainsDir . '/sistema.3ld.com.ar/public_html/uploads/productos/',
+        ];
+        
+        foreach ($destDirs as $d) {
+            if (!is_dir($d)) {
+                @mkdir($d, 0777, true);
+            }
         }
+        
+        $primaryDest = __DIR__ . '/uploads/productos/';
         $sources = [
             $pubHtml . '/backend/uploads/productos/',
             $pubHtml . '/sistema/backend/public/uploads/productos/',
             $pubHtml . '/sistema/uploads/productos/',
             $pubHtml . '/uploads/productos/',
-            $domainsDir . '/sistema.3ld.com.ar/public_html/backend/public/uploads/productos/',
-            $domainsDir . '/sistema.3ld.com.ar/public_html/uploads/productos/',
+            $primaryDest,
         ];
+        
         $copied = 0;
         foreach ($sources as $srcDir) {
             if (is_dir($srcDir)) {
@@ -231,20 +244,27 @@ $app->group('/api/v1', function (RouteCollectorProxy $api) use ($config, $auth, 
                 foreach ($files as $f) {
                     if ($f === '.' || $f === '..') continue;
                     $srcFile = $srcDir . $f;
-                    $destFile = $destDir . $f;
-                    if (is_file($srcFile) && (!file_exists($destFile) || filesize($destFile) !== filesize($srcFile))) {
-                        if (@copy($srcFile, $destFile)) {
-                            $copied++;
+                    if (!is_file($srcFile)) continue;
+                    
+                    foreach ($destDirs as $targetDir) {
+                        if (is_dir($targetDir)) {
+                            $targetFile = $targetDir . $f;
+                            if (!file_exists($targetFile) || filesize($targetFile) !== filesize($srcFile)) {
+                                if (@copy($srcFile, $targetFile)) {
+                                    $copied++;
+                                }
+                            }
                         }
                     }
                 }
             }
         }
+        
         $res->getBody()->write(json_encode([
             'success' => true,
-            'dest' => $destDir,
+            'dest' => $primaryDest,
             'copied' => $copied,
-            'totalInDest' => is_dir($destDir) ? count(scandir($destDir)) - 2 : 0,
+            'totalInDest' => is_dir($primaryDest) ? count(scandir($primaryDest)) - 2 : 0,
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
         return $res->withHeader('Content-Type', 'application/json');
     });
