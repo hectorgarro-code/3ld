@@ -72,6 +72,22 @@ const ConfiguracionPage = lazy(() => import('@/pages/configuracion/Configuracion
 
 export const router = createBrowserRouter([
   {
+    path: '/',
+    element: (
+      <Suspense fallback={<PageLoader />}>
+        <TiendaPage />
+      </Suspense>
+    ),
+  },
+  {
+    path: '/tienda',
+    element: (
+      <Suspense fallback={<PageLoader />}>
+        <TiendaPage />
+      </Suspense>
+    ),
+  },
+  {
     path: '/login',
     element: (
       <Suspense fallback={<PageLoader />}>
@@ -89,7 +105,7 @@ export const router = createBrowserRouter([
     ),
     children: [
       {
-        index: true,
+        path: 'dashboard',
         element: (
           <Suspense fallback={<PageLoader />}>
             <DashboardPage />

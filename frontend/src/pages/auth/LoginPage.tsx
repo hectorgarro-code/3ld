@@ -19,7 +19,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (isAuthenticated) {
-      navigate('/', { replace: true })
+      navigate('/dashboard', { replace: true })
     }
   }, [isAuthenticated, navigate])
 
@@ -35,7 +35,7 @@ export default function LoginPage() {
   const onSubmit = async (data: LoginForm) => {
     try {
       await login(data.email, data.password)
-      navigate('/', { replace: true })
+      navigate('/dashboard', { replace: true })
     } catch {
       // error displayed from hook
     }

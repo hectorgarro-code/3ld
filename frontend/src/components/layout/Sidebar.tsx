@@ -31,7 +31,7 @@ export const navGroups: NavGroup[] = [
   {
     label: 'Principal',
     items: [
-      { to: '/', label: 'Dashboard', icon: <LayoutDashboard className="h-5 w-5" />, end: true },
+      { to: '/dashboard', label: 'Dashboard', icon: <LayoutDashboard className="h-5 w-5" /> },
     ],
   },
   {

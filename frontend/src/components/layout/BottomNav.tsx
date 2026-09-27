@@ -12,7 +12,7 @@ export function BottomNav({ onOpenMenu, onOpenQuickCreate }: BottomNavProps) {
     <nav className="fixed bottom-0 left-0 right-0 z-40 flex h-16 border-t border-slate-200 bg-white/95 backdrop-blur-md lg:hidden">
       {/* Inicio */}
       <NavLink
-        to="/"
+        to="/dashboard"
         end
         className={({ isActive }) =>
           cn(
