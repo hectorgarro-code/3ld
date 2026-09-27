@@ -163,8 +163,86 @@ $errorMiddleware->setDefaultErrorHandler(
 // ── Auth middleware instance (shared) ────────────────────────────────────────
 $auth = new AuthMiddleware($config);
 
+$streamImage = function (string $path, \Psr\Http\Message\ResponseInterface $res) {
+    $docRoot = realpath(__DIR__ . '/../../..') ?: dirname(__DIR__, 2);
+    $candidates = [
+        $docRoot . '/backend/uploads/' . $path,
+        $docRoot . '/public_html/backend/uploads/' . $path,
+        __DIR__ . '/uploads/' . $path,
+        $docRoot . '/backend/public/uploads/' . $path,
+        $docRoot . '/sistema/backend/public/uploads/' . $path,
+        $docRoot . '/uploads/' . $path,
+    ];
+    foreach ($candidates as $cand) {
+        if (is_file($cand)) {
+            $ext = strtolower(pathinfo($cand, PATHINFO_EXTENSION));
+            $mimes = [
+                'jpg' => 'image/jpeg',
+                'jpeg' => 'image/jpeg',
+                'png' => 'image/png',
+                'webp' => 'image/webp',
+                'gif' => 'image/gif',
+                'svg' => 'image/svg+xml'
+            ];
+            $mime = $mimes[$ext] ?? 'image/jpeg';
+            $res->getBody()->write(file_get_contents($cand));
+            return $res->withHeader('Content-Type', $mime)
+                       ->withHeader('Cache-Control', 'public, max-age=604800');
+        }
+    }
+    $res->getBody()->write(json_encode(['success' => false, 'message' => 'Image not found']));
+    return $res->withStatus(404)->withHeader('Content-Type', 'application/json');
+};
+
+$app->get('/backend/public/uploads/{path:.+}', function ($req, $res, $args) use ($streamImage) {
+    return $streamImage($args['path'], $res);
+});
+$app->get('/backend/uploads/{path:.+}', function ($req, $res, $args) use ($streamImage) {
+    return $streamImage($args['path'], $res);
+});
+$app->get('/uploads/{path:.+}', function ($req, $res, $args) use ($streamImage) {
+    return $streamImage($args['path'], $res);
+});
+
 // ── Routes ───────────────────────────────────────────────────────────────────
 $app->group('/api/v1', function (RouteCollectorProxy $api) use ($config, $auth, $container) {
+
+    $api->get('/sync-uploads', function ($req, $res) {
+        $docRoot = realpath(__DIR__ . '/../../..') ?: dirname(__DIR__, 2);
+        $destDir = __DIR__ . '/uploads/productos/';
+        if (!is_dir($destDir)) {
+            @mkdir($destDir, 0777, true);
+        }
+        $sources = [
+            $docRoot . '/backend/uploads/productos/',
+            $docRoot . '/public_html/backend/uploads/productos/',
+            $docRoot . '/sistema/backend/public/uploads/productos/',
+            $docRoot . '/uploads/productos/',
+        ];
+        $copied = 0;
+        foreach ($sources as $srcDir) {
+            if (is_dir($srcDir)) {
+                $files = scandir($srcDir);
+                foreach ($files as $f) {
+                    if ($f === '.' || $f === '..') continue;
+                    $srcFile = $srcDir . $f;
+                    $destFile = $destDir . $f;
+                    if (is_file($srcFile) && (!file_exists($destFile) || filesize($destFile) !== filesize($srcFile))) {
+                        if (@copy($srcFile, $destFile)) {
+                            $copied++;
+                        }
+                    }
+                }
+            }
+        }
+        $res->getBody()->write(json_encode([
+            'success' => true,
+            'dest' => $destDir,
+            'copied' => $copied,
+            'totalInDest' => is_dir($destDir) ? count(scandir($destDir)) - 2 : 0,
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        return $res->withHeader('Content-Type', 'application/json');
+    });
 
     $api->get('/diag-images', function ($req, $res) {
         $root = realpath(__DIR__ . '/../../..') ?: dirname(__DIR__, 2);
