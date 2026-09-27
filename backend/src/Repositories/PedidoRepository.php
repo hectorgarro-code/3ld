@@ -208,17 +208,19 @@ class PedidoRepository
 
         try {
             $numeroPedido = $this->generarNumeroPedido();
+            $estadoInicial = !empty($body['estado']) ? (string) $body['estado'] : 'presupuesto';
 
             $stmtPed = $this->db->prepare(
                 "INSERT INTO pedidos
                     (numero_pedido, cliente_id, estado, subtotal, descuento_pct,
                      impuesto_pct, total, margen_bruto, fecha_entrega_estimada, notas,
                      created_at, updated_at)
-                 VALUES (?, ?, 'presupuesto', 0, ?, ?, 0, 0, ?, ?, NOW(), NOW())"
+                 VALUES (?, ?, ?, 0, ?, ?, 0, 0, ?, ?, NOW(), NOW())"
             );
             $stmtPed->execute([
                 $numeroPedido,
                 (int) $body['cliente_id'],
+                $estadoInicial,
                 (float) ($body['descuento_pct']        ?? 0),
                 (float) ($body['impuesto_pct']         ?? 0),
                 $body['fecha_entrega_estimada']        ?? null,
@@ -239,8 +241,8 @@ class PedidoRepository
                 $stmtItem = $this->db->prepare(
                     "INSERT INTO pedido_items
                         (pedido_id, producto_id, descripcion, cantidad, precio_unit,
-                         costo_unitario, descuento_pct, subtotal, notas, created_at)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())"
+                         costo_unitario, descuento_pct, subtotal, notas, estado, created_at)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())"
                 );
                 $stmtItem->execute([
                     $pedidoId,
@@ -252,17 +254,35 @@ class PedidoRepository
                     $descuentoPct,
                     $subtotal,
                     $item['notas'] ?? null,
+                    $estadoInicial,
                 ]);
 
+                $itemId = (int) $this->db->lastInsertId();
+                if (in_array($estadoInicial, ['entregado', 'cobrado'], true)) {
+                    $this->procesarStockItem($itemId, $estadoInicial);
+                }
             }
 
             $this->recalcularTotales($pedidoId);
-            $this->sincronizarEstadoPedido($pedidoId, $usuarioId);
+
+            if (in_array($estadoInicial, ['entregado', 'cobrado'], true)) {
+                $pStmt = $this->db->prepare("SELECT total FROM pedidos WHERE id = ?");
+                $pStmt->execute([$pedidoId]);
+                $pedTotal = (float) $pStmt->fetchColumn();
+
+                $this->db->prepare(
+                    "UPDATE clientes SET
+                        total_compras     = total_compras + ?,
+                        cantidad_pedidos  = cantidad_pedidos + 1,
+                        updated_at        = NOW()
+                     WHERE id = ?"
+                )->execute([$pedTotal, (int)$body['cliente_id']]);
+            }
 
             $this->db->prepare(
                 "INSERT INTO pedido_historial (pedido_id, estado_nuevo, nota, usuario_id, created_at)
-                 VALUES (?, 'presupuesto', 'Pedido creado', ?, NOW())"
-            )->execute([$pedidoId, $usuarioId]);
+                 VALUES (?, ?, 'Pedido creado', ?, NOW())"
+            )->execute([$pedidoId, $estadoInicial, $usuarioId]);
 
             $this->db->commit();
 
@@ -466,7 +486,7 @@ class PedidoRepository
                 }
             }
 
-            if ($nuevoEstado === 'entregado') {
+            if (in_array($nuevoEstado, ['entregado', 'cobrado'], true) && !in_array($pedido['estado'], ['entregado', 'cobrado'], true)) {
                 $this->db->prepare(
                     "UPDATE clientes SET
                         total_compras     = total_compras + ?,
@@ -474,7 +494,7 @@ class PedidoRepository
                         updated_at        = NOW()
                      WHERE id = ?"
                 )->execute([$pedido['total'], $pedido['cliente_id']]);
-            } elseif ($pedido['estado'] === 'entregado' && $nuevoEstado === 'anulado') {
+            } elseif (in_array($pedido['estado'], ['entregado', 'cobrado'], true) && $nuevoEstado === 'anulado') {
                 $this->db->prepare(
                     "UPDATE clientes SET
                         total_compras     = GREATEST(0, total_compras - ?),

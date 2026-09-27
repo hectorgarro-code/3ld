@@ -180,12 +180,6 @@ class PedidosController
                 return Response::error('Pedido no encontrado', 404);
             }
 
-            $estadoActual = $this->repository->findEstado($id);
-
-            if ($nuevoEstado === 'cobrado' && $estadoActual !== 'entregado') {
-                return Response::error('El pedido debe estar entregado antes de poder marcarse como cobrado para asegurar el descuento de stock.', 422);
-            }
-
             $pedido = $this->repository->cambiarEstado($id, $nuevoEstado, $body['nota'] ?? null, $user['id'] ?? null);
 
             return Response::success($pedido);

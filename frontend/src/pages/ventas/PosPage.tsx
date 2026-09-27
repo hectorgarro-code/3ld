@@ -32,6 +32,7 @@ import {
   type ShippingConfig,
 } from '@/lib/correoArgentino'
 import { ShippingLabelModal } from '@/components/pos/ShippingLabelModal'
+import type { PedidoEstado } from '@/types'
 
 
 
@@ -61,7 +62,7 @@ export default function PosPage() {
   // Order Details State
   const [clienteId, setClienteId] = useState<number | ''>('')
   const [descuentoPct, setDescuentoPct] = useState<number>(0)
-  const [estadoPedido, setEstadoPedido] = useState<'presupuesto' | 'aprobado' | 'cobrado'>('cobrado')
+  const [estadoPedido, setEstadoPedido] = useState<PedidoEstado>('cobrado')
   const [notasGenerales, setNotasGenerales] = useState<string>('')
 
   // Shipping (Correo Argentino) State
@@ -388,6 +389,7 @@ export default function PosPage() {
 
       const payload = {
         cliente_id: Number(activeClienteId),
+        estado: estadoPedido,
         descuento_pct: descuentoPct,
         impuesto_pct: 0,
         notas: (notasGenerales.trim() || 'Venta efectuada en Terminal POS') + shippingNote,
@@ -737,12 +739,16 @@ export default function PosPage() {
               <label className="font-bold text-slate-600 block mb-1">Estado Venta</label>
               <select
                 value={estadoPedido}
-                onChange={(e) => setEstadoPedido(e.target.value as any)}
+                onChange={(e) => setEstadoPedido(e.target.value as PedidoEstado)}
                 className="w-full p-2 bg-white border border-slate-200 rounded-xl font-bold text-slate-900"
               >
-                <option value="cobrado">✅ Cobrado</option>
-                <option value="aprobado">📦 Aprobado / Producción</option>
-                <option value="presupuesto">📄 Presupuesto</option>
+                <option value="presupuesto">Presupuesto</option>
+                <option value="aprobado">Pedido</option>
+                <option value="en_produccion">En proceso</option>
+                <option value="terminado">Terminado</option>
+                <option value="entregado">Entregado</option>
+                <option value="cobrado">Cobrado</option>
+                <option value="anulado">Anulado</option>
               </select>
             </div>
           </div>
