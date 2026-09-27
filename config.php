@@ -22,7 +22,9 @@ $config = [
 $localConfigPath = __DIR__ . '/config.local.php';
 if (file_exists($localConfigPath)) {
     $localConfig = require $localConfigPath;
-    $config = array_replace_recursive($config, $localConfig);
+    if (is_array($localConfig)) {
+        $config = array_replace_recursive($config, $localConfig);
+    }
 }
 
 return $config;
