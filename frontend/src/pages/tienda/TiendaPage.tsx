@@ -208,9 +208,11 @@ export default function TiendaPage() {
   useEffect(() => {
     if (activeProductModal && activeProductModal.piezas && activeProductModal.piezas.length > 0) {
       const initialMap: Record<string, boolean> = {};
-      activeProductModal.piezas.forEach(p => {
-        initialMap[p.id || p.nombre] = true;
-      });
+      // Por defecto tildar solo la primera pieza para evitar distorsionar el precio total
+      const first = activeProductModal.piezas[0];
+      if (first) {
+        initialMap[first.id || first.nombre] = true;
+      }
       setModalSelectedPiezas(initialMap);
     } else {
       setModalSelectedPiezas({});
@@ -224,6 +226,7 @@ export default function TiendaPage() {
       if (selectedList.length > 0) {
         return selectedList.reduce((sum, p) => sum + (Number(p.precio) || 0), 0);
       }
+      return 0;
     }
     return activeProductModal.price;
   }, [activeProductModal, modalSelectedPiezas]);
@@ -1047,11 +1050,25 @@ export default function TiendaPage() {
                             ${product.oldPrice.toLocaleString('es-AR')}
                           </span>
                         )}
-                        <span className="text-sm font-black text-slate-900">
-                          ${((product.piezas && product.piezas.length > 0)
-                            ? product.piezas.reduce((acc, pz) => acc + (Number(pz.precio) || 0), 0)
-                            : product.price).toLocaleString('es-AR')}
-                        </span>
+                        <div className="flex flex-col">
+                          <div className="flex items-baseline gap-1">
+                            {product.piezas && product.piezas.length > 0 && (
+                              <span className="text-[10px] font-bold text-slate-400 uppercase">
+                                Desde
+                              </span>
+                            )}
+                            <span className="text-sm font-black text-slate-900">
+                              ${((product.piezas && product.piezas.length > 0)
+                                ? (Math.min(...product.piezas.map(pz => Number(pz.precio) || 0).filter(pr => pr > 0)) || product.price)
+                                : product.price).toLocaleString('es-AR')}
+                            </span>
+                          </div>
+                          {product.piezas && product.piezas.length > 0 && (
+                            <span className="text-[10px] font-extrabold text-cyan-700 bg-cyan-50 px-1.5 py-0.5 rounded w-fit mt-0.5 tracking-tight border border-cyan-200/50">
+                              +VER PIEZAS
+                            </span>
+                          )}
+                        </div>
                       </div>
 
                     <div className="flex items-center gap-1">
@@ -1065,10 +1082,15 @@ export default function TiendaPage() {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          addToCart(product);
+                          if (product.piezas && product.piezas.length > 0) {
+                            setActiveProductModal(product);
+                            setModalActiveImage(product.image);
+                          } else {
+                            addToCart(product);
+                          }
                         }}
                         className="p-2 bg-slate-900 hover:bg-cyan-600 text-white rounded-xl transition active:scale-90"
-                        title="Agregar al Carrito"
+                        title={product.piezas && product.piezas.length > 0 ? "Ver opciones y piezas" : "Agregar al Carrito"}
                       >
                         <Plus className="w-4 h-4" />
                       </button>
@@ -1758,8 +1780,9 @@ export default function TiendaPage() {
                         </span>
                       )}
                       <span className="text-xs font-black text-slate-900">
+                        {p.piezas && p.piezas.length > 0 && <span className="text-[10px] text-slate-400 font-bold mr-1">Desde</span>}
                         ${((p.piezas && p.piezas.length > 0)
-                          ? p.piezas.reduce((acc, pz) => acc + (Number(pz.precio) || 0), 0)
+                          ? (Math.min(...p.piezas.map(pz => Number(pz.precio) || 0).filter(pr => pr > 0)) || p.price)
                           : p.price).toLocaleString('es-AR')}
                       </span>
                     </div>
