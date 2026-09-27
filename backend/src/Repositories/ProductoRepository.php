@@ -51,7 +51,7 @@ class ProductoRepository
         try {
             $sql = "SELECT p.id, p.nombre, p.variante, p.sku, p.descripcion, p.tipo,
                            p.precio_venta, p.precio_costo, p.precio_oferta, p.stock_actual, p.stock_minimo,
-                           p.unidad_medida, p.imagen_url, p.imagenes, p.archivo_url, p.colores, p.activo,
+                           p.unidad_medida, p.imagen_url, p.imagenes, p.archivo_url, p.colores, p.piezas, p.activo,
                            p.es_vendible, p.es_insumo, p.es_tienda, p.es_destacado, p.subcategoria,
                            p.horas_impresion, p.peso_gramos,
                            p.alto_mm, p.ancho_mm, p.profundidad_mm, p.dimensiones,
@@ -69,7 +69,7 @@ class ProductoRepository
         } catch (\PDOException $e) {
             $sql = "SELECT p.id, p.nombre, p.variante, p.sku, p.descripcion, p.tipo,
                            p.precio_venta, p.precio_costo, p.precio_oferta, p.stock_actual, p.stock_minimo,
-                           p.unidad_medida, p.imagen_url, p.imagenes, p.archivo_url, p.activo,
+                           p.unidad_medida, p.imagen_url, p.imagenes, p.archivo_url, p.piezas, p.activo,
                            p.es_vendible, p.es_insumo, p.es_tienda, p.es_destacado, p.subcategoria,
                            p.created_at, p.updated_at,
                            c.id AS categoria_id, c.nombre AS categoria_nombre
@@ -118,6 +118,13 @@ class ProductoRepository
                 $p['imagenes'] = is_array($dec) ? $dec : (!empty($p['imagen_url']) ? [$p['imagen_url']] : []);
             } else {
                 $p['imagenes'] = !empty($p['imagen_url']) ? [$p['imagen_url']] : [];
+            }
+
+            if (!empty($p['piezas'])) {
+                $decP = is_string($p['piezas']) ? json_decode($p['piezas'], true) : $p['piezas'];
+                $p['piezas'] = is_array($decP) ? array_values($decP) : [];
+            } else {
+                $p['piezas'] = [];
             }
         }
 
@@ -191,13 +198,21 @@ class ProductoRepository
             }
         }
 
+        $piezasJson = null;
+        if (isset($data['piezas'])) {
+            $pz = is_array($data['piezas']) ? $data['piezas'] : json_decode((string)$data['piezas'], true);
+            if (is_array($pz)) {
+                $piezasJson = json_encode(array_values($pz));
+            }
+        }
+
         try {
             $stmt = $this->db->prepare(
                 "INSERT INTO productos
                     (nombre, variante, sku, descripcion, tipo, categoria_id, precio_venta, precio_costo,
                      stock_actual, stock_minimo, unidad_medida, imagen_url, imagenes, archivo_url,
-                     es_vendible, es_insumo, es_tienda, subcategoria, precio_oferta, peso_gramos, horas_impresion, alto_mm, ancho_mm, profundidad_mm, dimensiones, estado_stock, es_destacado, activo, created_at, updated_at)
-                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())"
+                     es_vendible, es_insumo, es_tienda, subcategoria, precio_oferta, peso_gramos, horas_impresion, alto_mm, ancho_mm, profundidad_mm, dimensiones, estado_stock, es_destacado, piezas, activo, created_at, updated_at)
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())"
             );
 
             $stmt->execute([
@@ -228,6 +243,7 @@ class ProductoRepository
                 $data['dimensiones']   ?? null,
                 $data['estado_stock']  ?? 'ready',
                 isset($data['es_destacado']) ? (int)$data['es_destacado'] : 0,
+                $piezasJson,
             ]);
         } catch (\PDOException $e) {
             $stmt = $this->db->prepare(
@@ -341,12 +357,16 @@ class ProductoRepository
                 if ($val === null) {
                     $binds[] = null;
                 } else {
-                    $binds[] = match ($type) {
-                        'int'   => (int) $val,
-                        'float' => (float) $val,
-                        'json'  => is_array($val) ? json_encode(array_values(array_slice($val, 0, 5))) : (empty($val) ? null : (string)$val),
-                        default => (string) $val,
-                    };
+                    if ($col === 'imagenes') {
+                        $binds[] = is_array($val) ? json_encode(array_values(array_slice($val, 0, 5))) : (empty($val) ? null : (string)$val);
+                    } else {
+                        $binds[] = match ($type) {
+                            'int'   => (int) $val,
+                            'float' => (float) $val,
+                            'json'  => is_array($val) ? json_encode(array_values($val)) : (empty($val) ? null : (string)$val),
+                            default => (string) $val,
+                        };
+                    }
                 }
             }
         }

@@ -1315,7 +1315,7 @@ export default function TiendaPage() {
                   <p className="text-[11px] text-slate-600">
                     Elegí las piezas que querés incluir en tu pedido:
                   </p>
-                  <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                  <div className="space-y-1.5 max-h-72 sm:max-h-80 overflow-y-auto pr-1">
                     {activeProductModal.piezas.map((pieza) => {
                       const key = pieza.id || pieza.nombre;
                       const isChecked = !!modalSelectedPiezas[key];

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Store,
@@ -50,6 +50,7 @@ export interface AdminProduct {
   horas_impresion?: number
   categoria_id?: number
   categoria_nombre?: string
+  piezas?: any
 }
 
 export interface Categoria {
@@ -1327,53 +1328,99 @@ export default function TiendaAdminPage() {
               const dimensionsStr = formatDimensions(p)
               const printTimeStr = formatPrintTime(p)
 
+              let parsedPiezas: any[] = []
+              if (Array.isArray(p.piezas)) {
+                parsedPiezas = p.piezas
+              } else if (typeof p.piezas === 'string' && p.piezas.trim()) {
+                try { parsedPiezas = JSON.parse(p.piezas) } catch (e) {}
+              }
+
               return (
-                <tr key={p.id} className="break-inside-avoid border-b border-slate-200 text-slate-800">
-                  <td className="p-2 text-center align-middle">
-                    {p.imagen_url ? (
-                      <img src={p.imagen_url} alt={p.nombre} className="h-36 w-36 object-contain rounded-2xl border border-slate-300 mx-auto shadow-xs bg-slate-50 p-1" />
-                    ) : (
-                      <div className="h-36 w-36 rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400 font-bold text-xs mx-auto">
-                        Sin foto
-                      </div>
-                    )}
-                  </td>
-                  <td className="p-2 align-middle">
-                    <p className="font-black text-slate-900 text-base leading-snug">{p.nombre}</p>
-                    {p.variante && <p className="text-xs text-slate-600 font-bold mt-0.5">Variante: {p.variante}</p>}
-                    <p className="text-xs text-slate-500 font-mono mt-1">
-                      SKU: {p.sku || '-'} · {p.categoria_nombre || 'Sin cat.'} {p.subcategoria ? '(' + p.subcategoria + ')' : ''}
-                    </p>
-                  </td>
-                  <td className="p-2 align-middle text-xs">
-                    <p className="font-bold text-slate-800 text-sm">{dimensionsStr}</p>
-                    {p.peso_gramos ? <p className="text-xs text-slate-500 font-semibold mt-0.5">Peso: {p.peso_gramos} g</p> : null}
-                  </td>
-                  <td className="p-2 text-center align-middle font-bold text-slate-900 text-sm">
-                    {printTimeStr}
-                  </td>
-                  <td className="p-2 text-right align-middle text-xs">
-                    {reportType === 'completo' ? (
-                      <div className="space-y-1">
-                        <p className="font-black text-slate-900 text-sm">
-                          Venta: {'$' + venta.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </p>
-                        <p className="text-xs font-bold text-slate-600">
-                          Costo: {'$' + costo.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </p>
-                        {margenPct !== null && (
-                          <p className={`text-xs font-black ${margenPct >= 100 ? 'text-emerald-700' : 'text-amber-700'}`}>
-                            Margen: +{margenPct}%
-                          </p>
-                        )}
-                      </div>
-                    ) : (
-                      <p className="font-black text-slate-900 text-base">
-                        {'$' + costo.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                <React.Fragment key={p.id}>
+                  <tr className="break-inside-avoid border-b border-slate-200 text-slate-800">
+                    <td className="p-2 text-center align-middle">
+                      {p.imagen_url ? (
+                        <img src={p.imagen_url} alt={p.nombre} className="h-36 w-36 object-contain rounded-2xl border border-slate-300 mx-auto shadow-xs bg-slate-50 p-1" />
+                      ) : (
+                        <div className="h-36 w-36 rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400 font-bold text-xs mx-auto">
+                          Sin foto
+                        </div>
+                      )}
+                    </td>
+                    <td className="p-2 align-middle">
+                      <p className="font-black text-slate-900 text-base leading-snug">{p.nombre}</p>
+                      {p.variante && <p className="text-xs text-slate-600 font-bold mt-0.5">Variante: {p.variante}</p>}
+                      <p className="text-xs text-slate-500 font-mono mt-1">
+                        SKU: {p.sku || '-'} · {p.categoria_nombre || 'Sin cat.'} {p.subcategoria ? '(' + p.subcategoria + ')' : ''}
                       </p>
-                    )}
-                  </td>
-                </tr>
+                    </td>
+                    <td className="p-2 align-middle text-xs">
+                      <p className="font-bold text-slate-800 text-sm">{dimensionsStr}</p>
+                      {p.peso_gramos ? <p className="text-xs text-slate-500 font-semibold mt-0.5">Peso: {p.peso_gramos} g</p> : null}
+                    </td>
+                    <td className="p-2 text-center align-middle font-bold text-slate-900 text-sm">
+                      {printTimeStr}
+                    </td>
+                    <td className="p-2 text-right align-middle text-xs">
+                      {reportType === 'completo' ? (
+                        <div className="space-y-1">
+                          <p className="font-black text-slate-900 text-sm">
+                            Venta: {'$' + venta.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </p>
+                          <p className="text-xs font-bold text-slate-600">
+                            Costo: {'$' + costo.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </p>
+                          {margenPct !== null && (
+                            <p className={`text-xs font-black ${margenPct >= 100 ? 'text-emerald-700' : 'text-amber-700'}`}>
+                              Margen: +{margenPct}%
+                            </p>
+                          )}
+                        </div>
+                      ) : (
+                        <p className="font-black text-slate-900 text-base">
+                          {'$' + costo.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </p>
+                      )}
+                    </td>
+                  </tr>
+                  {parsedPiezas.length > 0 && (
+                    <tr className="bg-indigo-50/50 border-b-2 border-slate-300">
+                      <td colSpan={5} className="p-3 pl-8">
+                        <p className="font-black text-xs text-indigo-950 uppercase tracking-wide mb-1.5 flex items-center gap-1">
+                          🧩 DESGLOSE DE PIEZAS DEL SET ({parsedPiezas.length} componentes):
+                        </p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                          {parsedPiezas.map((pz: any, idx: number) => {
+                            const pzCosto = pz.precio_costo || 0
+                            const pzVenta = pz.precio || 0
+                            const pzMargen = pzCosto > 0 ? Math.round(((pzVenta - pzCosto) / pzCosto) * 100) : null
+                            return (
+                              <div key={idx} className="flex items-center justify-between bg-white p-2 rounded-xl border border-indigo-100 shadow-2xs">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  {pz.imagen_url && (
+                                    <img src={pz.imagen_url} alt={pz.nombre} className="w-8 h-8 object-cover rounded-lg border shrink-0" />
+                                  )}
+                                  <div className="min-w-0">
+                                    <p className="font-bold text-slate-900 truncate">{pz.nombre}</p>
+                                    {pz.medidas && <p className="text-[10px] text-slate-500">📏 Medidas: {pz.medidas}</p>}
+                                  </div>
+                                </div>
+                                <div className="text-right shrink-0 ml-2">
+                                  <p className="font-black text-indigo-900">${pzVenta.toLocaleString('es-AR')}</p>
+                                  {reportType === 'completo' && (
+                                    <p className="text-[10px] text-slate-500">
+                                      Costo: ${pzCosto.toLocaleString('es-AR')} {pzMargen !== null ? `(+${pzMargen}%)` : ''}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
               )
             })}
           </tbody>
