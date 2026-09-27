@@ -233,5 +233,21 @@ class ProductosController
             $body['imagen_url'] = $processedImages[0];
             $body['imagenes']   = $processedImages;
         }
+
+        // Procesar imágenes en piezas configurables si vienen en base64
+        if (!empty($body['piezas'])) {
+            $pzList = is_array($body['piezas']) ? $body['piezas'] : json_decode((string)$body['piezas'], true);
+            if (is_array($pzList)) {
+                foreach ($pzList as &$pz) {
+                    if (is_array($pz) && !empty($pz['imagen_url']) && is_string($pz['imagen_url'])) {
+                        $res = $this->processSingleImage($pz['imagen_url'], $uploadDir);
+                        if ($res) {
+                            $pz['imagen_url'] = $res;
+                        }
+                    }
+                }
+                $body['piezas'] = $pzList;
+            }
+        }
     }
 }

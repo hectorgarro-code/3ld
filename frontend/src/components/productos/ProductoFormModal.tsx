@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { X, Loader2, ImagePlus, Trash2, Plus, Sparkles, ExternalLink, Star } from 'lucide-react'
+import { X, Loader2, ImagePlus, Trash2, Plus, Sparkles, ExternalLink, Star, Upload } from 'lucide-react'
 import api from '@/lib/api'
 import type { Producto, ProductoPieza } from '@/types'
 import { compressImage } from '@/lib/imageUtils'
@@ -71,6 +71,23 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
   const [receta, setReceta] = useState<{insumo_id: number, cantidad: number, insumo_nombre?: string, precio_costo?: number, unidad_medida?: string}[]>([])
   const [activeTab, setActiveTab] = useState<'detalles' | 'historial'>('detalles')
   const [isCostoModalOpen, setIsCostoModalOpen] = useState(false)
+  const [urlInput, setUrlInput] = useState('')
+
+  const handleAddUrlImage = () => {
+    const trimmed = urlInput.trim()
+    if (!trimmed) return
+    if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://') && !trimmed.startsWith('/')) {
+      toast('Ingresá una URL válida (ej: https://...)', 'error')
+      return
+    }
+    if (imagesBase64.length >= 5) {
+      toast('Máximo 5 fotos por artículo', 'error')
+      return
+    }
+    setImagesBase64(prev => [...prev, trimmed].slice(0, 5))
+    setUrlInput('')
+    toast('Foto agregada por enlace', 'success')
+  }
 
   const { data: productosData } = useProductos({ per_page: 500 })
   const insumosDisponibles = productosData?.data?.filter(p => p.es_insumo === 1 && p.id !== producto?.id) || []
@@ -490,9 +507,36 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
                     </label>
                   )}
                 </div>
+
+                {imagesBase64.length < 5 && (
+                  <div className="flex items-center gap-2 max-w-sm mx-auto pt-1 w-full">
+                    <input
+                      type="url"
+                      placeholder="O pegar enlace directo de foto (https://...)"
+                      value={urlInput}
+                      onChange={(e) => setUrlInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault()
+                          handleAddUrlImage()
+                        }
+                      }}
+                      className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-800 outline-none focus:border-primary focus:bg-white"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddUrlImage}
+                      className="px-3 py-1.5 bg-slate-100 hover:bg-primary/10 text-slate-700 hover:text-primary rounded-xl text-xs font-bold transition flex items-center gap-1 border border-slate-200 shrink-0"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      <span>Agregar URL</span>
+                    </button>
+                  </div>
+                )}
+
                 <p className="text-[11px] text-slate-400 text-center">
                   {imagesBase64.length === 0
-                    ? 'Toca para elegir fotos desde tu dispositivo (JPG, PNG)'
+                    ? 'Subí fotos desde tu dispositivo (JPG, PNG) o pegá un enlace directo'
                     : `La foto con la estrella dorada es la portada que se ve en el catálogo.`}
                 </p>
               </div>
@@ -692,18 +736,65 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
                               />
                             </div>
                             <div>
-                              <label className="block text-[10px] font-bold text-slate-500 mb-0.5">Foto URL (Opcional)</label>
-                              <input
-                                type="text"
-                                placeholder="https://..."
-                                value={pieza.imagen_url || ''}
-                                onChange={(e) => {
-                                  const copy = [...piezas]
-                                  copy[idx].imagen_url = e.target.value
-                                  setPiezas(copy)
-                                }}
-                                className="w-full text-[11px] font-medium text-slate-600 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 outline-none focus:border-indigo-500"
-                              />
+                              <div className="flex items-center justify-between mb-0.5">
+                                <label className="block text-[10px] font-bold text-slate-500">Foto (Subir o Enlace)</label>
+                                {pieza.imagen_url && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const copy = [...piezas]
+                                      copy[idx].imagen_url = ''
+                                      setPiezas(copy)
+                                    }}
+                                    className="text-[9px] text-red-500 hover:underline font-semibold"
+                                  >
+                                    Quitar
+                                  </button>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                {pieza.imagen_url && (
+                                  <div className="relative h-7 w-7 rounded-lg overflow-hidden border border-indigo-200 shrink-0 bg-white shadow-2xs">
+                                    <img src={pieza.imagen_url} alt="" className="h-full w-full object-cover" />
+                                  </div>
+                                )}
+                                <input
+                                  type="text"
+                                  placeholder="https://... o subí foto"
+                                  value={pieza.imagen_url?.startsWith('data:') ? '(Foto subida)' : (pieza.imagen_url || '')}
+                                  onChange={(e) => {
+                                    const copy = [...piezas]
+                                    copy[idx].imagen_url = e.target.value
+                                    setPiezas(copy)
+                                  }}
+                                  className="w-full min-w-0 text-[11px] font-medium text-slate-600 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 outline-none focus:border-indigo-500"
+                                />
+                                <label
+                                  title="Subir foto para esta pieza"
+                                  className="h-7 px-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg flex items-center justify-center cursor-pointer shrink-0 transition text-[10px] font-bold gap-1 active:scale-95"
+                                >
+                                  <Upload className="h-3 w-3" />
+                                  <span>Subir</span>
+                                  <input
+                                    type="file"
+                                    accept="image/*"
+                                    className="hidden"
+                                    onChange={async (e) => {
+                                      const file = e.target.files?.[0]
+                                      if (!file) return
+                                      try {
+                                        const compressed = await compressImage(file, 600, 600, 0.7)
+                                        const copy = [...piezas]
+                                        copy[idx].imagen_url = compressed
+                                        setPiezas(copy)
+                                        toast('Foto de pieza cargada', 'success')
+                                      } catch (err) {
+                                        toast('Error al procesar la imagen', 'error')
+                                      }
+                                    }}
+                                  />
+                                </label>
+                              </div>
                             </div>
                           </div>
                         </div>
