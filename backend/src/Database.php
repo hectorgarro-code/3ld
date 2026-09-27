@@ -148,6 +148,11 @@ class Database
             // Se ignora si ya existe
         }
         try {
+            $db->exec("UPDATE productos SET estado_stock = 'custom' WHERE (stock_actual IS NULL OR stock_actual <= 0) AND estado_stock = 'ready'");
+        } catch (\Throwable $e) {
+            // Se ignora
+        }
+        try {
             $db->exec("ALTER TABLE productos ADD COLUMN es_destacado TINYINT(1) NOT NULL DEFAULT 0");
         } catch (\Throwable $e) {
             // Se ignora si ya existe

@@ -215,6 +215,12 @@ class ProductoRepository
                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())"
             );
 
+            $initStock = (int) ($data['stock_actual'] ?? 0);
+            $initEstadoStock = $data['estado_stock'] ?? ($initStock > 0 ? 'ready' : 'custom');
+            if ($initStock <= 0) {
+                $initEstadoStock = 'custom';
+            }
+
             $stmt->execute([
                 trim($data['nombre']),
                 $data['variante']      ?? null,
@@ -225,7 +231,7 @@ class ProductoRepository
                 (float) ($data['precio_venta']  ?? 0),
                 (float) ($data['precio_costo']  ?? 0),
                 isset($data['precio_mayorista']) ? (float)$data['precio_mayorista'] : null,
-                (int)   ($data['stock_actual']  ?? 0),
+                $initStock,
                 (int)   ($data['stock_minimo']  ?? 0),
                 $data['unidad_medida'] ?? 'unidad',
                 $data['imagen_url']    ?? null,
@@ -242,7 +248,7 @@ class ProductoRepository
                 (float) ($data['ancho_mm'] ?? 0),
                 (float) ($data['profundidad_mm'] ?? 0),
                 $data['dimensiones']   ?? null,
-                $data['estado_stock']  ?? 'ready',
+                $initEstadoStock,
                 isset($data['es_destacado']) ? (int)$data['es_destacado'] : 0,
                 $piezasJson,
             ]);
@@ -339,6 +345,9 @@ class ProductoRepository
         if (array_key_exists('stock_actual', $data)) {
             $currentStock = (float) ($current['stock_actual'] ?? 0);
             $newStock     = (float) $data['stock_actual'];
+            if ($newStock <= 0 && (!isset($data['estado_stock']) || $data['estado_stock'] === 'ready')) {
+                $data['estado_stock'] = 'custom';
+            }
             $delta        = $newStock - $currentStock;
             if (abs($delta) > 0.0001) {
                 $notas = $data['motivo_ajuste'] ?? ($data['notas_stock'] ?? 'Ajuste manual de stock');
@@ -423,6 +432,7 @@ class ProductoRepository
                 "UPDATE productos SET stock_actual = stock_actual - ?, updated_at = NOW() WHERE id = ? AND stock_actual >= ?"
             );
             $stmt->execute([$absDelta, $id, $absDelta]);
+            $this->db->prepare("UPDATE productos SET estado_stock = 'custom' WHERE id = ? AND stock_actual <= 0")->execute([$id]);
         } else {
             $stmt = $this->db->prepare(
                 "UPDATE productos SET stock_actual = stock_actual + ?, updated_at = NOW() WHERE id = ?"

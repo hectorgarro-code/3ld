@@ -46,8 +46,14 @@ class TiendaRepository
         }
 
         if (!empty($stockStatus) && $stockStatus !== 'all') {
-            $where .= " AND p.estado_stock = ?";
-            $binds[] = $stockStatus;
+            if ($stockStatus === 'ready') {
+                $where .= " AND p.estado_stock = 'ready' AND COALESCE(p.stock_actual, 0) > 0";
+            } elseif ($stockStatus === 'custom') {
+                $where .= " AND (p.estado_stock != 'ready' OR COALESCE(p.stock_actual, 0) <= 0)";
+            } else {
+                $where .= " AND p.estado_stock = ?";
+                $binds[] = $stockStatus;
+            }
         }
 
         $orderBy = "ORDER BY p.es_destacado DESC, p.id DESC";
@@ -62,7 +68,8 @@ class TiendaRepository
         try {
             $sql = "SELECT p.id, p.nombre AS title, p.subcategoria, p.descripcion,
                            p.precio_venta AS price, p.precio_oferta AS oldPrice,
-                           p.stock_actual, p.estado_stock AS stockStatus,
+                           p.stock_actual,
+                           CASE WHEN COALESCE(p.stock_actual, 0) > 0 AND p.estado_stock = 'ready' THEN 'ready' ELSE 'custom' END AS stockStatus,
                            p.imagen_url AS image, p.imagenes, p.colores, p.piezas, p.peso_gramos AS weightGrams,
                            p.dimensiones AS size, p.alto_mm, p.ancho_mm, p.profundidad_mm, p.es_destacado,
                            p.categoria_id,
@@ -93,6 +100,11 @@ class TiendaRepository
             }
 
             foreach ($items as &$item) {
+                $stock = isset($item['stock_actual']) ? (float)$item['stock_actual'] : 0;
+                if ($stock <= 0) {
+                    $item['stockStatus'] = 'custom';
+                }
+
                 if (!empty($item['imagenes'])) {
                     $dec = is_string($item['imagenes']) ? json_decode($item['imagenes'], true) : $item['imagenes'];
                     $item['images'] = is_array($dec) ? $dec : (!empty($item['image']) ? [$item['image']] : []);
@@ -126,7 +138,8 @@ class TiendaRepository
         } catch (\PDOException $e) {
             $fallbackSql = "SELECT p.id, p.nombre AS title, '' AS subcategoria, p.descripcion,
                                    p.precio_venta AS price, NULL AS oldPrice,
-                                   p.stock_actual, 'ready' AS stockStatus,
+                                   p.stock_actual,
+                                   CASE WHEN COALESCE(p.stock_actual, 0) > 0 THEN 'ready' ELSE 'custom' END AS stockStatus,
                                    p.imagen_url AS image, p.imagenes, 50 AS weightGrams,
                                    NULL AS size, 0 AS es_destacado,
                                    c.nombre AS category
@@ -138,6 +151,11 @@ class TiendaRepository
             $stmt->execute();
             $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
             foreach ($items as &$item) {
+                $stock = isset($item['stock_actual']) ? (float)$item['stock_actual'] : 0;
+                if ($stock <= 0) {
+                    $item['stockStatus'] = 'custom';
+                }
+
                 if (!empty($item['imagenes'])) {
                     $dec = is_string($item['imagenes']) ? json_decode($item['imagenes'], true) : $item['imagenes'];
                     $item['images'] = is_array($dec) ? $dec : (!empty($item['image']) ? [$item['image']] : []);
@@ -253,6 +271,12 @@ class TiendaRepository
      */
     public function updateTiendaProduct(int $id, array $data): bool
     {
+        $stockActual = isset($data['stock_actual']) ? (float)$data['stock_actual'] : 0;
+        $stockStatus = $data['stockStatus'] ?? 'ready';
+        if ($stockActual <= 0) {
+            $stockStatus = 'custom';
+        }
+
         $sql = "UPDATE productos SET 
                     subcategoria = ?,
                     precio_venta = ?,
@@ -271,8 +295,8 @@ class TiendaRepository
             $data['subcategoria'] ?? null,
             $data['price'] ?? 0,
             $data['oldPrice'] ?? null,
-            $data['stock_actual'] ?? 0,
-            $data['stockStatus'] ?? 'ready',
+            $stockActual,
+            $stockStatus,
             $data['weightGrams'] ?? 50,
             $data['size'] ?? null,
             isset($data['es_tienda']) ? ($data['es_tienda'] ? 1 : 0) : 1,

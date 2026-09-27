@@ -47,6 +47,7 @@ export interface StoreProduct {
   subcategory?: string;
   price: number;
   oldPrice?: number | null;
+  stock_actual?: number | string;
   stockStatus: 'ready' | 'custom' | string;
   image: string;
   images?: string[];
@@ -57,6 +58,14 @@ export interface StoreProduct {
   size?: string;
   es_destacado?: boolean | number;
 }
+
+export const isProductInStock = (p?: { stockStatus?: string; stock_actual?: number | string } | null): boolean => {
+  if (!p) return false;
+  if (p.stock_actual !== undefined && p.stock_actual !== null && Number(p.stock_actual) <= 0) {
+    return false;
+  }
+  return p.stockStatus === 'ready';
+};
 
 const INITIAL_CATEGORIES: Category[] = [
   { id: 'all', name: 'Todo el Catálogo', icon: '✨', subcategories: [] },
@@ -536,7 +545,9 @@ export default function TiendaPage() {
                         || pSubcategories.includes(subcatLower);
           if (!subMatch) return false;
         }
-        if (stockFilter !== 'all' && p.stockStatus !== stockFilter) return false;
+        if (stockFilter === 'ready' && !isProductInStock(p)) return false;
+        if (stockFilter === 'custom' && isProductInStock(p)) return false;
+        if (stockFilter !== 'all' && stockFilter !== 'ready' && stockFilter !== 'custom' && p.stockStatus !== stockFilter) return false;
         if (searchQuery.trim()) {
           const query = searchQuery.toLowerCase();
           const inTitle = p.title.toLowerCase().includes(query);
@@ -1008,7 +1019,7 @@ export default function TiendaPage() {
                   />
                   {/* Stock status badge */}
                   <div className="absolute top-2 left-2 flex flex-col gap-1">
-                    {product.stockStatus === 'ready' ? (
+                    {isProductInStock(product) ? (
                       <span className="bg-emerald-500/90 text-white text-[10px] font-black px-2 py-0.5 rounded-md backdrop-blur-xs flex items-center gap-1 shadow-xs">
                         <Zap className="w-3 h-3" /> En Stock
                       </span>
@@ -1305,9 +1316,20 @@ export default function TiendaPage() {
             )}
 
             <div className="p-5">
-              <span className="text-xs font-bold text-cyan-600 uppercase tracking-wide">
-                {activeProductModal.subcategory || activeProductModal.category}
-              </span>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-bold text-cyan-600 uppercase tracking-wide">
+                  {activeProductModal.subcategory || activeProductModal.category}
+                </span>
+                {isProductInStock(activeProductModal) ? (
+                  <span className="bg-emerald-100 text-emerald-800 text-[10px] font-black px-2 py-0.5 rounded-md flex items-center gap-1 border border-emerald-200">
+                    <Zap className="w-3 h-3 text-emerald-600" /> En Stock
+                  </span>
+                ) : (
+                  <span className="bg-slate-100 text-slate-700 text-[10px] font-black px-2 py-0.5 rounded-md flex items-center gap-1 border border-slate-200">
+                    🛠️ A Pedido
+                  </span>
+                )}
+              </div>
               <h2 className="text-lg font-black text-slate-900 mt-1 leading-snug">{activeProductModal.title}</h2>
 
               <p className="text-xs text-slate-600 mt-2 leading-relaxed">{activeProductModal.description}</p>
@@ -1746,8 +1768,8 @@ export default function TiendaPage() {
                       <span className="text-[9px] font-extrabold text-cyan-800 uppercase tracking-wide">
                         {p.subcategory || p.category}
                       </span>
-                      <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded ${p.stockStatus === 'ready' ? 'bg-emerald-100 text-emerald-900 border border-emerald-200' : 'bg-slate-100 text-slate-700 border border-slate-200'}`}>
-                        {p.stockStatus === 'ready' ? 'En Stock' : 'A Pedido'}
+                      <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded ${isProductInStock(p) ? 'bg-emerald-100 text-emerald-900 border border-emerald-200' : 'bg-slate-100 text-slate-700 border border-slate-200'}`}>
+                        {isProductInStock(p) ? 'En Stock' : 'A Pedido'}
                       </span>
                     </div>
                     <h3 className="text-xs font-bold text-slate-900 leading-tight">{p.title}</h3>

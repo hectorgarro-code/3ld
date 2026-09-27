@@ -342,7 +342,7 @@ export default function TiendaAdminPage() {
         price: editingProduct.precio_venta,
         oldPrice: editingProduct.precio_oferta || null,
         stock_actual: editingProduct.stock_actual,
-        stockStatus: editingProduct.estado_stock || 'ready',
+        stockStatus: (Number(editingProduct.stock_actual) > 0 && (editingProduct.estado_stock || 'ready') === 'ready') ? 'ready' : 'custom',
         weightGrams: editingProduct.peso_gramos || 50,
         size: editingProduct.dimensiones || '',
         es_tienda: editingProduct.es_tienda,
