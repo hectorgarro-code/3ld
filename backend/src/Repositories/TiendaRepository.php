@@ -337,6 +337,7 @@ class TiendaRepository
                     'name' => $cat['name'],
                     'icon' => $cat['icon'] ?: '✨',
                     'image' => $cat['image'] ?? null,
+                    'imagen_url' => $cat['image'] ?? null,
                     'es_destacada' => (bool)$cat['es_destacada'],
                     'subcategories' => !empty($subs) ? array_merge(['Todos'], $subs) : [],
                     'productos_count' => (int)$cat['productos_count'],

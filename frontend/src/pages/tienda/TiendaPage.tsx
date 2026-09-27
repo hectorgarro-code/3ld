@@ -272,6 +272,7 @@ export default function TiendaPage() {
               id: catName,
               name: catName,
               icon: c.icono || c.icon || '✨',
+              image: c.image || c.imagen_url || c.imagen || null,
               subcategories: c.subcategories || [],
               es_destacada: Boolean(c.es_destacada),
               productos_count: countFromProds
@@ -279,14 +280,18 @@ export default function TiendaPage() {
           });
         } else if (loadedProducts.length > 0) {
           const uniqueCats = Array.from(new Set(loadedProducts.map((p: any) => p.category).filter(Boolean))) as string[];
-          dynamicCats = uniqueCats.map((catName) => ({
-            id: catName,
-            name: catName,
-            icon: '📦',
-            subcategories: [],
-            es_destacada: false,
-            productos_count: loadedProducts.filter((p: any) => p.category === catName).length
-          }));
+          dynamicCats = uniqueCats.map((catName) => {
+            const firstWithImg = loadedProducts.find((p: any) => p.category === catName && (p.image || (p.images && p.images[0])));
+            return {
+              id: catName,
+              name: catName,
+              icon: '📦',
+              image: firstWithImg?.image || (firstWithImg?.images && firstWithImg.images[0]) || null,
+              subcategories: [],
+              es_destacada: false,
+              productos_count: loadedProducts.filter((p: any) => p.category === catName).length
+            };
+          });
         }
 
         if (dynamicCats.length > 0) {
@@ -855,10 +860,18 @@ export default function TiendaPage() {
                   }`}
                 >
                   {cat.image ? (
-                    <img src={cat.image} alt="" className="w-4 h-4 rounded-full object-cover shrink-0" />
-                  ) : (
-                    <span>{cat.icon}</span>
-                  )}
+                    <img
+                      src={cat.image}
+                      alt=""
+                      className="w-4 h-4 rounded-full object-cover shrink-0"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                        const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+                        if (fallback) fallback.style.display = 'inline';
+                      }}
+                    />
+                  ) : null}
+                  <span className={cat.image ? 'hidden' : 'inline'}>{cat.icon}</span>
                   <span className="truncate max-w-[120px]">{cat.name}</span>
                   <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ml-0.5 ${
                     active ? 'bg-white/25 text-white' : 'bg-slate-200/80 text-slate-600'
@@ -1583,12 +1596,20 @@ export default function TiendaPage() {
                             src={cat.image}
                             alt={cat.name}
                             className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none';
+                              const fallback = e.currentTarget.parentElement?.querySelector('.cat-emoji-fallback') as HTMLElement;
+                              if (fallback) fallback.style.display = 'flex';
+                            }}
                           />
-                        ) : (
-                          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#6B66C8]/10 to-[#6B66C8]/25 text-3xl">
-                            {cat.icon || '✨'}
-                          </div>
-                        )}
+                        ) : null}
+                        <div
+                          className={`cat-emoji-fallback flex h-full w-full items-center justify-center bg-gradient-to-br from-[#6B66C8]/10 to-[#6B66C8]/25 text-3xl ${
+                            cat.image ? 'hidden' : ''
+                          }`}
+                        >
+                          {cat.icon || '✨'}
+                        </div>
 
                         {/* Cantidad de productos */}
                         {cat.productos_count !== undefined && cat.id !== 'all' && (
