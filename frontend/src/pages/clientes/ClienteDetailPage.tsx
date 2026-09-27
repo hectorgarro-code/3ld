@@ -130,11 +130,11 @@ export default function ClienteDetailPage() {
         {!cliente.email && !cliente.telefono && !cliente.direccion && (
           <p className="text-sm text-slate-400">Sin información de contacto</p>
         )}
-        {(cliente.descuento_pct ?? 0) > 0 && (
+        {((cliente.descuento_porcentaje ?? 0) > 0) && (
           <div className="flex items-center gap-3">
             <ShoppingBag className="h-4 w-4 text-brand-green" />
             <span className="text-sm font-bold text-brand-green">
-              Descuento automático del {cliente.descuento_pct}%
+              Descuento automático del {cliente.descuento_porcentaje}%
             </span>
           </div>
         )}

@@ -127,7 +127,7 @@ export default function NuevoPedidoPage() {
             onChange={(e) => {
               register('cliente_id').onChange(e)
               const client = clientesData?.data.find(c => c.id === Number(e.target.value))
-              setValue('descuento_pct', client?.descuento_pct ?? 0)
+              setValue('descuento_pct', client?.descuento_porcentaje ?? 0)
             }}
             className="w-full rounded-xl border border-slate-100 bg-slate-50/50 px-4 py-3 text-sm text-slate-800 outline-none focus:border-primary"
           >
