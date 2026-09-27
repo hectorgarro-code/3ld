@@ -26,6 +26,7 @@ import {
 } from 'lucide-react'
 import api from '@/lib/api'
 import { ProductoFormModal } from '@/components/productos/ProductoFormModal'
+import { optimizeImagesForPrint } from '@/lib/imageOptimization'
 
 export interface AdminProduct {
   id: number
@@ -92,13 +93,44 @@ export default function TiendaAdminPage() {
   // Report Printing State
   const [reportType, setReportType] = useState<'costos' | 'completo'>('costos')
   const [printDropdownOpen, setPrintDropdownOpen] = useState(false)
+  const [printIncludePhotos, setPrintIncludePhotos] = useState(true)
+  const [isPreparingPrint, setIsPreparingPrint] = useState(false)
+  const [optimizedThumbnails, setOptimizedThumbnails] = useState<Record<string, string>>({})
 
-  const handlePrintReport = (type: 'costos' | 'completo') => {
+  const handlePrintReport = async (type: 'costos' | 'completo', includePhotos = printIncludePhotos) => {
     setReportType(type)
     setPrintDropdownOpen(false)
+
+    if (includePhotos) {
+      setIsPreparingPrint(true)
+      try {
+        const urls: string[] = []
+        printProducts.forEach((p) => {
+          if (p.imagen_url) urls.push(p.imagen_url)
+          let piezasArr: any[] = []
+          if (Array.isArray(p.piezas)) piezasArr = p.piezas
+          else if (typeof p.piezas === 'string' && p.piezas.trim()) {
+            try { piezasArr = JSON.parse(p.piezas) } catch (e) {}
+          }
+          piezasArr.forEach((pz: any) => {
+            if (pz.imagen_url) urls.push(pz.imagen_url)
+          })
+        })
+
+        if (urls.length > 0) {
+          const thumbMap = await optimizeImagesForPrint(urls, 320, 0.75)
+          setOptimizedThumbnails((prev) => ({ ...prev, ...thumbMap }))
+        }
+      } catch (err) {
+        console.error('Error optimizando imágenes para PDF:', err)
+      } finally {
+        setIsPreparingPrint(false)
+      }
+    }
+
     setTimeout(() => {
       window.print()
-    }, 100)
+    }, 150)
   }
 
   const fetchProducts = async () => {
@@ -374,16 +406,46 @@ export default function TiendaAdminPage() {
           <div className="relative">
             <button
               onClick={() => setPrintDropdownOpen(!printDropdownOpen)}
-              className="flex items-center gap-2 px-4 py-2.5 bg-[#6B66C8] hover:bg-[#5752B3] text-white text-xs font-bold rounded-xl shadow-md transition active:scale-95 cursor-pointer"
+              disabled={isPreparingPrint}
+              className="flex items-center gap-2 px-4 py-2.5 bg-[#6B66C8] hover:bg-[#5752B3] text-white text-xs font-bold rounded-xl shadow-md transition active:scale-95 cursor-pointer disabled:opacity-75"
               title="Seleccionar tipo de informe a imprimir"
             >
-              <Printer className="h-4 w-4" />
-              <span>Imprimir Informe</span>
+              {isPreparingPrint ? (
+                <RefreshCw className="h-4 w-4 animate-spin" />
+              ) : (
+                <Printer className="h-4 w-4" />
+              )}
+              <span>{isPreparingPrint ? 'Comprimiendo PDF...' : 'Imprimir Informe'}</span>
               <ChevronDown className="h-3.5 w-3.5 ml-0.5" />
             </button>
 
             {printDropdownOpen && (
-              <div className="absolute right-0 mt-2 w-72 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 p-2 animate-in zoom-in-95 duration-150">
+              <div className="absolute right-0 mt-2 w-80 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 p-2.5 animate-in zoom-in-95 duration-150">
+                {/* Selector de Incluir Fotos */}
+                <div className="p-2.5 bg-slate-50 rounded-xl mb-2 border border-slate-100 flex items-center justify-between">
+                  <div className="flex flex-col pr-2">
+                    <span className="text-xs font-bold text-slate-800 flex items-center gap-1">
+                      📸 Incluir fotos
+                    </span>
+                    <span className="text-[10px] text-slate-500">
+                      {printIncludePhotos ? '⚡ Con fotos comprimidas (~1-2 MB)' : '📄 Modo texto compacto (~100 KB)'}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setPrintIncludePhotos(!printIncludePhotos)}
+                    className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                      printIncludePhotos ? 'bg-[#6B66C8]' : 'bg-slate-300'
+                    }`}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                        printIncludePhotos ? 'translate-x-4' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                </div>
+
                 <button
                   onClick={() => handlePrintReport('costos')}
                   className="w-full text-left p-2.5 hover:bg-slate-50 rounded-xl transition flex flex-col gap-0.5 cursor-pointer"
@@ -392,7 +454,7 @@ export default function TiendaAdminPage() {
                     📋 Informe de Costos y Dimensiones
                   </span>
                   <span className="text-[10px] text-slate-500 leading-tight">
-                    Planilla de evaluación: Foto, Medidas, Peso, Tiempo 3D y Costo.
+                    Planilla de evaluación: {printIncludePhotos ? 'Foto, ' : ''}Medidas, Peso, Tiempo 3D y Costo.
                   </span>
                 </button>
 
@@ -409,6 +471,10 @@ export default function TiendaAdminPage() {
                     Incluye Costo, Precio Venta y Margen comercial en la misma columna.
                   </span>
                 </button>
+
+                <div className="mt-2 pt-2 border-t border-slate-100 text-[10px] text-emerald-700 font-semibold px-1 flex items-center gap-1">
+                  <span>✓</span> Optimización activa: PDFs livianos (menos de 2 MB).
+                </div>
               </div>
             )}
           </div>
@@ -1311,7 +1377,7 @@ export default function TiendaAdminPage() {
         <table className="w-full border-collapse text-left text-sm">
           <thead>
             <tr className="border-b-2 border-slate-800 bg-slate-100 text-slate-900 font-black uppercase text-xs">
-              <th className="p-2 w-40 text-center">Foto</th>
+              {printIncludePhotos && <th className="p-2 w-32 text-center">Foto</th>}
               <th className="p-2">Producto / Referencia</th>
               <th className="p-2 w-44">Dimensiones / Peso</th>
               <th className="p-2 text-center w-24">Tiempo 3D</th>
@@ -1341,15 +1407,21 @@ export default function TiendaAdminPage() {
               return (
                 <React.Fragment key={p.id}>
                   <tr className="break-inside-avoid border-b border-slate-200 text-slate-800">
-                    <td className="p-2 text-center align-middle">
-                      {p.imagen_url ? (
-                        <img src={p.imagen_url} alt={p.nombre} className="h-36 w-36 object-contain rounded-2xl border border-slate-300 mx-auto shadow-xs bg-slate-50 p-1" />
-                      ) : (
-                        <div className="h-36 w-36 rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400 font-bold text-xs mx-auto">
-                          Sin foto
-                        </div>
-                      )}
-                    </td>
+                    {printIncludePhotos && (
+                      <td className="p-2 text-center align-middle">
+                        {p.imagen_url ? (
+                          <img
+                            src={optimizedThumbnails[p.imagen_url] || p.imagen_url}
+                            alt={p.nombre}
+                            className="h-28 w-28 object-contain rounded-xl border border-slate-300 mx-auto shadow-2xs bg-slate-50 p-1"
+                          />
+                        ) : (
+                          <div className="h-28 w-28 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400 font-bold text-xs mx-auto">
+                            Sin foto
+                          </div>
+                        )}
+                      </td>
+                    )}
                     <td className="p-2 align-middle">
                       <p className="font-black text-slate-900 text-base leading-snug">{p.nombre}</p>
                       {p.variante && <p className="text-xs text-slate-600 font-bold mt-0.5">Variante: {p.variante}</p>}
@@ -1388,7 +1460,7 @@ export default function TiendaAdminPage() {
                   </tr>
                   {parsedPiezas.length > 0 && (
                     <tr className="bg-indigo-50/50 border-b-2 border-slate-300">
-                      <td colSpan={5} className="p-3 pl-8">
+                      <td colSpan={printIncludePhotos ? 5 : 4} className="p-3 pl-8">
                         <p className="font-black text-xs text-indigo-950 uppercase tracking-wide mb-1.5 flex items-center gap-1">
                           🧩 DESGLOSE DE PIEZAS DEL SET ({parsedPiezas.length} componentes):
                         </p>
@@ -1400,8 +1472,12 @@ export default function TiendaAdminPage() {
                             return (
                               <div key={idx} className="flex items-center justify-between bg-white p-2 rounded-xl border border-indigo-100 shadow-2xs">
                                 <div className="flex items-center gap-2 min-w-0">
-                                  {pz.imagen_url && (
-                                    <img src={pz.imagen_url} alt={pz.nombre} className="w-8 h-8 object-cover rounded-lg border shrink-0" />
+                                  {pz.imagen_url && printIncludePhotos && (
+                                    <img
+                                      src={optimizedThumbnails[pz.imagen_url] || pz.imagen_url}
+                                      alt={pz.nombre}
+                                      className="w-8 h-8 object-cover rounded-lg border shrink-0"
+                                    />
                                   )}
                                   <div className="min-w-0">
                                     <p className="font-bold text-slate-900 truncate">{pz.nombre}</p>

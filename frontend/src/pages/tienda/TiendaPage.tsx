@@ -28,6 +28,7 @@ import {
   Headset
 } from 'lucide-react';
 import api from '@/lib/api';
+import { optimizeImagesForPrint } from '@/lib/imageOptimization';
 
 export interface Category {
   id: string;
@@ -348,8 +349,29 @@ export default function TiendaPage() {
     }
   };
 
-  const handlePrintCatalog = () => {
-    window.print();
+  const [isPreparingCatalog, setIsPreparingCatalog] = useState(false);
+  const [catalogThumbnails, setCatalogThumbnails] = useState<Record<string, string>>({});
+
+  const handlePrintCatalog = async () => {
+    setIsPreparingCatalog(true);
+    try {
+      const urls: string[] = [];
+      filteredProducts.forEach((p) => {
+        if (p.image) urls.push(p.image);
+      });
+      if (urls.length > 0) {
+        const thumbMap = await optimizeImagesForPrint(urls, 320, 0.75);
+        setCatalogThumbnails((prev) => ({ ...prev, ...thumbMap }));
+      }
+    } catch (err) {
+      console.error('Error optimizando catálogo para PDF:', err);
+    } finally {
+      setIsPreparingCatalog(false);
+    }
+
+    setTimeout(() => {
+      window.print();
+    }, 150);
   };
 
   const getAdvisorWhatsAppUrl = () => {
@@ -934,11 +956,14 @@ export default function TiendaPage() {
 
               <button
                 onClick={handlePrintCatalog}
-                className="flex items-center justify-center gap-1.5 p-2.5 sm:px-3.5 sm:py-2 bg-gradient-to-r from-cyan-600 to-cyan-500 hover:from-cyan-500 hover:to-cyan-400 text-white text-xs font-black rounded-xl shadow-xs transition shrink-0 active:scale-95"
-                title="Descargar o imprimir catálogo formal en PDF"
+                disabled={isPreparingCatalog}
+                className="flex items-center justify-center gap-1.5 p-2.5 sm:px-3.5 sm:py-2 bg-gradient-to-r from-cyan-600 to-cyan-500 hover:from-cyan-500 hover:to-cyan-400 text-white text-xs font-black rounded-xl shadow-xs transition shrink-0 active:scale-95 disabled:opacity-75"
+                title="Descargar o imprimir catálogo formal en PDF liviano"
               >
-                <Printer className="w-4 h-4" />
-                <span className="hidden sm:inline">Descargar Catálogo PDF</span>
+                <Printer className={`w-4 h-4 ${isPreparingCatalog ? 'animate-spin' : ''}`} />
+                <span className="hidden sm:inline">
+                  {isPreparingCatalog ? 'Optimizando PDF...' : 'Descargar Catálogo PDF'}
+                </span>
               </button>
             </div>
           </div>
@@ -1693,7 +1718,7 @@ export default function TiendaPage() {
                 >
                   <div>
                     <div className="aspect-[4/3] w-full bg-slate-50 rounded-lg overflow-hidden mb-2 border border-slate-200 flex items-center justify-center p-1">
-                      <img src={p.image} alt={p.title} className="w-full h-full object-contain" />
+                      <img src={catalogThumbnails[p.image] || p.image} alt={p.title} className="w-full h-full object-contain" />
                     </div>
                     <div className="flex items-center justify-between gap-1 mb-1">
                       <span className="text-[9px] font-extrabold text-cyan-800 uppercase tracking-wide">
