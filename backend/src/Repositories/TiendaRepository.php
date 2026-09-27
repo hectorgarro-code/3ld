@@ -36,8 +36,7 @@ class TiendaRepository
         }
 
         if (!empty($categoria) && $categoria !== 'all') {
-            $where .= " AND (c.nombre LIKE ? OR c.slug LIKE ?)";
-            $binds[] = "%{$categoria}%";
+            $where .= " AND c.nombre LIKE ?";
             $binds[] = "%{$categoria}%";
         }
 
