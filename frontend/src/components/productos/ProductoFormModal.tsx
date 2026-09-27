@@ -529,7 +529,7 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
 
                 <div>
                   <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-500">
-                    Subcategoría (Tienda Web)
+                    Categorías Secundarias / Etiquetas
                   </label>
                   <input
                     {...register('subcategoria', {
@@ -538,8 +538,11 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
                       }
                     })}
                     className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition-colors focus:border-primary focus:bg-white"
-                    placeholder="Ej. Navidad, Pokémon"
+                    placeholder="Ej. Día de la Madre, San Valentín, Llaveros"
                   />
+                  <p className="mt-1 text-[10px] text-slate-400">
+                    Ingresá varias categorías o momentos de venta separándolas por coma para que el artículo aparezca en múltiples listas.
+                  </p>
                 </div>
 
                 {/* Sección de Selección de Colores para Tienda */}

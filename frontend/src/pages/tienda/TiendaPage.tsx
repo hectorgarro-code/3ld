@@ -497,18 +497,34 @@ export default function TiendaPage() {
   const filteredProducts = useMemo(() => {
     return products
       .filter((p) => {
+        const pSubcategories = (p.subcategory || '')
+          .split(',')
+          .map((s) => s.trim().toLowerCase())
+          .filter(Boolean);
+
         if (selectedCategory !== 'all') {
-          const catMatch = p.category === selectedCategory || p.category === currentCategoryData?.name;
+          const catIdLower = selectedCategory.toLowerCase();
+          const catNameLower = (currentCategoryData?.name || '').toLowerCase();
+          const catMatch = (p.category || '').toLowerCase() === catIdLower
+                        || (p.category || '').toLowerCase() === catNameLower
+                        || pSubcategories.includes(catIdLower)
+                        || pSubcategories.includes(catNameLower);
           if (!catMatch) return false;
         }
-        if (selectedSubcategory !== 'all' && p.subcategory !== selectedSubcategory) return false;
+        if (selectedSubcategory !== 'all') {
+          const subcatLower = selectedSubcategory.toLowerCase();
+          const subMatch = (p.subcategory || '').toLowerCase() === subcatLower
+                        || pSubcategories.includes(subcatLower);
+          if (!subMatch) return false;
+        }
         if (stockFilter !== 'all' && p.stockStatus !== stockFilter) return false;
         if (searchQuery.trim()) {
           const query = searchQuery.toLowerCase();
           const inTitle = p.title.toLowerCase().includes(query);
           const inDesc = p.description.toLowerCase().includes(query);
-          const inSub = (p.subcategory || '').toLowerCase().includes(query);
-          if (!inTitle && !inDesc && !inSub) return false;
+          const inCat = (p.category || '').toLowerCase().includes(query);
+          const inSub = pSubcategories.some((s) => s.includes(query)) || (p.subcategory || '').toLowerCase().includes(query);
+          if (!inTitle && !inDesc && !inCat && !inSub) return false;
         }
         return true;
       })
