@@ -716,7 +716,7 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
 
                 <div>
                   <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-500">
-                    Precio de Venta ($) *
+                    Precio de Venta (Minorista $) *
                   </label>
                   <input
                     type="number"
@@ -728,6 +728,19 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
                     )}
                   />
                   {errors.precio_venta && <p className="mt-1 text-xs text-red-400">{errors.precio_venta.message}</p>}
+                </div>
+
+                <div>
+                  <label className="mb-1.5 block text-xs font-extrabold uppercase tracking-wider text-indigo-700">
+                    🏷️ Precio Mayorista ($)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    {...register('precio_mayorista', { setValueAs: v => v === "" || isNaN(v) ? null : parseFloat(v) })}
+                    placeholder="Opcional (para clientes mayoristas)"
+                    className="w-full rounded-xl border border-indigo-200 bg-indigo-50/30 px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition-colors focus:border-indigo-500 focus:bg-white"
+                  />
                 </div>
 
                 <div>

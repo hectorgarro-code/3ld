@@ -12,7 +12,8 @@ const clienteSchema = z.object({
   telefono: z.string().optional(),
   direccion: z.string().optional(),
   notas: z.string().optional(),
-  descuento_pct: z.coerce.number().min(0, 'No puede ser negativo').max(100, 'Máximo 100%').optional(),
+  tipo_cliente: z.string().optional(),
+  descuento_porcentaje: z.coerce.number().min(0, 'No puede ser negativo').max(100, 'Máximo 100%').optional(),
 })
 
 type ClienteForm = z.infer<typeof clienteSchema>
@@ -40,7 +41,8 @@ export function ClienteFormModal({
       telefono: initialData?.telefono || '',
       direccion: initialData?.direccion || '',
       notas: initialData?.notas || '',
-      descuento_pct: initialData?.descuento_pct || 0,
+      tipo_cliente: initialData?.tipo_cliente || 'minorista',
+      descuento_porcentaje: initialData?.descuento_porcentaje || 0,
     },
   })
 
@@ -102,18 +104,29 @@ export function ClienteFormModal({
             />
           </div>
           <div>
-            <label className="mb-1.5 block text-xs font-bold text-slate-500">Descuento Automático (%)</label>
+            <label className="mb-1.5 block text-xs font-bold text-slate-500">Tipo de Cliente (Lista de Precios)</label>
+            <select
+              {...register('tipo_cliente')}
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-800 outline-none focus:border-secondary focus:ring-4 focus:ring-secondary/10 transition-all"
+            >
+              <option value="minorista">Minorista (Precio de Lista / Venta)</option>
+              <option value="mayorista">Mayorista (Precio Mayorista del Producto)</option>
+              <option value="distribuidor">Distribuidor / Especial</option>
+            </select>
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-bold text-slate-500">Descuento Adicional / Porcentaje (%)</label>
             <input
               type="number"
               step="0.01"
               min="0"
               max="100"
-              {...register('descuento_pct')}
+              {...register('descuento_porcentaje')}
               placeholder="0.00"
               className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 outline-none focus:border-secondary focus:ring-4 focus:ring-secondary/10 transition-all"
             />
-            {errors.descuento_pct && (
-              <p className="mt-1 text-xs font-medium text-red-500">{errors.descuento_pct?.message}</p>
+            {errors.descuento_porcentaje && (
+              <p className="mt-1 text-xs font-medium text-red-500">{errors.descuento_porcentaje?.message}</p>
             )}
           </div>
           <div className="mt-8 grid grid-cols-2 gap-3 pt-4 border-t border-slate-100">

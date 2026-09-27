@@ -50,7 +50,7 @@ class ProductoRepository
 
         try {
             $sql = "SELECT p.id, p.nombre, p.variante, p.sku, p.descripcion, p.tipo,
-                           p.precio_venta, p.precio_costo, p.precio_oferta, p.stock_actual, p.stock_minimo,
+                           p.precio_venta, p.precio_costo, p.precio_mayorista, p.precio_oferta, p.stock_actual, p.stock_minimo,
                            p.unidad_medida, p.imagen_url, p.imagenes, p.archivo_url, p.colores, p.piezas, p.activo,
                            p.es_vendible, p.es_insumo, p.es_tienda, p.es_destacado, p.subcategoria,
                            p.horas_impresion, p.peso_gramos,
@@ -68,7 +68,7 @@ class ProductoRepository
             $productos = $stmt->fetchAll();
         } catch (\PDOException $e) {
             $sql = "SELECT p.id, p.nombre, p.variante, p.sku, p.descripcion, p.tipo,
-                           p.precio_venta, p.precio_costo, p.precio_oferta, p.stock_actual, p.stock_minimo,
+                           p.precio_venta, p.precio_costo, p.precio_mayorista, p.precio_oferta, p.stock_actual, p.stock_minimo,
                            p.unidad_medida, p.imagen_url, p.imagenes, p.archivo_url, p.piezas, p.activo,
                            p.es_vendible, p.es_insumo, p.es_tienda, p.es_destacado, p.subcategoria,
                            p.created_at, p.updated_at,
@@ -209,10 +209,10 @@ class ProductoRepository
         try {
             $stmt = $this->db->prepare(
                 "INSERT INTO productos
-                    (nombre, variante, sku, descripcion, tipo, categoria_id, precio_venta, precio_costo,
+                    (nombre, variante, sku, descripcion, tipo, categoria_id, precio_venta, precio_costo, precio_mayorista,
                      stock_actual, stock_minimo, unidad_medida, imagen_url, imagenes, archivo_url,
                      es_vendible, es_insumo, es_tienda, subcategoria, precio_oferta, peso_gramos, horas_impresion, alto_mm, ancho_mm, profundidad_mm, dimensiones, estado_stock, es_destacado, piezas, activo, created_at, updated_at)
-                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())"
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())"
             );
 
             $stmt->execute([
@@ -224,6 +224,7 @@ class ProductoRepository
                 $data['categoria_id']  ?? null,
                 (float) ($data['precio_venta']  ?? 0),
                 (float) ($data['precio_costo']  ?? 0),
+                isset($data['precio_mayorista']) ? (float)$data['precio_mayorista'] : null,
                 (int)   ($data['stock_actual']  ?? 0),
                 (int)   ($data['stock_minimo']  ?? 0),
                 $data['unidad_medida'] ?? 'unidad',
@@ -248,7 +249,7 @@ class ProductoRepository
         } catch (\PDOException $e) {
             $stmt = $this->db->prepare(
                 "INSERT INTO productos
-                    (nombre, variante, sku, descripcion, tipo, categoria_id, precio_venta, precio_costo,
+                    (nombre, variante, sku, descripcion, tipo, categoria_id, precio_venta, precio_costo, precio_mayorista,
                      stock_actual, stock_minimo, unidad_medida, imagen_url, archivo_url,
                      es_vendible, es_insumo, activo, created_at, updated_at)
                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())"
@@ -262,6 +263,7 @@ class ProductoRepository
                 $data['categoria_id']  ?? null,
                 (float) ($data['precio_venta']  ?? 0),
                 (float) ($data['precio_costo']  ?? 0),
+                isset($data['precio_mayorista']) ? (float)$data['precio_mayorista'] : null,
                 (int)   ($data['stock_actual']  ?? 0),
                 (int)   ($data['stock_minimo']  ?? 0),
                 $data['unidad_medida'] ?? 'unidad',
@@ -309,6 +311,7 @@ class ProductoRepository
             'categoria_id'  => 'int',
             'precio_venta'  => 'float',
             'precio_costo'  => 'float',
+            'precio_mayorista' => 'float',
             'stock_actual'  => 'float',
             'stock_minimo'  => 'float',
             'unidad_medida' => 'string',

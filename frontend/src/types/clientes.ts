@@ -1,11 +1,24 @@
+export interface ClientePrecioEspecial {
+  id?: number
+  cliente_id?: number
+  producto_id: number
+  precio_especial: number
+  producto_nombre?: string
+  sku?: string
+}
+
 export interface Cliente {
   id: number
   nombre: string
   email?: string
   telefono?: string
+  empresa?: string
+  cuit?: string
   direccion?: string
   notas?: string
-  descuento_pct?: number
+  tipo_cliente?: 'minorista' | 'mayorista' | 'distribuidor' | string
+  descuento_porcentaje?: number
+  precios_especiales?: ClientePrecioEspecial[]
   total_compras?: number
   cantidad_pedidos?: number
   ultimo_pedido?: string

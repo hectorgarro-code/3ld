@@ -32,6 +32,7 @@ export interface Producto {
   categoria?: Categoria
   precio_venta: number
   precio_costo?: number
+  precio_mayorista?: number
   stock_actual: number
   stock_minimo: number
   imagen_url?: string

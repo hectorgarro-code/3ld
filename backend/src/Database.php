@@ -157,6 +157,34 @@ class Database
         } catch (\Throwable $e) {
             // Se ignora si ya existe
         }
+        try {
+            $db->exec("ALTER TABLE productos ADD COLUMN precio_mayorista DECIMAL(12,2) NULL");
+        } catch (\Throwable $e) {
+            // Se ignora si ya existe
+        }
+        try {
+            $db->exec("ALTER TABLE clientes ADD COLUMN tipo_cliente VARCHAR(50) NOT NULL DEFAULT 'minorista'");
+        } catch (\Throwable $e) {
+            // Se ignora si ya existe
+        }
+        try {
+            $db->exec("ALTER TABLE clientes ADD COLUMN descuento_porcentaje DECIMAL(5,2) NOT NULL DEFAULT 0.00");
+        } catch (\Throwable $e) {
+            // Se ignora si ya existe
+        }
+        try {
+            $db->exec("CREATE TABLE IF NOT EXISTS cliente_precios_especiales (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                cliente_id INT NOT NULL,
+                producto_id INT NOT NULL,
+                precio_especial DECIMAL(12,2) NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                UNIQUE KEY unique_cliente_producto (cliente_id, producto_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        } catch (\Throwable $e) {
+            // Se ignora si ya existe
+        }
     }
 
     /**

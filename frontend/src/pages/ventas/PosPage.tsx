@@ -175,6 +175,7 @@ export default function PosPage() {
       } catch (e) {}
     }
 
+    let basePrice = p.precio_venta || 0
     if (parsedPiezas.length > 0) {
       const initialMap: Record<string, boolean> = {}
       let initialSum = 0
@@ -183,11 +184,26 @@ export default function PosPage() {
         initialSum += (Number(pieza.precio) || 0)
       })
       setPosSelectedPiezas(initialMap)
-      setQuickPrice(initialSum > 0 ? initialSum : (p.precio_venta || 0))
+      basePrice = initialSum > 0 ? initialSum : (p.precio_venta || 0)
     } else {
       setPosSelectedPiezas({})
-      setQuickPrice(p.precio_venta || 0)
     }
+
+    const currentClient = clientesData?.data?.find((c: any) => c.id === Number(clienteId))
+    if (currentClient) {
+      const specialPrice = currentClient.precios_especiales?.find(
+        (pe: any) => Number(pe.producto_id) === Number(p.id)
+      )
+      if (specialPrice && Number(specialPrice.precio_especial) > 0) {
+        basePrice = Number(specialPrice.precio_especial)
+      } else if (currentClient.tipo_cliente === 'mayorista' && Number(p.precio_mayorista) > 0) {
+        basePrice = Number(p.precio_mayorista)
+      } else if (Number(currentClient.descuento_porcentaje) > 0) {
+        basePrice = basePrice * (1 - Number(currentClient.descuento_porcentaje) / 100)
+      }
+    }
+
+    setQuickPrice(basePrice)
   }
 
   // Confirm Quick Add to Cart

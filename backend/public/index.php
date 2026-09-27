@@ -197,6 +197,14 @@ $app->group('/api/v1', function (RouteCollectorProxy $api) use ($config, $auth, 
         });
         $g->post('',       function ($req, $res) use ($container) {
             return $container->get(ClientesController::class)->create($req, $res);
+        $g->get('/{id}/precios-especiales', function ($req, $res, $args) use ($container) {
+            return $container->get(ClientesController::class)->getPreciosEspeciales($req, $res, $args);
+        });
+        $g->post('/{id}/precios-especiales', function ($req, $res, $args) use ($container) {
+            return $container->get(ClientesController::class)->setPrecioEspecial($req, $res, $args);
+        });
+        $g->delete('/{id}/precios-especiales/{productoId}', function ($req, $res, $args) use ($container) {
+            return $container->get(ClientesController::class)->deletePrecioEspecial($req, $res, $args);
         });
         $g->put('/{id}',   function ($req, $res, $args) use ($container) {
             return $container->get(ClientesController::class)->update($req, $res, $args);

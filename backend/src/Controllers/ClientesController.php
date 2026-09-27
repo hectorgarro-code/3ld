@@ -113,4 +113,56 @@ class ClientesController
             return Response::error('Error al eliminar cliente: ' . $e->getMessage(), 500);
         }
     }
+
+    /**
+     * GET /api/v1/clientes/{id}/precios-especiales
+     */
+    public function getPreciosEspeciales(ServerRequestInterface $request, ResponseInterface $response, array $args): ResponseInterface
+    {
+        try {
+            $id = (int) $args['id'];
+            $list = $this->repository->getPreciosEspeciales($id);
+            return Response::success($list);
+        } catch (Throwable $e) {
+            return Response::error('Error al obtener precios especiales: ' . $e->getMessage(), 500);
+        }
+    }
+
+    /**
+     * POST /api/v1/clientes/{id}/precios-especiales
+     */
+    public function setPrecioEspecial(ServerRequestInterface $request, ResponseInterface $response, array $args): ResponseInterface
+    {
+        try {
+            $id = (int) $args['id'];
+            $body = $request->getParsedBody() ?? [];
+            $productoId = (int) ($body['producto_id'] ?? 0);
+            $precio = (float) ($body['precio_especial'] ?? 0);
+
+            if ($productoId <= 0 || $precio < 0) {
+                return Response::error('Datos inválidos para precio especial', 422);
+            }
+
+            $this->repository->setPrecioEspecial($id, $productoId, $precio);
+            return Response::success(['message' => 'Precio especial guardado correctamente']);
+        } catch (Throwable $e) {
+            return Response::error('Error al guardar precio especial: ' . $e->getMessage(), 500);
+        }
+    }
+
+    /**
+     * DELETE /api/v1/clientes/{id}/precios-especiales/{productoId}
+     */
+    public function deletePrecioEspecial(ServerRequestInterface $request, ResponseInterface $response, array $args): ResponseInterface
+    {
+        try {
+            $id = (int) $args['id'];
+            $productoId = (int) $args['productoId'];
+
+            $this->repository->deletePrecioEspecial($id, $productoId);
+            return Response::success(['message' => 'Precio especial eliminado correctamente']);
+        } catch (Throwable $e) {
+            return Response::error('Error al eliminar precio especial: ' . $e->getMessage(), 500);
+        }
+    }
 }

@@ -79,6 +79,19 @@ class ClienteRepository
         }
 
         try {
+            $stmtPE = $this->db->prepare(
+                "SELECT pe.producto_id, pe.precio_especial, p.nombre AS producto_nombre, p.sku
+                 FROM cliente_precios_especiales pe
+                 JOIN productos p ON p.id = pe.producto_id
+                 WHERE pe.cliente_id = ?"
+            );
+            $stmtPE->execute([$id]);
+            $cliente['precios_especiales'] = $stmtPE->fetchAll();
+        } catch (\Throwable $e) {
+            $cliente['precios_especiales'] = [];
+        }
+
+        try {
             $stmtPedidos = $this->db->prepare(
                 "SELECT id, numero_pedido, estado, total, saldo_pendiente, created_at
                  FROM pedidos
@@ -110,17 +123,19 @@ class ClienteRepository
     public function create(array $data): array
     {
         $stmt = $this->db->prepare(
-            "INSERT INTO clientes (nombre, email, telefono, empresa, cuit, direccion, notas, activo, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())"
+            "INSERT INTO clientes (nombre, email, telefono, empresa, cuit, direccion, notas, tipo_cliente, descuento_porcentaje, activo, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())"
         );
         $stmt->execute([
             trim($data['nombre']),
-            $data['email']     ?? null,
-            $data['telefono']  ?? null,
-            $data['empresa']   ?? null,
-            $data['cuit']      ?? null,
-            $data['direccion'] ?? null,
-            $data['notas']     ?? null,
+            $data['email']                ?? null,
+            $data['telefono']             ?? null,
+            $data['empresa']              ?? null,
+            $data['cuit']                 ?? null,
+            $data['direccion']            ?? null,
+            $data['notas']                ?? null,
+            $data['tipo_cliente']         ?? 'minorista',
+            (float)($data['descuento_porcentaje'] ?? 0),
         ]);
 
         $newId = (int) $this->db->lastInsertId();
@@ -138,20 +153,22 @@ class ClienteRepository
         $binds  = [];
 
         $map = [
-            'nombre'    => 'string',
-            'email'     => 'string',
-            'telefono'  => 'string',
-            'empresa'   => 'string',
-            'cuit'      => 'string',
-            'direccion' => 'string',
-            'notas'     => 'string',
+            'nombre'               => 'string',
+            'email'                => 'string',
+            'telefono'             => 'string',
+            'empresa'              => 'string',
+            'cuit'                 => 'string',
+            'direccion'            => 'string',
+            'notas'                => 'string',
+            'tipo_cliente'         => 'string',
+            'descuento_porcentaje' => 'float',
         ];
 
         foreach ($map as $col => $type) {
             if (array_key_exists($col, $data)) {
                 $fields[] = "{$col} = ?";
                 $val      = $data[$col];
-                $binds[]  = $val !== null ? (string) $val : null;
+                $binds[]  = $val !== null ? ($type === 'float' ? (float)$val : (string)$val) : null;
             }
         }
 
@@ -163,6 +180,34 @@ class ClienteRepository
         }
 
         return $this->findById($id);
+    }
+
+    public function getPreciosEspeciales(int $clienteId): array
+    {
+        $stmt = $this->db->prepare(
+            "SELECT pe.id, pe.cliente_id, pe.producto_id, pe.precio_especial, p.nombre AS producto_nombre, p.sku, p.precio_venta
+             FROM cliente_precios_especiales pe
+             JOIN productos p ON p.id = pe.producto_id
+             WHERE pe.cliente_id = ?"
+        );
+        $stmt->execute([$clienteId]);
+        return $stmt->fetchAll();
+    }
+
+    public function setPrecioEspecial(int $clienteId, int $productoId, float $precio): bool
+    {
+        $stmt = $this->db->prepare(
+            "INSERT INTO cliente_precios_especiales (cliente_id, producto_id, precio_especial)
+             VALUES (?, ?, ?)
+             ON DUPLICATE KEY UPDATE precio_especial = VALUES(precio_especial)"
+        );
+        return $stmt->execute([$clienteId, $productoId, $precio]);
+    }
+
+    public function deletePrecioEspecial(int $clienteId, int $productoId): bool
+    {
+        $stmt = $this->db->prepare("DELETE FROM cliente_precios_especiales WHERE cliente_id = ? AND producto_id = ?");
+        return $stmt->execute([$clienteId, $productoId]);
     }
 
     public function delete(int $id): bool
