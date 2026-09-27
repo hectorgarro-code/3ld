@@ -106,7 +106,22 @@ function ProductoCard({
       {/* Image / Gallery */}
       {currentImg ? (
         <div className="relative mb-3 flex h-28 items-center justify-center rounded-xl bg-slate-50 overflow-hidden group/img">
-          <img src={currentImg} alt={producto.nombre} className="h-full w-full object-cover transition duration-300" />
+          <img
+            src={currentImg}
+            alt={producto.nombre}
+            className="h-full w-full object-cover transition duration-300"
+            onError={(e) => {
+              const el = e.currentTarget
+              if (el.dataset.triedFallback) return
+              el.dataset.triedFallback = 'true'
+              const cur = el.src
+              if (cur.includes('/backend/public/uploads/')) {
+                el.src = cur.replace('/backend/public/uploads/', '/uploads/')
+              } else if (cur.includes('/uploads/') && !cur.includes('/backend/public/uploads/')) {
+                el.src = cur.replace('/uploads/', '/backend/public/uploads/')
+              }
+            }}
+          />
           
           {/* Controls if multiple images */}
           {images.length > 1 && (

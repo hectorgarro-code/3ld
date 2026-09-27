@@ -415,7 +415,22 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
                       "relative group h-24 w-24 rounded-2xl border overflow-hidden shadow-sm transition-all",
                       idx === 0 ? "border-amber-400 ring-2 ring-amber-400/30" : "border-slate-200"
                     )}>
-                      <img src={img} alt={`Foto ${idx + 1}`} className="h-full w-full object-cover" />
+                      <img
+                        src={img}
+                        alt={`Foto ${idx + 1}`}
+                        className="h-full w-full object-cover"
+                        onError={(e) => {
+                          const el = e.currentTarget
+                          if (el.dataset.triedFallback) return
+                          el.dataset.triedFallback = 'true'
+                          const cur = el.src
+                          if (cur.includes('/backend/public/uploads/')) {
+                            el.src = cur.replace('/backend/public/uploads/', '/uploads/')
+                          } else if (cur.includes('/uploads/') && !cur.includes('/backend/public/uploads/')) {
+                            el.src = cur.replace('/uploads/', '/backend/public/uploads/')
+                          }
+                        }}
+                      />
                       
                       {/* Acciones de la foto */}
                       <div className="absolute top-1 right-1 flex items-center gap-1 opacity-90 group-hover:opacity-100 transition-opacity">

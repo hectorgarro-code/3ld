@@ -5,7 +5,28 @@
   # Redirigir llamadas API a backend/public/index.php
   RewriteRule ^api/(.*)$ backend/public/index.php [QSA,L]
 
-  # Servir archivos subidos directamente desde backend/public/uploads
+  # Compatibilidad con rutas viejas o prefijos /sistema/
+  RewriteRule ^sistema/backend/public/uploads/(.*)$ backend/public/uploads/$1 [L]
+  RewriteRule ^sistema/uploads/(.*)$ uploads/$1 [L]
+
+  # Soporte para carpetas uploads anidadas accidentalmente (uploads/uploads)
+  RewriteRule ^uploads/uploads/(.*)$ uploads/$1 [L]
+  RewriteRule ^backend/public/uploads/uploads/(.*)$ backend/public/uploads/$1 [L]
+
+  # Si la foto se pide como /backend/public/uploads/... pero el archivo esta en /uploads/...
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{DOCUMENT_ROOT}/uploads/$1 -f
+  RewriteRule ^backend/public/uploads/(.*)$ uploads/$1 [L]
+
+  # Si la foto se pide como /uploads/... y esta en /uploads/... (servir directamente)
+  RewriteCond %{DOCUMENT_ROOT}/uploads/$1 -f
+  RewriteRule ^uploads/(.*)$ uploads/$1 [L]
+
+  # Si la foto se pide como /uploads/... y esta en /backend/public/uploads/...
+  RewriteCond %{DOCUMENT_ROOT}/backend/public/uploads/$1 -f
+  RewriteRule ^uploads/(.*)$ backend/public/uploads/$1 [L]
+
+  # Fallback default para uploads
   RewriteRule ^uploads/(.*)$ backend/public/uploads/$1 [L]
 
   # No reescribir uploads, backend ni llamadas de API a index.html
