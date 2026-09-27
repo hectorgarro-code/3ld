@@ -42,6 +42,7 @@ jobs:
         run: |
           mkdir deploy_dist
           cp -r frontend/dist/* deploy_dist/
+          cp frontend/public/.htaccess deploy_dist/.htaccess
           mkdir -p deploy_dist/backend
           cp -r backend/* deploy_dist/backend/
           mkdir -p deploy_dist/backend/public/uploads
@@ -59,7 +60,7 @@ jobs:
           password: ${{ secrets.FTP_PASSWORD }}
           port: ${{ secrets.FTP_PORT || 21 }}
           local-dir: ./deploy_dist/
-          server-dir: ./sistema/
+          server-dir: ./public_html/
           dangerous-clean-slate: false
           exclude: |
             **/backend/config/config.local.php
