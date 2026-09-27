@@ -201,6 +201,7 @@ $app->group('/api/v1', function (RouteCollectorProxy $api) use ($config, $auth, 
         });
         $g->post('',       function ($req, $res) use ($container) {
             return $container->get(ClientesController::class)->create($req, $res);
+        });
         $g->get('/{id}/precios-especiales', function ($req, $res, $args) use ($container) {
             return $container->get(ClientesController::class)->getPreciosEspeciales($req, $res, $args);
         });
