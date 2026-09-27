@@ -175,14 +175,7 @@ const hasValidSize = (size?: string | null) => {
 };
 
 export default function TiendaPage() {
-  const [products, setProducts] = useState<StoreProduct[]>(() => {
-    try {
-      const saved = localStorage.getItem('3ld_react_products');
-      return saved ? JSON.parse(saved) : INITIAL_PRODUCTS;
-    } catch {
-      return INITIAL_PRODUCTS;
-    }
-  });
+  const [products, setProducts] = useState<StoreProduct[]>([]);
 
   const [cart, setCart] = useState<CartItem[]>(() => {
     try {
@@ -258,13 +251,14 @@ export default function TiendaPage() {
 
         if (catRes.data?.data && Array.isArray(catRes.data.data) && catRes.data.data.length > 0) {
           dynamicCats = catRes.data.data.map((c: any) => {
+            const catName = c.nombre || c.name || '';
             const countFromProds = loadedProducts.filter(
-              (p: any) => p.category === c.name || (c.categoria_id && String(p.categoria_id) === String(c.categoria_id))
+              (p: any) => p.category === catName || (c.id && String(p.categoria_id) === String(c.id))
             ).length;
             return {
-              id: c.name,
-              name: c.name,
-              icon: c.icon || '✨',
+              id: catName,
+              name: catName,
+              icon: c.icono || c.icon || '✨',
               subcategories: c.subcategories || [],
               es_destacada: Boolean(c.es_destacada),
               productos_count: countFromProds
