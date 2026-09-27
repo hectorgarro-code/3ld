@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useRef } from 'react'
 import {
   X,
   Plus,
@@ -12,7 +12,10 @@ import {
   Tags,
   Star,
   Smile,
-  Search
+  Search,
+  Upload,
+  Link,
+  Image as ImageIcon
 } from 'lucide-react'
 import {
   useCategorias,
@@ -22,6 +25,7 @@ import {
 } from '@/hooks/useProductos'
 import type { Categoria } from '@/types'
 import { toast } from '@/store/toastStore'
+import { compressImage } from '@/lib/imageUtils'
 
 interface CategoriasModalProps {
   isOpen: boolean
@@ -124,11 +128,30 @@ export function CategoriasModal({ isOpen, onClose }: CategoriasModalProps) {
   const [icono, setIcono] = useState('✨')
   const [imagenUrl, setImagenUrl] = useState('')
   const [esDestacada, setEsDestacada] = useState(false)
+  const [imageInputMode, setImageInputMode] = useState<'upload' | 'url'>('upload')
+  const [isUploadingImage, setIsUploadingImage] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [activeEmojiCategory, setActiveEmojiCategory] = useState(0)
   const [emojiSearch, setEmojiSearch] = useState('')
 
   if (!isOpen) return null
+
+  const handleImageFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    try {
+      setIsUploadingImage(true)
+      const compressed = await compressImage(file, 600, 600, 0.75)
+      setImagenUrl(compressed)
+      toast('Foto cargada correctamente', 'success')
+    } catch {
+      toast('Error al procesar la imagen', 'error')
+    } finally {
+      setIsUploadingImage(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
 
   const handleStartCreate = () => {
     setEditingCat(null)
@@ -137,6 +160,7 @@ export function CategoriasModal({ isOpen, onClose }: CategoriasModalProps) {
     setIcono('✨')
     setImagenUrl('')
     setEsDestacada(false)
+    setImageInputMode('upload')
   }
 
   const handleStartEdit = (cat: Categoria) => {
@@ -146,6 +170,11 @@ export function CategoriasModal({ isOpen, onClose }: CategoriasModalProps) {
     setIcono(cat.icono || '✨')
     setImagenUrl(cat.imagen_url || '')
     setEsDestacada(Boolean(cat.es_destacada))
+    if (cat.imagen_url && (cat.imagen_url.startsWith('http://') || cat.imagen_url.startsWith('https://'))) {
+      setImageInputMode('url')
+    } else {
+      setImageInputMode('upload')
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -377,21 +406,129 @@ export function CategoriasModal({ isOpen, onClose }: CategoriasModalProps) {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center justify-between">
-                  <span>URL Foto de la Categoría (Opcional)</span>
-                  {imagenUrl && <span className="text-[10px] text-emerald-600 font-bold">✓ Con Foto</span>}
-                </label>
-                <input
-                  type="url"
-                  placeholder="https://ejemplo.com/imagen-categoria.jpg"
-                  value={imagenUrl}
-                  onChange={(e) => setImagenUrl(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs text-slate-800 focus:border-[#6B66C8] focus:outline-none focus:ring-2 focus:ring-[#6B66C8]/20 transition"
-                />
-                {imagenUrl && (
-                  <div className="mt-1.5 flex items-center gap-2">
-                    <img src={imagenUrl} alt="Vista previa" className="h-10 w-10 object-cover rounded-lg border border-slate-200" onError={(e) => (e.currentTarget.style.display = 'none')} />
-                    <span className="text-[10px] text-slate-400">Vista previa en celular</span>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-bold text-slate-700">
+                    Foto de la Categoría (Opcional)
+                  </label>
+                  <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg text-[11px]">
+                    <button
+                      type="button"
+                      onClick={() => setImageInputMode('upload')}
+                      className={`flex items-center gap-1 px-2 py-0.5 rounded-md font-semibold transition ${
+                        imageInputMode === 'upload'
+                          ? 'bg-white text-[#6B66C8] shadow-2xs'
+                          : 'text-slate-500 hover:text-slate-700'
+                      }`}
+                    >
+                      <Upload className="h-3 w-3" />
+                      Subir Foto
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setImageInputMode('url')}
+                      className={`flex items-center gap-1 px-2 py-0.5 rounded-md font-semibold transition ${
+                        imageInputMode === 'url'
+                          ? 'bg-white text-[#6B66C8] shadow-2xs'
+                          : 'text-slate-500 hover:text-slate-700'
+                      }`}
+                    >
+                      <Link className="h-3 w-3" />
+                      Pegar Enlace
+                    </button>
+                  </div>
+                </div>
+
+                {imageInputMode === 'upload' ? (
+                  <div>
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      accept="image/*"
+                      onChange={handleImageFileSelect}
+                      className="hidden"
+                    />
+
+                    {imagenUrl ? (
+                      <div className="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-200">
+                        <div className="flex items-center gap-2.5">
+                          <img
+                            src={imagenUrl}
+                            alt="Vista previa"
+                            className="h-12 w-12 object-cover rounded-lg border border-slate-200 bg-white"
+                          />
+                          <div>
+                            <p className="text-xs font-bold text-slate-800">Foto asignada</p>
+                            <button
+                              type="button"
+                              onClick={() => fileInputRef.current?.click()}
+                              disabled={isUploadingImage}
+                              className="text-[11px] font-semibold text-[#6B66C8] hover:underline"
+                            >
+                              Cambiar foto
+                            </button>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setImagenUrl('')}
+                          className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-500 transition-colors"
+                          title="Eliminar foto"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={isUploadingImage}
+                        className="w-full flex flex-col items-center justify-center p-4 border-2 border-dashed border-slate-200 hover:border-[#6B66C8] rounded-xl bg-slate-50/50 hover:bg-purple-50/20 transition-all text-slate-500 hover:text-[#6B66C8] group"
+                      >
+                        {isUploadingImage ? (
+                          <>
+                            <Loader2 className="h-5 w-5 animate-spin text-[#6B66C8] mb-1" />
+                            <span className="text-xs font-semibold">Procesando imagen...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Upload className="h-5 w-5 mb-1 group-hover:scale-110 transition-transform" />
+                            <span className="text-xs font-bold">Hacé clic para subir una foto</span>
+                            <span className="text-[10px] text-slate-400">JPG, PNG o WebP desde tu dispositivo</span>
+                          </>
+                        )}
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <div>
+                    <input
+                      type="url"
+                      placeholder="https://ejemplo.com/imagen-categoria.jpg"
+                      value={imagenUrl}
+                      onChange={(e) => setImagenUrl(e.target.value)}
+                      className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs text-slate-800 focus:border-[#6B66C8] focus:outline-none focus:ring-2 focus:ring-[#6B66C8]/20 transition"
+                    />
+                    {imagenUrl && (
+                      <div className="mt-2 flex items-center justify-between p-2 bg-slate-50 rounded-lg border border-slate-200">
+                        <div className="flex items-center gap-2">
+                          <img
+                            src={imagenUrl}
+                            alt="Vista previa"
+                            className="h-10 w-10 object-cover rounded-lg border border-slate-200"
+                            onError={(e) => (e.currentTarget.style.display = 'none')}
+                          />
+                          <span className="text-[11px] text-slate-500 font-medium">Vista previa</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setImagenUrl('')}
+                          className="rounded-lg p-1 text-slate-400 hover:bg-red-50 hover:text-red-500 transition-colors"
+                          title="Eliminar enlace"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -475,8 +612,19 @@ export function CategoriasModal({ isOpen, onClose }: CategoriasModalProps) {
                       }`}
                     >
                       <div className="flex items-center gap-3 flex-1 min-w-0 pr-3">
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-xl">
-                          {cat.icono || '✨'}
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-xl overflow-hidden border border-slate-200/80">
+                          {cat.imagen_url ? (
+                            <img
+                              src={cat.imagen_url}
+                              alt={cat.nombre}
+                              className="h-full w-full object-cover"
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none'
+                              }}
+                            />
+                          ) : (
+                            cat.icono || '✨'
+                          )}
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">

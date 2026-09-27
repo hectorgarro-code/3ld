@@ -55,6 +55,8 @@ class CategoriasController
                 return Response::error('El nombre de la categoría es requerido', 422);
             }
 
+            $imagenUrl = $this->processImage($body['imagen_url'] ?? null);
+
             $stmt = $db->prepare(
                 "INSERT INTO categorias_producto (nombre, descripcion, icono, imagen_url, es_destacada, created_at)
                  VALUES (?, ?, ?, ?, ?, NOW())"
@@ -63,7 +65,7 @@ class CategoriasController
                 trim($body['nombre']),
                 $body['descripcion'] ?? null,
                 $body['icono'] ?? '✨',
-                $body['imagen_url'] ?? null,
+                $imagenUrl,
                 !empty($body['es_destacada']) ? 1 : 0,
             ]);
 
@@ -91,12 +93,14 @@ class CategoriasController
                 return Response::error('El nombre de la categoría es requerido', 422);
             }
 
+            $imagenUrl = $this->processImage($body['imagen_url'] ?? null);
+
             $stmt = $db->prepare("UPDATE categorias_producto SET nombre = ?, descripcion = ?, icono = ?, imagen_url = ?, es_destacada = ? WHERE id = ?");
             $stmt->execute([
                 trim($body['nombre']),
                 $body['descripcion'] ?? null,
                 $body['icono'] ?? '✨',
-                $body['imagen_url'] ?? null,
+                $imagenUrl,
                 !empty($body['es_destacada']) ? 1 : 0,
                 $id
             ]);
@@ -112,6 +116,37 @@ class CategoriasController
         } catch (Throwable $e) {
             return Response::error('Error al actualizar categoría: ' . $e->getMessage(), 500);
         }
+    }
+
+    private function processImage(?string $img): ?string
+    {
+        if (empty($img)) {
+            return null;
+        }
+        $img = trim($img);
+
+        if (str_starts_with($img, 'data:image/')) {
+            $uploadDir = __DIR__ . '/../../public/uploads/productos/';
+            if (!is_dir($uploadDir)) {
+                mkdir($uploadDir, 0777, true);
+            }
+            preg_match('/data:image\/(.*?);base64/', $img, $type);
+            $base64Data = substr($img, strpos($img, ',') + 1);
+            $ext = strtolower($type[1] ?? 'jpg');
+            if (!in_array($ext, ['jpg', 'jpeg', 'png', 'webp'])) {
+                $ext = 'jpg';
+            }
+            $decoded = base64_decode($base64Data);
+            if ($decoded !== false) {
+                $fileName = uniqid('cat_') . '.' . $ext;
+                $filePath = $uploadDir . $fileName;
+                if (file_put_contents($filePath, $decoded)) {
+                    return '/backend/public/uploads/productos/' . $fileName;
+                }
+            }
+        }
+
+        return $img;
     }
 
     /**
