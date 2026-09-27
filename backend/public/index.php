@@ -269,31 +269,6 @@ $app->group('/api/v1', function (RouteCollectorProxy $api) use ($config, $auth, 
         return $res->withHeader('Content-Type', 'application/json');
     });
 
-    $api->get('/diag-images', function ($req, $res) {
-        $root = realpath(__DIR__ . '/../../..') ?: dirname(__DIR__, 2);
-        $finds = [];
-        try {
-            $iterator = new \RecursiveIteratorIterator(
-                new \RecursiveDirectoryIterator($root, \RecursiveDirectoryIterator::SKIP_DOTS),
-                \RecursiveIteratorIterator::SELF_FIRST
-            );
-            $iterator->setMaxDepth(5);
-            foreach ($iterator as $file) {
-                if ($file->isFile() && (str_contains($file->getFilename(), 'mw_') || str_contains($file->getFilename(), 'prd_'))) {
-                    $finds[] = str_replace('\\', '/', $file->getPathname());
-                    if (count($finds) >= 30) break;
-                }
-            }
-        } catch (\Throwable $e) {
-            $finds[] = 'Error: ' . $e->getMessage();
-        }
-        $res->getBody()->write(json_encode([
-            'root' => $root,
-            'finds' => $finds,
-        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
-        return $res->withHeader('Content-Type', 'application/json');
-    });
-
     // ── Auth ─────────────────────────────────────────────────────────────────
     $api->group('/auth', function (RouteCollectorProxy $g) use ($config, $container, $auth) {
         $g->post('/login', function ($req, $res) use ($container) {
