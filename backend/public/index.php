@@ -164,14 +164,16 @@ $errorMiddleware->setDefaultErrorHandler(
 $auth = new AuthMiddleware($config);
 
 $streamImage = function (string $path, \Psr\Http\Message\ResponseInterface $res) {
-    $docRoot = realpath(__DIR__ . '/../../..') ?: dirname(__DIR__, 2);
+    $pubHtml = dirname(__DIR__, 2);
+    $domainsDir = dirname($pubHtml);
     $candidates = [
-        $docRoot . '/backend/uploads/' . $path,
-        $docRoot . '/public_html/backend/uploads/' . $path,
         __DIR__ . '/uploads/' . $path,
-        $docRoot . '/backend/public/uploads/' . $path,
-        $docRoot . '/sistema/backend/public/uploads/' . $path,
-        $docRoot . '/uploads/' . $path,
+        $pubHtml . '/backend/uploads/' . $path,
+        $pubHtml . '/sistema/backend/public/uploads/' . $path,
+        $pubHtml . '/sistema/uploads/' . $path,
+        $pubHtml . '/uploads/' . $path,
+        $domainsDir . '/sistema.3ld.com.ar/public_html/backend/public/uploads/' . $path,
+        $domainsDir . '/sistema.3ld.com.ar/public_html/uploads/' . $path,
     ];
     foreach ($candidates as $cand) {
         if (is_file($cand)) {
@@ -208,16 +210,19 @@ $app->get('/uploads/{path:.+}', function ($req, $res, $args) use ($streamImage) 
 $app->group('/api/v1', function (RouteCollectorProxy $api) use ($config, $auth, $container) {
 
     $api->get('/sync-uploads', function ($req, $res) {
-        $docRoot = realpath(__DIR__ . '/../../..') ?: dirname(__DIR__, 2);
+        $pubHtml = dirname(__DIR__, 2);
+        $domainsDir = dirname($pubHtml);
         $destDir = __DIR__ . '/uploads/productos/';
         if (!is_dir($destDir)) {
             @mkdir($destDir, 0777, true);
         }
         $sources = [
-            $docRoot . '/backend/uploads/productos/',
-            $docRoot . '/public_html/backend/uploads/productos/',
-            $docRoot . '/sistema/backend/public/uploads/productos/',
-            $docRoot . '/uploads/productos/',
+            $pubHtml . '/backend/uploads/productos/',
+            $pubHtml . '/sistema/backend/public/uploads/productos/',
+            $pubHtml . '/sistema/uploads/productos/',
+            $pubHtml . '/uploads/productos/',
+            $domainsDir . '/sistema.3ld.com.ar/public_html/backend/public/uploads/productos/',
+            $domainsDir . '/sistema.3ld.com.ar/public_html/uploads/productos/',
         ];
         $copied = 0;
         foreach ($sources as $srcDir) {
