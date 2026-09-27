@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import api from '@/lib/api';
 import { optimizeImagesForPrint } from '@/lib/imageOptimization';
+import { calcularTarifaCorreoArgentino } from '@/lib/correoArgentino';
 
 export interface Category {
   id: string;
@@ -242,7 +243,13 @@ export default function TiendaPage() {
 
   // Shipping
   const [postalCode, setPostalCode] = useState('');
-  const [shippingQuote, setShippingQuote] = useState<{ serviceName: string; price: number; estimatedDays: string; isFree: boolean } | null>(null);
+  const [shippingQuote, setShippingQuote] = useState<{
+    serviceName: string;
+    price: number;
+    estimatedDays: string;
+    isFree: boolean;
+    weightKg?: number;
+  } | null>(null);
   const [isCalculatingShipping, setIsCalculatingShipping] = useState(false);
 
   // Fetch API products and dynamic categories on load
@@ -466,7 +473,7 @@ export default function TiendaPage() {
           price: product.price,
           image: product.image,
           color: color,
-          weightGrams: product.weightGrams || 50,
+          weightGrams: (product.weightGrams && Number(product.weightGrams) > 0) ? Number(product.weightGrams) : 120,
           qty: qty
         }
       ];
@@ -625,6 +632,58 @@ export default function TiendaPage() {
     };
   }, [filteredProducts, categories]);
 
+  const calculateShippingForCp = (rawCp: string) => {
+    const cp = rawCp.trim();
+    if (!cp || cp.length < 4) return;
+    if (cart.length === 0) {
+      setShippingQuote(null);
+      return;
+    }
+
+    const cpNum = parseInt(cp) || 0;
+    const isLocalCost = cp.startsWith('71') || (cpNum >= 7100 && cpNum <= 7119);
+
+    const totalItemsQty = cart.reduce((sum, item) => sum + item.qty, 0);
+    const totalWeightGrams = cart.reduce((sum, item) => {
+      const itemWeight = (item.weightGrams && item.weightGrams > 0) ? item.weightGrams : 120;
+      return sum + itemWeight * item.qty;
+    }, 0);
+
+    // Estimación volumétrica y dimensiones del paquete según unidades
+    const volumeCm3 = Math.max(2250, totalItemsQty * 850);
+    const side = Math.round(Math.cbrt(volumeCm3));
+    const altoCm = Math.max(10, side);
+    const anchoCm = Math.max(15, side);
+    const largoCm = Math.max(15, side);
+
+    if (isLocalCost) {
+      setShippingQuote({
+        serviceName: 'Envío Local La Costa / San Bernardo',
+        price: isFreeLocalShipping ? 0 : 2500,
+        estimatedDays: '24 a 48 hs',
+        isFree: isFreeLocalShipping
+      });
+    } else {
+      const tarifa = calcularTarifaCorreoArgentino({
+        provinciaCodigo: (cpNum >= 1000 && cpNum <= 1499) ? 'C' : ((cpNum >= 1600 && cpNum <= 1999) || (cpNum >= 6000 && cpNum <= 8999) ? 'B' : ''),
+        codigoPostal: cp,
+        pesoGramos: totalWeightGrams,
+        altoCm,
+        anchoCm,
+        largoCm,
+        deliveryType: 'homeDelivery'
+      });
+
+      setShippingQuote({
+        serviceName: `Correo Argentino a Domicilio (${tarifa.zona})`,
+        price: tarifa.precioFinal,
+        estimatedDays: tarifa.zona === 'Regional (Bs As / CABA)' ? '2 a 4 días hábiles' : '3 a 6 días hábiles',
+        isFree: false,
+        weightKg: tarifa.pesoFacturableKg
+      });
+    }
+  };
+
   const handleCalculateShipping = (e?: React.FormEvent) => {
     e?.preventDefault();
     const cp = postalCode.trim();
@@ -636,24 +695,18 @@ export default function TiendaPage() {
     setIsCalculatingShipping(true);
     setTimeout(() => {
       setIsCalculatingShipping(false);
-      const isLocalCost = cp.startsWith('71');
-      if (isLocalCost) {
-        setShippingQuote({
-          serviceName: 'Envío Local La Costa / San Bernardo',
-          price: isFreeLocalShipping ? 0 : 2500,
-          estimatedDays: '24 a 48 hs',
-          isFree: isFreeLocalShipping
-        });
-      } else {
-        setShippingQuote({
-          serviceName: 'Andreani Estándar a Domicilio',
-          price: 4850,
-          estimatedDays: '3 a 5 días hábiles',
-          isFree: false
-        });
-      }
-    }, 600);
+      calculateShippingForCp(cp);
+    }, 350);
   };
+
+  // Recalcular costo de envío si el usuario modifica cantidades en el carrito
+  useEffect(() => {
+    if (postalCode.trim().length >= 4 && shippingQuote && cart.length > 0) {
+      calculateShippingForCp(postalCode.trim());
+    } else if (cart.length === 0) {
+      setShippingQuote(null);
+    }
+  }, [cart, isFreeLocalShipping]);
 
   const handleWhatsAppCheckout = () => {
     if (cart.length === 0) return;
@@ -1220,9 +1273,12 @@ export default function TiendaPage() {
                   <div className="p-2.5 bg-cyan-50 border border-cyan-200 rounded-xl text-xs flex justify-between items-center text-cyan-950 font-semibold">
                     <div>
                       <p className="font-bold">{shippingQuote.serviceName}</p>
-                      <p className="text-[10px] text-cyan-700">Demora: {shippingQuote.estimatedDays}</p>
+                      <p className="text-[10px] text-cyan-700">
+                        Demora: {shippingQuote.estimatedDays}
+                        {shippingQuote.weightKg ? ` • ${shippingQuote.weightKg} kg facturables` : ''}
+                      </p>
                     </div>
-                    <span className="font-black text-sm">
+                    <span className="font-black text-sm shrink-0 ml-2">
                       {shippingQuote.isFree || shippingQuote.price === 0 ? '¡GRATIS!' : `$${shippingQuote.price.toLocaleString('es-AR')}`}
                     </span>
                   </div>
@@ -1684,29 +1740,31 @@ export default function TiendaPage() {
       </nav>
 
       {/* Floating Advisor WhatsApp Button */}
-      <div className="fixed bottom-20 right-4 md:bottom-6 md:right-6 z-[60] flex items-center group print:hidden">
-        {/* Tooltip visible on hover */}
-        <div className="pointer-events-none absolute right-full mr-3 whitespace-nowrap rounded-xl bg-slate-900/90 backdrop-blur-md px-3.5 py-2 text-xs font-semibold text-white shadow-xl opacity-0 translate-x-2 transition-all duration-200 group-hover:opacity-100 group-hover:translate-x-0 flex items-center gap-1.5 border border-slate-700/50">
-          <Headset className="w-3.5 h-3.5 text-emerald-400" />
-          <span>Contactar a un asesor</span>
-          <div className="absolute left-full top-1/2 -translate-y-1/2 border-4 border-transparent border-l-slate-900/90" />
-        </div>
+      {!isCartOpen && (
+        <div className="fixed bottom-20 right-4 md:bottom-6 md:right-6 z-30 flex items-center group print:hidden">
+          {/* Tooltip visible on hover */}
+          <div className="pointer-events-none absolute right-full mr-3 whitespace-nowrap rounded-xl bg-slate-900/90 backdrop-blur-md px-3.5 py-2 text-xs font-semibold text-white shadow-xl opacity-0 translate-x-2 transition-all duration-200 group-hover:opacity-100 group-hover:translate-x-0 flex items-center gap-1.5 border border-slate-700/50">
+            <Headset className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Contactar a un asesor</span>
+            <div className="absolute left-full top-1/2 -translate-y-1/2 border-4 border-transparent border-l-slate-900/90" />
+          </div>
 
-        <a
-          href={getAdvisorWhatsAppUrl()}
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label="Contactar a un asesor por WhatsApp"
-          className="relative flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] hover:bg-[#20ba5a] text-white shadow-lg shadow-emerald-600/30 hover:shadow-xl hover:shadow-emerald-600/50 transition-all duration-300 hover:scale-110 active:scale-95 border-2 border-white/40"
-        >
-          {/* Status indicator badge */}
-          <span className="absolute -top-0.5 -right-0.5 flex h-3.5 w-3.5">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-200 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-400 border-2 border-white"></span>
-          </span>
-          <Headset className="w-7 h-7" />
-        </a>
-      </div>
+          <a
+            href={getAdvisorWhatsAppUrl()}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Contactar a un asesor por WhatsApp"
+            className="relative flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] hover:bg-[#20ba5a] text-white shadow-lg shadow-emerald-600/30 hover:shadow-xl hover:shadow-emerald-600/50 transition-all duration-300 hover:scale-110 active:scale-95 border-2 border-white/40"
+          >
+            {/* Status indicator badge */}
+            <span className="absolute -top-0.5 -right-0.5 flex h-3.5 w-3.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-200 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-400 border-2 border-white"></span>
+            </span>
+            <Headset className="w-7 h-7" />
+          </a>
+        </div>
+      )}
       </div>
 
       {/* Styles for Window Print / PDF Export */}
