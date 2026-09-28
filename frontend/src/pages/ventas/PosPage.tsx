@@ -33,8 +33,11 @@ import {
 } from '@/lib/correoArgentino'
 import { ShippingLabelModal } from '@/components/pos/ShippingLabelModal'
 import type { PedidoEstado } from '@/types'
-
-
+import {
+  calcularPrecioProductoCliente,
+  calcularPrecioMayoristaDefault,
+  esClienteMayorista,
+} from '@/lib/pricing'
 
 export interface PosCartItem {
   producto_id: number
@@ -44,6 +47,8 @@ export interface PosCartItem {
   precio_unit: number
   costo_unitario?: number
   notas: string
+  precio_base?: number
+  selected_piezas?: Record<string, boolean>
 }
 
 export default function PosPage() {
@@ -94,7 +99,7 @@ export default function PosPage() {
   const [isNewClienteModalOpen, setIsNewClienteModalOpen] = useState(false)
   const [newClienteNombre, setNewClienteNombre] = useState('')
   const [newClienteTelefono, setNewClienteTelefono] = useState('')
-
+  const [newClienteTipo, setNewClienteTipo] = useState<'minorista' | 'mayorista'>('minorista')
 
   // Item Edit Note Modal
   const [itemNoteModalIndex, setItemNoteModalIndex] = useState<number | null>(null)
@@ -118,6 +123,11 @@ export default function PosPage() {
   }, [clientesData])
 
   const activeClienteId = clienteId !== '' ? clienteId : defaultClienteId
+
+  const currentSelectedClient = useMemo(() => {
+    if (!clientesData?.data) return undefined
+    return clientesData.data.find((c) => c.id === Number(activeClienteId))
+  }, [clientesData, activeClienteId])
 
   // Categories extraction
   const categories = useMemo(() => {
@@ -178,37 +188,64 @@ export default function PosPage() {
       } catch (e) {}
     }
 
-    let basePrice = p.precio_venta || 0
+    let baseListPrice = Number(p.precio_venta) || 0
     let baseCosto = Number(p.precio_costo) || 0
+    const initialMap: Record<string, boolean> = {}
+
     if (parsedPiezas.length > 0) {
-      const initialMap: Record<string, boolean> = {}
-      const first = parsedPiezas[0]
-      if (first) {
-        initialMap[first.id || first.nombre] = true
-        basePrice = Number(first.precio) || p.precio_venta || 0
-        baseCosto = Number(first.precio_costo) || Number(p.precio_costo) || 0
-      }
+      let sumPieces = 0
+      parsedPiezas.forEach((pi: any) => {
+        initialMap[pi.id || pi.nombre] = true
+        sumPieces += Number(pi.precio) || 0
+      })
+      baseListPrice = sumPieces > 0 ? sumPieces : (Number(p.precio_venta) || 0)
+      baseCosto = parsedPiezas.reduce((acc: number, pi: any) => acc + (Number(pi.precio_costo) || 0), 0) || Number(p.precio_costo) || 0
       setPosSelectedPiezas(initialMap)
     } else {
       setPosSelectedPiezas({})
     }
 
-    const currentClient = clientesData?.data?.find((c: any) => c.id === Number(clienteId))
-    if (currentClient) {
-      const specialPrice = currentClient.precios_especiales?.find(
-        (pe: any) => Number(pe.producto_id) === Number(p.id)
-      )
-      if (specialPrice && Number(specialPrice.precio_especial) > 0) {
-        basePrice = Number(specialPrice.precio_especial)
-      } else if (currentClient.tipo_cliente === 'mayorista' && Number(p.precio_mayorista) > 0) {
-        basePrice = Number(p.precio_mayorista)
-      } else if (Number(currentClient.descuento_porcentaje) > 0) {
-        basePrice = basePrice * (1 - Number(currentClient.descuento_porcentaje) / 100)
-      }
+    const effectivePrice = calcularPrecioProductoCliente({
+      producto: p,
+      cliente: currentSelectedClient,
+      precioBaseInicial: baseListPrice,
+      todasLasPiezasSeleccionadas: true,
+    })
+
+    setQuickPrice(effectivePrice)
+    setQuickCosto(baseCosto)
+  }
+
+  // Recalcular precio de piezas dinámicamente en el modal rápido
+  const updateModalPriceForPiezas = (newMap: Record<string, boolean>) => {
+    if (!selectedProductForAdd) return
+    let sumPieces = 0
+    let sumCosto = 0
+    let selectedCount = 0
+
+    if (parsedModalPiezas.length > 0) {
+      parsedModalPiezas.forEach((pi: any) => {
+        if (newMap[pi.id || pi.nombre]) {
+          selectedCount++
+          sumPieces += Number(pi.precio) || 0
+          sumCosto += Number(pi.precio_costo) || 0
+        }
+      })
+    } else {
+      sumPieces = Number(selectedProductForAdd.precio_venta) || 0
+      sumCosto = Number(selectedProductForAdd.precio_costo) || 0
     }
 
-    setQuickPrice(basePrice)
-    setQuickCosto(baseCosto)
+    const allSelected = parsedModalPiezas.length === 0 || (selectedCount === parsedModalPiezas.length && selectedCount > 0)
+    const effective = calcularPrecioProductoCliente({
+      producto: selectedProductForAdd,
+      cliente: currentSelectedClient,
+      precioBaseInicial: sumPieces,
+      todasLasPiezasSeleccionadas: allSelected,
+    })
+
+    setQuickPrice(effective)
+    setQuickCosto(sumCosto || Number(selectedProductForAdd.precio_costo) || 0)
   }
 
   // Confirm Quick Add to Cart
@@ -226,6 +263,14 @@ export default function PosPage() {
       itemNombre = `${selectedProductForAdd.nombre} (${selectedList.length} pieza${selectedList.length > 1 ? 's' : ''}: ${names})`
     }
 
+    let baseListPrice = Number(selectedProductForAdd.precio_venta) || 0
+    if (parsedModalPiezas.length > 0) {
+      const sumPieces = parsedModalPiezas.reduce((sum: number, p: any) => {
+        return sum + (posSelectedPiezas[p.id || p.nombre] ? (Number(p.precio) || 0) : 0)
+      }, 0)
+      if (sumPieces > 0) baseListPrice = sumPieces
+    }
+
     const existingIndex = cart.findIndex(
       (item) => item.producto_id === selectedProductForAdd.id && item.nombre === itemNombre && item.notas === quickNota
     )
@@ -235,6 +280,7 @@ export default function PosPage() {
       updated[existingIndex].cantidad += quickQty
       updated[existingIndex].precio_unit = quickPrice
       updated[existingIndex].costo_unitario = quickCosto
+      updated[existingIndex].precio_base = baseListPrice
       setCart(updated)
     } else {
       setCart((prev) => [
@@ -247,12 +293,58 @@ export default function PosPage() {
           precio_unit: quickPrice,
           costo_unitario: quickCosto,
           notas: quickNota,
+          precio_base: baseListPrice,
+          selected_piezas: { ...posSelectedPiezas },
         },
       ])
     }
 
     setSelectedProductForAdd(null)
     toast(`"${itemNombre}" agregado a la venta`, 'success')
+  }
+
+  // Cambio de cliente con recálculo dinámico en el carrito
+  const handleClientChange = (newClientId: number) => {
+    setClienteId(newClientId)
+    const newClient = clientesData?.data?.find((c) => c.id === newClientId)
+    if (!newClient || cart.length === 0) return
+
+    let updatedCount = 0
+    const updatedCart = cart.map((item) => {
+      const prod = productosData?.data?.find((p) => p.id === item.producto_id)
+      if (!prod) return item
+
+      const baseList = item.precio_base || Number(prod.precio_venta) || item.precio_unit
+      const allSelected =
+        !item.selected_piezas ||
+        Object.keys(item.selected_piezas).length === 0 ||
+        (Array.isArray((prod as any).piezas) &&
+          (prod as any).piezas.every((pi: any) => item.selected_piezas?.[pi.id || pi.nombre]))
+
+      const recalculated = calcularPrecioProductoCliente({
+        producto: prod,
+        cliente: newClient,
+        precioBaseInicial: baseList,
+        todasLasPiezasSeleccionadas: allSelected,
+      })
+
+      if (recalculated !== item.precio_unit) {
+        updatedCount++
+        return {
+          ...item,
+          precio_unit: recalculated,
+        }
+      }
+      return item
+    })
+
+    if (updatedCount > 0) {
+      setCart(updatedCart)
+      toast(
+        `Precios del carrito recalculados para ${newClient.nombre} (${newClient.tipo_cliente === 'mayorista' ? 'Tarifa Mayorista / -20%' : 'Tarifa Minorista'})`,
+        'info'
+      )
+    }
   }
 
   // Cart operations
@@ -423,13 +515,15 @@ export default function PosPage() {
       const res = await createCliente.mutateAsync({
         nombre: newClienteNombre.trim(),
         telefono: newClienteTelefono.trim() || undefined,
+        tipo_cliente: newClienteTipo,
       } as any)
       toast('Cliente creado exitosamente', 'success')
       setIsNewClienteModalOpen(false)
       setNewClienteNombre('')
       setNewClienteTelefono('')
+      setNewClienteTipo('minorista')
       await refetchClientes()
-      if (res?.id) setClienteId(res.id)
+      if (res?.id) handleClientChange(res.id)
     } catch (err) {
       toast('Error al crear cliente', 'error')
     }
@@ -583,9 +677,22 @@ export default function PosPage() {
                   </div>
 
                   <div className="mt-3 flex items-center justify-between pt-2 border-t border-slate-100">
-                    <span className="text-sm font-black text-slate-900">
-                      ${p.precio_venta?.toLocaleString('es-AR')}
-                    </span>
+                    <div>
+                      {currentSelectedClient?.tipo_cliente === 'mayorista' ? (
+                        <div className="flex flex-col">
+                          <span className="text-sm font-black text-amber-600">
+                            ${calcularPrecioProductoCliente({ producto: p, cliente: currentSelectedClient }).toLocaleString('es-AR')}
+                          </span>
+                          <span className="text-[10px] text-slate-400 line-through">
+                            ${p.precio_venta?.toLocaleString('es-AR')}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-sm font-black text-slate-900">
+                          ${p.precio_venta?.toLocaleString('es-AR')}
+                        </span>
+                      )}
+                    </div>
                     <button className="h-7 w-7 rounded-xl bg-teal-50 text-teal-600 group-hover:bg-teal-600 group-hover:text-white flex items-center justify-center transition">
                       <Plus className="h-4 w-4" />
                     </button>
@@ -625,17 +732,28 @@ export default function PosPage() {
           </div>
 
           {/* Client Selection */}
-          <div className="space-y-1">
-            <label className="text-[11px] font-bold text-slate-300 block">Cliente</label>
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <label className="text-[11px] font-bold text-slate-300">Cliente</label>
+              {currentSelectedClient && (
+                <span className={`text-[10px] font-black px-2 py-0.5 rounded-md uppercase tracking-wider ${
+                  currentSelectedClient.tipo_cliente === 'mayorista'
+                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                    : 'bg-slate-700 text-slate-300'
+                }`}>
+                  {currentSelectedClient.tipo_cliente === 'mayorista' ? '⭐ Mayorista (-20%)' : 'Minorista'}
+                </span>
+              )}
+            </div>
             <div className="flex items-center gap-2">
               <select
                 value={activeClienteId}
-                onChange={(e) => setClienteId(Number(e.target.value))}
+                onChange={(e) => handleClientChange(Number(e.target.value))}
                 className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-white focus:outline-none focus:border-teal-500"
               >
                 {clientesData?.data.map((c) => (
                   <option key={c.id} value={c.id}>
-                    {c.nombre}
+                    {c.nombre} {c.tipo_cliente === 'mayorista' ? ' [Mayorista]' : ''} {Number(c.descuento_porcentaje) > 0 ? ` (-${c.descuento_porcentaje}%)` : ''}
                   </option>
                 ))}
               </select>
@@ -647,6 +765,12 @@ export default function PosPage() {
                 <UserPlus className="h-4 w-4" />
               </button>
             </div>
+            {currentSelectedClient?.tipo_cliente === 'mayorista' && (
+              <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-500/10 border border-amber-500/30 rounded-lg text-[10px] font-bold text-amber-300">
+                <Sparkles className="h-3 w-3 text-amber-400 shrink-0" />
+                <span>Tarifa Mayorista activa (-20% o precio mayorista de catálogo)</span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -1052,13 +1176,11 @@ export default function PosPage() {
                         type="button"
                         onClick={() => {
                           const allOn: Record<string, boolean> = {}
-                          let sum = 0
                           parsedModalPiezas.forEach((p: any) => {
                             allOn[p.id || p.nombre] = true
-                            sum += (Number(p.precio) || 0)
                           })
                           setPosSelectedPiezas(allOn)
-                          setQuickPrice(sum)
+                          updateModalPriceForPiezas(allOn)
                         }}
                         className="text-[10px] font-extrabold text-indigo-600 hover:text-indigo-800 underline"
                       >
@@ -1069,7 +1191,7 @@ export default function PosPage() {
                         type="button"
                         onClick={() => {
                           setPosSelectedPiezas({})
-                          setQuickPrice(0)
+                          updateModalPriceForPiezas({})
                         }}
                         className="text-[10px] font-extrabold text-slate-500 hover:text-slate-700 underline"
                       >
@@ -1097,10 +1219,7 @@ export default function PosPage() {
                               onChange={(e) => {
                                 const nextState: Record<string, boolean> = { ...posSelectedPiezas, [key]: e.target.checked }
                                 setPosSelectedPiezas(nextState)
-                                const newSum = parsedModalPiezas.reduce((sum: number, p: any) => {
-                                  return sum + (nextState[p.id || p.nombre] ? (Number(p.precio) || 0) : 0)
-                                }, 0)
-                                setQuickPrice(newSum)
+                                updateModalPriceForPiezas(nextState)
                               }}
                               className="w-3.5 h-3.5 rounded accent-indigo-600 shrink-0"
                             />
@@ -1247,6 +1366,18 @@ export default function PosPage() {
                   placeholder="Ej: 2257..."
                   className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900"
                 />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Tipo de Cliente (Tarifa)</label>
+                <select
+                  value={newClienteTipo}
+                  onChange={(e) => setNewClienteTipo(e.target.value as any)}
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900"
+                >
+                  <option value="minorista">Minorista (Precio de Lista / Venta)</option>
+                  <option value="mayorista">Mayorista (Precio Mayorista / -20%)</option>
+                </select>
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">

@@ -1,19 +1,24 @@
 import { useState } from 'react'
 import { useAddPedidoItem } from '@/hooks/usePedidos'
 import { useProductos } from '@/hooks/useProductos'
+import { useClientes } from '@/hooks/useClientes'
 import { toast } from '@/store/toastStore'
 import { formatARS } from '@/lib/cost-calculator'
+import { calcularPrecioProductoCliente } from '@/lib/pricing'
 import { X, Plus, Loader2 } from 'lucide-react'
 
 interface AddItemModalProps {
   pedidoId: number
+  clienteId?: number
   onClose: () => void
   onSuccess?: () => void
 }
 
-export function AddItemModal({ pedidoId, onClose, onSuccess }: AddItemModalProps) {
+export function AddItemModal({ pedidoId, clienteId, onClose, onSuccess }: AddItemModalProps) {
   const addItem = useAddPedidoItem()
   const { data: productosData } = useProductos({ per_page: 200 })
+  const { data: clientesData } = useClientes({ per_page: 500 })
+  const client = clientesData?.data?.find((c) => c.id === clienteId)
 
   const [modo, setModo] = useState<'catalogo' | 'custom'>('custom')
   const [productoId, setProductoId] = useState<number | undefined>(undefined)
@@ -30,7 +35,11 @@ export function AddItemModal({ pedidoId, onClose, onSuccess }: AddItemModalProps
     const prod = productosData?.data.find((p) => p.id === id)
     if (prod) {
       setDescripcion(prod.nombre)
-      setPrecioUnit(Number(prod.precio_venta) || 0)
+      const price = calcularPrecioProductoCliente({
+        producto: prod,
+        cliente: client,
+      })
+      setPrecioUnit(price)
       setCostoUnit(prod.precio_costo != null ? String(prod.precio_costo) : '')
     }
   }

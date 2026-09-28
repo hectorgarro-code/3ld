@@ -1,7 +1,7 @@
 import { lazy, Suspense } from 'react'
 import { createBrowserRouter, Navigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
-import AppShell from '@/components/layout/AppShell'
+const AppShell = lazy(() => import('@/components/layout/AppShell'))
 
 // Loading fallback
 function PageLoader() {
@@ -74,11 +74,17 @@ function RootEntryPage() {
   const hostname = typeof window !== 'undefined' ? window.location.hostname.toLowerCase() : ''
   const isTiendaDomain = (hostname === '3ld.com.ar' || hostname === 'www.3ld.com.ar' || hostname.startsWith('tienda.')) && !hostname.includes('sistema')
   if (isTiendaDomain) {
-    return <TiendaPage />
+    return (
+      <Suspense fallback={<PageLoader />}>
+        <TiendaPage />
+      </Suspense>
+    )
   }
   return (
     <ProtectedRoute>
-      <AppShell />
+      <Suspense fallback={<PageLoader />}>
+        <AppShell />
+      </Suspense>
     </ProtectedRoute>
   )
 }

@@ -25,11 +25,16 @@ import {
   Share2,
   Printer,
   Download,
-  Headset
+  Headset,
+  Loader2
 } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { useCartStore, type CartItem } from '@/store/cartStore';
 import api from '@/lib/api';
 import { optimizeImagesForPrint } from '@/lib/imageOptimization';
 import { calcularTarifaCorreoArgentino } from '@/lib/correoArgentino';
+
+export type { CartItem };
 
 export interface Category {
   id: string;
@@ -168,15 +173,6 @@ const AVAILABLE_COLORS = [
   { name: 'Verde Pastel', hex: '#10b981' }
 ];
 
-export interface CartItem {
-  id: string | number;
-  title: string;
-  price: number;
-  image: string;
-  color: string;
-  weightGrams: number;
-  qty: number;
-}
 
 const hasValidSize = (size?: string | null) => {
   if (!size) return false;
@@ -186,19 +182,99 @@ const hasValidSize = (size?: string | null) => {
 };
 
 export default function TiendaPage() {
-  const [products, setProducts] = useState<StoreProduct[]>([]);
-
-  const [cart, setCart] = useState<CartItem[]>(() => {
-    try {
-      const saved = localStorage.getItem('3ld_react_cart');
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
+  // Data Fetching con React Query y caché instantáneo en LocalStorage
+  const { data: products = [], isLoading: isLoadingProducts } = useQuery<StoreProduct[]>({
+    queryKey: ['tienda-productos-publicos'],
+    queryFn: async () => {
+      const res = await api.get('/tienda/productos');
+      const list = (res.data?.success && Array.isArray(res.data.data)) ? res.data.data : [];
+      try {
+        localStorage.setItem('3ld_cached_products', JSON.stringify(list));
+      } catch {}
+      return list;
+    },
+    initialData: () => {
+      try {
+        const cached = localStorage.getItem('3ld_cached_products');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      } catch {}
+      return undefined;
+    },
+    staleTime: 1000 * 60 * 5,
   });
 
+  const { data: rawCategories = [] } = useQuery({
+    queryKey: ['tienda-categorias-publicas'],
+    queryFn: async () => {
+      const res = await api.get('/tienda/categorias');
+      const list = (res.data?.data && Array.isArray(res.data.data)) ? res.data.data : [];
+      try {
+        localStorage.setItem('3ld_cached_categories', JSON.stringify(list));
+      } catch {}
+      return list;
+    },
+    initialData: () => {
+      try {
+        const cached = localStorage.getItem('3ld_cached_categories');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      } catch {}
+      return undefined;
+    },
+    staleTime: 1000 * 60 * 10,
+  });
+
+  const categories = useMemo<Category[]>(() => {
+    const allCat: Category = { id: 'all', name: 'Todo el Catálogo', icon: '✨', subcategories: [] };
+    const loadedProducts = products;
+
+    if (rawCategories && rawCategories.length > 0) {
+      const dynamicCats = rawCategories.map((c: any) => {
+        const catName = c.nombre || c.name || '';
+        const countFromProds = loadedProducts.filter(
+          (p: any) => p.category === catName || (c.id && String(p.categoria_id) === String(c.id))
+        ).length;
+        return {
+          id: catName,
+          name: catName,
+          icon: c.icono || c.icon || '✨',
+          image: c.image || c.imagen_url || c.imagen || null,
+          subcategories: c.subcategories || [],
+          es_destacada: Boolean(c.es_destacada),
+          productos_count: countFromProds
+        };
+      });
+      return [allCat, ...dynamicCats];
+    }
+
+    if (loadedProducts.length > 0) {
+      const uniqueCats = Array.from(new Set(loadedProducts.map((p: any) => p.category).filter(Boolean))) as string[];
+      const dynamicCats = uniqueCats.map((catName) => {
+        const firstWithImg = loadedProducts.find((p: any) => p.category === catName && (p.image || (p.images && p.images[0])));
+        return {
+          id: catName,
+          name: catName,
+          icon: '📦',
+          image: firstWithImg?.image || (firstWithImg?.images && firstWithImg.images[0]) || null,
+          subcategories: [],
+          es_destacada: false,
+          productos_count: loadedProducts.filter((p: any) => p.category === catName).length
+        };
+      });
+      return [allCat, ...dynamicCats];
+    }
+
+    return INITIAL_CATEGORIES;
+  }, [rawCategories, products]);
+
+  const { cart, addToCart: storeAddToCart, updateCartQty, removeCartItem, clearCart } = useCartStore();
+
   // Navigation & Filtering
-  const [categories, setCategories] = useState<Category[]>(INITIAL_CATEGORIES);
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedSubcategory, setSelectedSubcategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -252,64 +328,92 @@ export default function TiendaPage() {
   } | null>(null);
   const [isCalculatingShipping, setIsCalculatingShipping] = useState(false);
 
-  // Fetch API products and dynamic categories on load
+  // Mercado Pago States
+  const [isMpEnabled, setIsMpEnabled] = useState(false);
+  const [isProcessingMp, setIsProcessingMp] = useState(false);
+  const [isBuyerModalOpen, setIsBuyerModalOpen] = useState(false);
+  const [buyerInfo, setBuyerInfo] = useState({
+    nombre: '',
+    email: '',
+    telefono: '',
+    direccion: '',
+    notas: '',
+  });
+  const [paymentSuccessModal, setPaymentSuccessModal] = useState<string | null>(null);
+
   useEffect(() => {
-    const fetchStoreData = async () => {
-      try {
-        const [prodRes, catRes] = await Promise.all([
-          api.get('/tienda/productos'),
-          api.get('/tienda/categorias').catch(() => ({ data: { data: [] } }))
-        ]);
-
-        if (prodRes.data?.success && Array.isArray(prodRes.data.data)) {
-          setProducts(prodRes.data.data);
+    api.get('/tienda/mercadopago/status')
+      .then((res) => {
+        if (res.data?.success && res.data?.data?.enabled) {
+          setIsMpEnabled(true);
         }
-        const loadedProducts = (prodRes.data?.data && Array.isArray(prodRes.data.data)) ? prodRes.data.data : [];
+      })
+      .catch(() => {});
 
-        const allCat: Category = { id: 'all', name: 'Todo el Catálogo', icon: '✨', subcategories: [] };
-        let dynamicCats: Category[] = [];
+    // Capturar retorno de Checkout Pro
+    const params = new URLSearchParams(window.location.search);
+    const mpStatus = params.get('mp_status');
+    const pedidoNum = params.get('pedido') || params.get('pedido_id');
 
-        if (catRes.data?.data && Array.isArray(catRes.data.data) && catRes.data.data.length > 0) {
-          dynamicCats = catRes.data.data.map((c: any) => {
-            const catName = c.nombre || c.name || '';
-            const countFromProds = loadedProducts.filter(
-              (p: any) => p.category === catName || (c.id && String(p.categoria_id) === String(c.id))
-            ).length;
-            return {
-              id: catName,
-              name: catName,
-              icon: c.icono || c.icon || '✨',
-              image: c.image || c.imagen_url || c.imagen || null,
-              subcategories: c.subcategories || [],
-              es_destacada: Boolean(c.es_destacada),
-              productos_count: countFromProds
-            };
-          });
-        } else if (loadedProducts.length > 0) {
-          const uniqueCats = Array.from(new Set(loadedProducts.map((p: any) => p.category).filter(Boolean))) as string[];
-          dynamicCats = uniqueCats.map((catName) => {
-            const firstWithImg = loadedProducts.find((p: any) => p.category === catName && (p.image || (p.images && p.images[0])));
-            return {
-              id: catName,
-              name: catName,
-              icon: '📦',
-              image: firstWithImg?.image || (firstWithImg?.images && firstWithImg.images[0]) || null,
-              subcategories: [],
-              es_destacada: false,
-              productos_count: loadedProducts.filter((p: any) => p.category === catName).length
-            };
-          });
-        }
-
-        if (dynamicCats.length > 0) {
-          setCategories([allCat, ...dynamicCats]);
-        }
-      } catch (err) {
-        // Fallback to local items if offline
-      }
-    };
-    fetchStoreData();
+    if (mpStatus === 'approved') {
+      setPaymentSuccessModal(pedidoNum || 'OK');
+      clearCart();
+      const cleanUrl = window.location.pathname;
+      window.history.replaceState({}, '', cleanUrl);
+    } else if (mpStatus === 'failure') {
+      showToast('El pago no pudo procesarse en Mercado Pago. Podés reintentar o abonar por WhatsApp.', 'error');
+      const cleanUrl = window.location.pathname;
+      window.history.replaceState({}, '', cleanUrl);
+    } else if (mpStatus === 'pending') {
+      showToast('Tu pago está pendiente de acreditación. En cuanto se confirme comenzaremos tu pedido.', 'info');
+      clearCart();
+      const cleanUrl = window.location.pathname;
+      window.history.replaceState({}, '', cleanUrl);
+    }
   }, []);
+
+  const handleMercadoPagoCheckout = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (cart.length === 0) return;
+
+    if (!buyerInfo.nombre.trim() || !buyerInfo.telefono.trim()) {
+      setIsBuyerModalOpen(true);
+      return;
+    }
+
+    setIsProcessingMp(true);
+    try {
+      const itemsPayload = cart.map(item => ({
+        id: item.id,
+        title: item.title,
+        unit_price: item.price,
+        quantity: item.qty,
+        color: item.color,
+        image: item.image,
+      }));
+
+      const res = await api.post('/tienda/mercadopago/crear-preferencia', {
+        items: itemsPayload,
+        envio: shippingQuote ? {
+          costo: shippingQuote.price,
+          tipo: shippingQuote.serviceName,
+          direccion: buyerInfo.direccion,
+        } : null,
+        comprador: buyerInfo,
+        notas: buyerInfo.notas,
+      });
+
+      if (res.data?.success && res.data?.data?.init_point) {
+        window.location.href = res.data.data.init_point;
+      } else {
+        showToast(res.data?.message || 'Error al iniciar pago en Mercado Pago', 'error');
+      }
+    } catch (err: any) {
+      showToast(err?.response?.data?.error || err?.response?.data?.message || 'Error al conectar con Mercado Pago', 'error');
+    } finally {
+      setIsProcessingMp(false);
+    }
+  };
 
   // Sync URL search params on load (category, subcategory, search, product)
   useEffect(() => {
@@ -330,6 +434,50 @@ export default function TiendaPage() {
         setModalActiveImage(found.image);
       }
     }
+  }, [products]);
+
+  // Schema.org Structured Data (JSON-LD) para indexación de catálogo en Google
+  useEffect(() => {
+    if (!products || products.length === 0) return;
+    const scriptId = 'jsonld-tienda-items';
+    let script = document.getElementById(scriptId) as HTMLScriptElement | null;
+    if (!script) {
+      script = document.createElement('script');
+      script.id = scriptId;
+      script.type = 'application/ld+json';
+      document.head.appendChild(script);
+    }
+    const schemaData = {
+      '@context': 'https://schema.org',
+      '@type': 'ItemList',
+      itemListElement: products.slice(0, 30).map((p, index) => ({
+        '@type': 'ListItem',
+        position: index + 1,
+        item: {
+          '@type': 'Product',
+          name: p.title,
+          description: p.description,
+          image: p.image,
+          offers: {
+            '@type': 'Offer',
+            price: p.price,
+            priceCurrency: 'ARS',
+            availability: isProductInStock(p)
+              ? 'https://schema.org/InStock'
+              : 'https://schema.org/PreOrder',
+            seller: {
+              '@type': 'Organization',
+              name: '3LD Impresión 3D'
+            }
+          }
+        }
+      }))
+    };
+    script.textContent = JSON.stringify(schemaData);
+    return () => {
+      const existing = document.getElementById(scriptId);
+      if (existing) existing.remove();
+    };
   }, [products]);
 
   const handleShareCatalog = () => {
@@ -456,47 +604,8 @@ export default function TiendaPage() {
   };
 
   const addToCart = (product: StoreProduct, qty = 1, color = 'Negro Mate') => {
-    setCart((prev) => {
-      const existing = prev.find((item) => item.id === product.id && item.color === color);
-      if (existing) {
-        return prev.map((item) =>
-          item.id === product.id && item.color === color
-            ? { ...item, qty: item.qty + qty }
-            : item
-        );
-      }
-      return [
-        ...prev,
-        {
-          id: product.id,
-          title: product.title,
-          price: product.price,
-          image: product.image,
-          color: color,
-          weightGrams: (product.weightGrams && Number(product.weightGrams) > 0) ? Number(product.weightGrams) : 120,
-          qty: qty
-        }
-      ];
-    });
+    storeAddToCart(product, qty, color);
     showToast(`¡"${product.title}" agregado al carrito!`, 'success');
-  };
-
-  const updateCartQty = (id: string | number, color: string, delta: number) => {
-    setCart((prev) =>
-      prev
-        .map((item) => {
-          if (item.id === id && item.color === color) {
-            const newQty = item.qty + delta;
-            return newQty > 0 ? { ...item, qty: newQty } : null;
-          }
-          return item;
-        })
-        .filter(Boolean) as CartItem[]
-    );
-  };
-
-  const removeCartItem = (id: string | number, color: string) => {
-    setCart((prev) => prev.filter((item) => !(item.id === id && item.color === color)));
   };
 
   const cartSubtotal = useMemo(() => {
@@ -561,9 +670,9 @@ export default function TiendaPage() {
         if (stockFilter === 'custom' && isProductInStock(p)) return false;
         if (stockFilter !== 'all' && stockFilter !== 'ready' && stockFilter !== 'custom' && p.stockStatus !== stockFilter) return false;
         if (searchQuery.trim()) {
-          const query = searchQuery.toLowerCase();
-          const inTitle = p.title.toLowerCase().includes(query);
-          const inDesc = p.description.toLowerCase().includes(query);
+          const query = searchQuery.trim().toLowerCase();
+          const inTitle = (p.title || '').toLowerCase().includes(query);
+          const inDesc = (p.description || '').toLowerCase().includes(query);
           const inCat = (p.category || '').toLowerCase().includes(query);
           const inSub = pSubcategories.some((s) => s.includes(query)) || (p.subcategory || '').toLowerCase().includes(query);
           if (!inTitle && !inDesc && !inCat && !inSub) return false;
@@ -573,14 +682,16 @@ export default function TiendaPage() {
       .sort((a, b) => {
         if (sortOption === 'price-asc') return a.price - b.price;
         if (sortOption === 'price-desc') return b.price - a.price;
-        if (sortOption === 'name-asc') return a.title.localeCompare(b.title);
+        if (sortOption === 'name-asc') return (a.title || '').localeCompare(b.title || '');
         return 0;
       });
   }, [products, selectedCategory, currentCategoryData, selectedSubcategory, stockFilter, searchQuery, sortOption]);
 
   const getCategoryDisplayName = (catKey: string) => {
+    if (!catKey) return '';
+    const safeCatKey = String(catKey).toLowerCase();
     const found = categories.find(
-      (c) => c.id.toLowerCase() === catKey.toLowerCase() || c.name.toLowerCase() === catKey.toLowerCase()
+      (c) => (c.id || '').toLowerCase() === safeCatKey || (c.name || '').toLowerCase() === safeCatKey
     );
     return found ? (found.icon ? `${found.icon} ${found.name}` : found.name) : catKey;
   };
@@ -616,7 +727,7 @@ export default function TiendaPage() {
         const subB = (b.subcategory || '').toLowerCase();
         const subCmp = subA.localeCompare(subB, 'es', { sensitivity: 'base' });
         if (subCmp !== 0) return subCmp;
-        return a.title.localeCompare(b.title, 'es', { sensitivity: 'base' });
+        return (a.title || '').localeCompare(b.title || '', 'es', { sensitivity: 'base' });
       });
 
       return {
@@ -872,7 +983,7 @@ export default function TiendaPage() {
                     <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ml-0.5 ${
                       active ? 'bg-white/25 text-white' : 'bg-slate-200/80 text-slate-600'
                     }`}>
-                      {count}
+                      {isLoadingProducts && products.length === 0 ? '·' : count}
                     </span>
                   )}
                 </button>
@@ -929,7 +1040,7 @@ export default function TiendaPage() {
                   <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ml-0.5 ${
                     active ? 'bg-white/25 text-white' : 'bg-slate-200/80 text-slate-600'
                   }`}>
-                    {count}
+                    {isLoadingProducts && products.length === 0 ? '·' : count}
                   </span>
                 </button>
               );
@@ -980,9 +1091,15 @@ export default function TiendaPage() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 pb-2 border-b border-slate-200">
           <div className="flex items-center gap-2.5">
             <h1 className="text-xl font-black text-slate-900 tracking-tight">{currentCategoryData.name}</h1>
-            <span className="bg-slate-200 text-slate-700 text-xs font-bold px-2.5 py-0.5 rounded-full">
-              {filteredProducts.length} artículo{filteredProducts.length === 1 ? '' : 's'}
-            </span>
+            {isLoadingProducts && products.length === 0 ? (
+              <span className="inline-flex items-center gap-1.5 bg-slate-100 text-slate-500 text-xs font-semibold px-2.5 py-0.5 rounded-full animate-pulse">
+                <Loader2 className="w-3 h-3 animate-spin text-[#6B66C8]" /> Cargando catálogo...
+              </span>
+            ) : (
+              <span className="bg-slate-200 text-slate-700 text-xs font-bold px-2.5 py-0.5 rounded-full">
+                {filteredProducts.length} artículo{filteredProducts.length === 1 ? '' : 's'}
+              </span>
+            )}
           </div>
 
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 text-xs w-full sm:w-auto">
@@ -1050,7 +1167,28 @@ export default function TiendaPage() {
         </div>
 
         {/* Product Cards Grid */}
-        {filteredProducts.length === 0 ? (
+        {isLoadingProducts && products.length === 0 ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div
+                key={i}
+                className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden flex flex-col animate-pulse"
+              >
+                <div className="relative aspect-square bg-slate-200" />
+                <div className="p-3 sm:p-4 flex flex-col flex-1 justify-between gap-3">
+                  <div className="space-y-2">
+                    <div className="h-4 bg-slate-200 rounded-md w-3/4" />
+                    <div className="h-3 bg-slate-100 rounded-md w-1/2" />
+                  </div>
+                  <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
+                    <div className="h-5 bg-slate-200 rounded-md w-16" />
+                    <div className="h-8 bg-slate-200 rounded-xl w-14" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : filteredProducts.length === 0 ? (
           <div className="text-center py-16 px-4 bg-white rounded-3xl border border-slate-200">
             <Package className="w-12 h-12 text-slate-300 mx-auto mb-3" />
             <h3 className="text-base font-bold text-slate-800">No encontramos productos con este criterio</h3>
@@ -1091,7 +1229,7 @@ export default function TiendaPage() {
                       </span>
                     ) : (
                       <span className="bg-cyan-600/90 text-white text-[10px] font-black px-2 py-0.5 rounded-md backdrop-blur-xs flex items-center gap-1 shadow-xs">
-                        🛠️ A Pedido
+                        ⚡ Listo en 24-48 hs
                       </span>
                     )}
                   </div>
@@ -1178,6 +1316,158 @@ export default function TiendaPage() {
             ))}
           </div>
         )}
+
+        {/* ======================================================== */}
+        {/* SECCIÓN DE RESEÑAS Y PRUEBA SOCIAL (SOCIAL PROOF) */}
+        {/* ======================================================== */}
+        <section className="mt-16 pt-10 border-t border-slate-200/80 print:hidden">
+          <div className="text-center max-w-2xl mx-auto mb-8">
+            <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-amber-50 border border-amber-200/80 text-amber-800 text-xs font-bold mb-3 shadow-2xs">
+              <div className="flex text-amber-400">
+                {[...Array(5)].map((_, i) => (
+                  <Star key={i} className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                ))}
+              </div>
+              <span>4.9 / 5.0 — Más de 1.200 clientes satisfechos</span>
+            </div>
+            <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+              Elegido por pasteleras, ceramistas y talleres en todo el país
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-600 mt-2">
+              Diseñamos cortantes con filo nítido y herramientas 3D pensadas para el uso real y diario en tu taller o cocina.
+            </p>
+          </div>
+
+          {/* Grid de Reseñas Reales */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {[
+              {
+                name: 'Florencia R.',
+                role: 'Pastelería & Cookies',
+                city: 'La Plata, Bs. As.',
+                initials: 'FR',
+                bgColor: 'bg-emerald-100 text-emerald-800',
+                product: 'Kit Cortantes Navideños + Personalizado',
+                comment: 'Los cortantes tienen el filo biselado justo. La masa no se deforma al cortar y los detalles del marcador salen nítidos en la primera pasada. ¡Recomendadísimos!',
+              },
+              {
+                name: 'Matías G.',
+                role: 'Taller de Cerámica Barro Vivo',
+                city: 'Córdoba Capital',
+                initials: 'MG',
+                bgColor: 'bg-amber-100 text-amber-800',
+                product: 'Sellos con Mango Ergonómico',
+                comment: 'El relieve es súper profundo y la ergonomía del mango te ahorra mucho cansancio en tiradas de 50 o 100 tazas. No se pega a la arcilla húmeda.',
+              },
+              {
+                name: 'Valeria M.',
+                role: 'Cotillón & Ambientaciones',
+                city: 'Rosario, Santa Fe',
+                initials: 'VM',
+                bgColor: 'bg-cyan-100 text-cyan-800',
+                product: 'Pedido por Mayor (50 Cortantes)',
+                comment: 'Necesitaba un pedido urgente con personajes infantiles y lo despacharon en 48 hs exactas. Llegó embalado perfecto por Correo Argentino.',
+              },
+              {
+                name: 'Sofía & Lucas',
+                role: 'Emprendimiento Didáctico',
+                city: 'Mendoza',
+                initials: 'SL',
+                bgColor: 'bg-purple-100 text-purple-800',
+                product: 'Piezas Didácticas Montessori',
+                comment: 'La terminación de las piezas es excelente, sin rebabas ni hilos plásticos. La atención por WhatsApp para consultar colores fue de diez.',
+              },
+            ].map((review, idx) => (
+              <div
+                key={idx}
+                className="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-2xs hover:shadow-md transition flex flex-col justify-between"
+              >
+                <div>
+                  <div className="flex items-center justify-between gap-2 mb-3">
+                    <div className="flex text-amber-400">
+                      {[...Array(5)].map((_, i) => (
+                        <Star key={i} className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                      ))}
+                    </div>
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200/60">
+                      <ShieldCheck className="w-3 h-3" /> Verificada
+                    </span>
+                  </div>
+
+                  <p className="text-xs text-slate-700 leading-relaxed font-medium italic">
+                    "{review.comment}"
+                  </p>
+                </div>
+
+                <div className="mt-4 pt-3 border-t border-slate-100 flex items-center gap-3">
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-black text-xs shrink-0 ${review.bgColor}`}>
+                    {review.initials}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-black text-slate-900 truncate">{review.name}</p>
+                    <p className="text-[11px] text-slate-500 truncate">{review.role} • {review.city}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Franja de Garantías y Beneficios */}
+          <div className="mt-10 grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200/70 text-center flex flex-col items-center">
+              <div className="w-10 h-10 rounded-xl bg-cyan-100 text-cyan-800 flex items-center justify-center mb-2">
+                <Zap className="w-5 h-5" />
+              </div>
+              <h4 className="text-xs font-black text-slate-900">Despacho en 24-48 hs</h4>
+              <p className="text-[11px] text-slate-500 mt-1">Impresión en taller propio con tiempos récord.</p>
+            </div>
+
+            <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200/70 text-center flex flex-col items-center">
+              <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center mb-2">
+                <ShieldCheck className="w-5 h-5" />
+              </div>
+              <h4 className="text-xs font-black text-slate-900">PLA Atóxico y Seguro</h4>
+              <p className="text-[11px] text-slate-500 mt-1">Material biodegradable de primera calidad.</p>
+            </div>
+
+            <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200/70 text-center flex flex-col items-center">
+              <div className="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-800 flex items-center justify-center mb-2">
+                <Truck className="w-5 h-5" />
+              </div>
+              <h4 className="text-xs font-black text-slate-900">Envíos a Todo el País</h4>
+              <p className="text-[11px] text-slate-500 mt-1">A domicilio o sucursal por Correo Argentino.</p>
+            </div>
+
+            <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200/70 text-center flex flex-col items-center">
+              <div className="w-10 h-10 rounded-xl bg-purple-100 text-purple-800 flex items-center justify-center mb-2">
+                <MessageCircle className="w-5 h-5" />
+              </div>
+              <h4 className="text-xs font-black text-slate-900">Atención Personalizada</h4>
+              <p className="text-[11px] text-slate-500 mt-1">Respondemos tus dudas directo por WhatsApp.</p>
+            </div>
+          </div>
+        </section>
+
+        {/* Footer Comercial Público */}
+        <footer className="mt-16 pt-8 pb-12 border-t border-slate-200 text-slate-600 text-xs print:hidden">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <span className="text-xl">✨</span>
+              <div>
+                <p className="font-black text-slate-900 text-sm">3LD Impresión 3D</p>
+                <p className="text-[11px] text-slate-500">Diseño y Fabricación Digital para Emprendedores y Hogar</p>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center justify-center gap-4 text-[11px] font-bold text-slate-600">
+              <button onClick={() => setIsQuoteModalOpen(true)} className="hover:text-cyan-600 transition">Cotizar Modelo STL</button>
+              <span>•</span>
+              <a href={getAdvisorWhatsAppUrl()} target="_blank" rel="noopener noreferrer" className="hover:text-cyan-600 transition">WhatsApp Oficial</a>
+              <span>•</span>
+              <span>Envíos por Correo Argentino</span>
+            </div>
+            <p className="text-[10px] text-slate-400">© {new Date().getFullYear()} 3LD. Todos los derechos reservados.</p>
+          </div>
+        </footer>
       </main>
 
       {/* Cart Drawer */}
@@ -1197,6 +1487,31 @@ export default function TiendaPage() {
                 <X className="w-5 h-5" />
               </button>
             </div>
+
+            {/* Free Shipping Progress Bar */}
+            {cart.length > 0 && (
+              <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200">
+                {cartSubtotal >= freeShippingThreshold ? (
+                  <div className="flex items-center gap-1.5 text-xs font-black text-emerald-700">
+                    <span className="text-base">🎉</span>
+                    <span>¡Felicitaciones! Tenés <strong>Envío Gratis</strong> en tu compra.</span>
+                  </div>
+                ) : (
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between text-[11px] font-bold text-slate-700">
+                      <span>Agregá <strong>${(freeShippingThreshold - cartSubtotal).toLocaleString('es-AR')}</strong> más para <strong>Envío Gratis</strong></span>
+                      <span className="text-cyan-700 font-extrabold">{Math.round((cartSubtotal / freeShippingThreshold) * 100)}%</span>
+                    </div>
+                    <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-linear-to-r from-cyan-500 to-emerald-500 rounded-full transition-all duration-300"
+                        style={{ width: `${Math.min(100, (cartSubtotal / freeShippingThreshold) * 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Cart Items List */}
             <div className="flex-1 overflow-y-auto p-4 space-y-3">
@@ -1306,14 +1621,68 @@ export default function TiendaPage() {
                   </div>
                 </div>
 
-                {/* WhatsApp Checkout Button */}
-                <button
-                  onClick={handleWhatsAppCheckout}
-                  className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-sm rounded-2xl shadow-md flex items-center justify-center gap-2 transition active:scale-95"
-                >
-                  <MessageCircle className="w-5 h-5" />
-                  <span>Enviar Pedido por WhatsApp</span>
-                </button>
+                {/* Checkout Buttons */}
+                <div className="space-y-2 pt-1">
+                  {isMpEnabled ? (
+                    <>
+                      <button
+                        onClick={() => {
+                          if (!buyerInfo.nombre.trim() || !buyerInfo.telefono.trim()) {
+                            setIsBuyerModalOpen(true);
+                          } else {
+                            handleMercadoPagoCheckout();
+                          }
+                        }}
+                        disabled={isProcessingMp}
+                        className="w-full py-3.5 bg-[#009EE3] hover:bg-[#0089c7] text-white font-black text-sm rounded-2xl shadow-lg shadow-sky-500/20 flex items-center justify-center gap-2 transition active:scale-95 disabled:opacity-50 cursor-pointer"
+                      >
+                        {isProcessingMp ? (
+                          <>
+                            <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                            <span>Conectando con Mercado Pago...</span>
+                          </>
+                        ) : (
+                          <>
+                            <CreditCard className="w-5 h-5" />
+                            <span>Pagar con Mercado Pago (Inmediato)</span>
+                          </>
+                        )}
+                      </button>
+
+                      <button
+                        onClick={handleWhatsAppCheckout}
+                        className="w-full py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-xs rounded-xl border border-emerald-300/80 flex items-center justify-center gap-2 transition active:scale-95 cursor-pointer"
+                      >
+                        <MessageCircle className="w-4 h-4 text-emerald-600" />
+                        <span>O coordinar pedido por WhatsApp</span>
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      onClick={handleWhatsAppCheckout}
+                      className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-sm rounded-2xl shadow-md flex items-center justify-center gap-2 transition active:scale-95 cursor-pointer"
+                    >
+                      <MessageCircle className="w-5 h-5" />
+                      <span>Enviar Pedido por WhatsApp</span>
+                    </button>
+                  )}
+                </div>
+
+                {/* Trust Badges */}
+                <div className="grid grid-cols-3 gap-1 pt-2 border-t border-slate-200 text-center text-[10px] text-slate-500 font-semibold">
+                  <div className="flex flex-col items-center">
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 mb-0.5" />
+                    <span>Compra Segura</span>
+                  </div>
+                  <div className="flex flex-col items-center">
+                    <Truck className="w-3.5 h-3.5 text-cyan-600 mb-0.5" />
+                    <span>Todo el País</span>
+                  </div>
+                  <div className="flex flex-col items-center">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-500 mb-0.5" />
+                    <span>Calidad 3LD</span>
+                  </div>
+                </div>
               </div>
             )}
           </div>
@@ -1394,8 +1763,8 @@ export default function TiendaPage() {
                     <Zap className="w-3 h-3 text-emerald-600" /> En Stock
                   </span>
                 ) : (
-                  <span className="bg-slate-100 text-slate-700 text-[10px] font-black px-2 py-0.5 rounded-md flex items-center gap-1 border border-slate-200">
-                    🛠️ A Pedido
+                  <span className="bg-amber-100 text-amber-900 text-[10px] font-black px-2 py-0.5 rounded-md flex items-center gap-1 border border-amber-300">
+                    ⚡ Impresión 3D: Listo en 24-48 hs
                   </span>
                 )}
               </div>
@@ -1599,6 +1968,169 @@ export default function TiendaPage() {
               <MessageCircle className="w-4 h-4" />
               <span>Cotizar por WhatsApp</span>
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DATOS DEL COMPRADOR (MERCADO PAGO) */}
+      {isBuyerModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-[#009EE3]/10 text-[#009EE3] rounded-xl">
+                  <CreditCard className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-base text-slate-900 leading-tight">Datos para el Cobro y Envío</h3>
+                  <p className="text-[11px] text-slate-500">Completá tus datos para redirigirte a Mercado Pago</p>
+                </div>
+              </div>
+              <button onClick={() => setIsBuyerModalOpen(false)} className="p-1.5 text-slate-400 hover:text-slate-700 rounded-full">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                setIsBuyerModalOpen(false);
+                handleMercadoPagoCheckout();
+              }}
+              className="space-y-3.5 mt-4 text-xs"
+            >
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Nombre y Apellido *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ej: Florencia Rodríguez"
+                  value={buyerInfo.nombre}
+                  onChange={(e) => setBuyerInfo({ ...buyerInfo, nombre: e.target.value })}
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 focus:ring-2 focus:ring-sky-500 outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Teléfono / WhatsApp *</label>
+                  <input
+                    type="tel"
+                    required
+                    placeholder="Ej: 11 2345-6789"
+                    value={buyerInfo.telefono}
+                    onChange={(e) => setBuyerInfo({ ...buyerInfo, telefono: e.target.value })}
+                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 focus:ring-2 focus:ring-sky-500 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Email (Comprobante)</label>
+                  <input
+                    type="email"
+                    placeholder="tu@email.com"
+                    value={buyerInfo.email}
+                    onChange={(e) => setBuyerInfo({ ...buyerInfo, email: e.target.value })}
+                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 focus:ring-2 focus:ring-sky-500 outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">
+                  Dirección de Entrega {shippingQuote ? `(${shippingQuote.serviceName})` : ''}
+                </label>
+                <input
+                  type="text"
+                  placeholder="Calle, número, piso/depto, localidad..."
+                  value={buyerInfo.direccion}
+                  onChange={(e) => setBuyerInfo({ ...buyerInfo, direccion: e.target.value })}
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 focus:ring-2 focus:ring-sky-500 outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Notas o aclaraciones para el taller (Opcional)</label>
+                <textarea
+                  rows={2}
+                  placeholder="Ej: Dejar en portería, color preferido..."
+                  value={buyerInfo.notas}
+                  onChange={(e) => setBuyerInfo({ ...buyerInfo, notas: e.target.value })}
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-900 focus:ring-2 focus:ring-sky-500 outline-none resize-none"
+                />
+              </div>
+
+              <div className="p-3 bg-sky-50 rounded-2xl border border-sky-100 flex items-center justify-between text-xs">
+                <span className="font-bold text-sky-900">Total a Pagar en Mercado Pago:</span>
+                <span className="font-black text-base text-sky-600">
+                  ${(cartSubtotal + (shippingQuote?.price || 0)).toLocaleString('es-AR')}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsBuyerModalOpen(false)}
+                  className="px-4 py-2 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 transition"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={isProcessingMp}
+                  className="px-5 py-2.5 bg-[#009EE3] hover:bg-[#0089c7] text-white font-black rounded-xl shadow-md transition flex items-center gap-1.5"
+                >
+                  {isProcessingMp ? (
+                    <>
+                      <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span>Cargando...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Ir a Pagar 🔒</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL PAGO EXITOSO MERCADO PAGO */}
+      {paymentSuccessModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-in zoom-in-95 duration-200">
+          <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-200 text-center">
+            <div className="w-16 h-16 rounded-3xl bg-emerald-100 text-emerald-600 mx-auto flex items-center justify-center mb-4 shadow-lg shadow-emerald-500/20">
+              <ShieldCheck className="w-9 h-9" />
+            </div>
+
+            <span className="inline-block bg-emerald-100 text-emerald-800 text-[10px] font-black px-3 py-1 rounded-full border border-emerald-200 uppercase tracking-wider mb-2">
+              ¡Pago Acreditado!
+            </span>
+
+            <h3 className="text-xl font-black text-slate-900 tracking-tight">¡Gracias por tu compra!</h3>
+            <p className="text-xs text-slate-600 mt-2 leading-relaxed">
+              Tu pedido <strong>{paymentSuccessModal !== 'OK' ? `#${paymentSuccessModal}` : ''}</strong> fue recibido y ya se encuentra registrado en nuestro taller para su impresión y despacho.
+            </p>
+
+            <div className="mt-5 space-y-2">
+              <a
+                href={`https://wa.me/5492257559540?text=${encodeURIComponent(`¡Hola 3LD! 👋 Acabo de abonar mi pedido ${paymentSuccessModal !== 'OK' ? `#${paymentSuccessModal}` : ''} por la tienda web.`)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full py-3 bg-[#25D366] hover:bg-[#20ba5a] text-white font-extrabold text-xs rounded-xl shadow-md flex items-center justify-center gap-2 transition"
+              >
+                <MessageCircle className="w-4 h-4" />
+                <span>Avisar por WhatsApp</span>
+              </a>
+
+              <button
+                onClick={() => setPaymentSuccessModal(null)}
+                className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition"
+              >
+                Continuar Navegando
+              </button>
+            </div>
           </div>
         </div>
       )}

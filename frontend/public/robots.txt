@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /sistema/
+Disallow: /api/
+Disallow: /backend/
+
+Sitemap: https://3ld.com.ar/sitemap.xml

@@ -45,6 +45,7 @@ jobs:
           cp frontend/public/.htaccess deploy_dist/.htaccess
           mkdir -p deploy_dist/backend
           cp -r backend/* deploy_dist/backend/
+          rm -f deploy_dist/backend/public/check_db.php deploy_dist/backend/public/phpver.php
           mkdir -p deploy_dist/backend/public/uploads
 
       - name: 🧹 Clean FTP Hostname

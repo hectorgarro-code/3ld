@@ -49,6 +49,11 @@ class ClienteRepository
         $stmt->execute($binds);
         $clientes = $stmt->fetchAll();
 
+        foreach ($clientes as &$c) {
+            $c['tipo_cliente'] = ($c['tipo_cliente'] ?? '') === 'mayorista' ? 'mayorista' : 'minorista';
+        }
+        unset($c);
+
         return [
             'data' => $clientes,
             'meta' => [
@@ -77,6 +82,8 @@ class ClienteRepository
         if (!$cliente) {
             return null;
         }
+
+        $cliente['tipo_cliente'] = ($cliente['tipo_cliente'] ?? '') === 'mayorista' ? 'mayorista' : 'minorista';
 
         try {
             $stmtPE = $this->db->prepare(
@@ -122,6 +129,9 @@ class ClienteRepository
 
     public function create(array $data): array
     {
+        $tipoRaw = strtolower(trim((string)($data['tipo_cliente'] ?? 'minorista')));
+        $tipoCliente = ($tipoRaw === 'mayorista') ? 'mayorista' : 'minorista';
+
         $stmt = $this->db->prepare(
             "INSERT INTO clientes (nombre, email, telefono, empresa, cuit, direccion, notas, tipo_cliente, descuento_porcentaje, activo, created_at, updated_at)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())"
@@ -134,7 +144,7 @@ class ClienteRepository
             $data['cuit']                 ?? null,
             $data['direccion']            ?? null,
             $data['notas']                ?? null,
-            $data['tipo_cliente']         ?? 'minorista',
+            $tipoCliente,
             (float)($data['descuento_porcentaje'] ?? 0),
         ]);
 
@@ -168,7 +178,12 @@ class ClienteRepository
             if (array_key_exists($col, $data)) {
                 $fields[] = "{$col} = ?";
                 $val      = $data[$col];
-                $binds[]  = $val !== null ? ($type === 'float' ? (float)$val : (string)$val) : null;
+                if ($col === 'tipo_cliente') {
+                    $tipoRaw = strtolower(trim((string)$val));
+                    $binds[] = ($tipoRaw === 'mayorista') ? 'mayorista' : 'minorista';
+                } else {
+                    $binds[]  = $val !== null ? ($type === 'float' ? (float)$val : (string)$val) : null;
+                }
             }
         }
 

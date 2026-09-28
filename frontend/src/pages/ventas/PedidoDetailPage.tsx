@@ -418,6 +418,7 @@ export default function PedidoDetailPage() {
       {showAddItem && (
         <AddItemModal
           pedidoId={pedido.id}
+          clienteId={pedido.cliente_id}
           onClose={() => setShowAddItem(false)}
         />
       )}

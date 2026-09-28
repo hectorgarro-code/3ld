@@ -16,7 +16,7 @@ export interface Cliente {
   cuit?: string
   direccion?: string
   notas?: string
-  tipo_cliente?: 'minorista' | 'mayorista' | 'distribuidor' | string
+  tipo_cliente?: 'minorista' | 'mayorista'
   descuento_porcentaje?: number
   precios_especiales?: ClientePrecioEspecial[]
   total_compras?: number

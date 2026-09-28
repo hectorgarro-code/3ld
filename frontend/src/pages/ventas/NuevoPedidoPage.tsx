@@ -10,6 +10,7 @@ import { toast } from '@/store/toastStore'
 import { ChevronLeft, Plus, Trash2, Loader2, PackagePlus } from 'lucide-react'
 import { formatARS } from '@/lib/cost-calculator'
 import { ProductoFormModal } from '@/components/productos/ProductoFormModal'
+import { calcularPrecioProductoCliente } from '@/lib/pricing'
 
 const nuevoPedidoSchema = z.object({
   cliente_id: z.coerce.number().min(1, 'Seleccioná un cliente'),
@@ -79,10 +80,17 @@ export default function NuevoPedidoPage() {
   )
   const total = subtotal * (1 - descuentoPct / 100)
 
+  const selectedClienteId = Number(watch('cliente_id'))
+  const selectedCliente = clientesData?.data?.find((c) => c.id === selectedClienteId)
+
   const handleProductoChange = (index: number, productoId: number) => {
     const found = productosData?.data.find((p) => p.id === productoId)
     if (found) {
-      setValue(`items.${index}.precio_unit`, found.precio_venta)
+      const price = calcularPrecioProductoCliente({
+        producto: found,
+        cliente: selectedCliente,
+      })
+      setValue(`items.${index}.precio_unit`, price)
     }
   }
 
@@ -121,21 +129,59 @@ export default function NuevoPedidoPage() {
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         {/* Cliente */}
         <div className="rounded-2xl border border-slate-100 bg-white card-shadow p-4">
-          <h3 className="mb-3 text-sm font-bold text-slate-500">Cliente</h3>
+          <div className="mb-3 flex items-center justify-between">
+            <h3 className="text-sm font-bold text-slate-500">Cliente</h3>
+            {selectedCliente && (
+              <span
+                className={`text-[10px] font-black px-2 py-0.5 rounded-md uppercase tracking-wider ${
+                  selectedCliente.tipo_cliente === 'mayorista'
+                    ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                    : 'bg-slate-100 text-slate-600'
+                }`}
+              >
+                {selectedCliente.tipo_cliente === 'mayorista'
+                  ? '⭐ Mayorista (-20%)'
+                  : selectedCliente.tipo_cliente || 'Minorista'}
+              </span>
+            )}
+          </div>
           <select
             {...register('cliente_id')}
             onChange={(e) => {
               register('cliente_id').onChange(e)
-              const client = clientesData?.data.find(c => c.id === Number(e.target.value))
+              const newId = Number(e.target.value)
+              const client = clientesData?.data.find((c) => c.id === newId)
               setValue('descuento_pct', client?.descuento_porcentaje ?? 0)
+
+              // Recalcular ítems ya seleccionados en el pedido
+              const currentItems = watch('items') || []
+              currentItems.forEach((it: any, idx: number) => {
+                if (it.producto_id) {
+                  const prod = productosData?.data.find((p) => p.id === Number(it.producto_id))
+                  if (prod) {
+                    const newPrice = calcularPrecioProductoCliente({
+                      producto: prod,
+                      cliente: client,
+                    })
+                    setValue(`items.${idx}.precio_unit`, newPrice)
+                  }
+                }
+              })
             }}
             className="w-full rounded-xl border border-slate-100 bg-slate-50/50 px-4 py-3 text-sm text-slate-800 outline-none focus:border-primary"
           >
             <option value="">-- Seleccionar cliente --</option>
             {clientesData?.data.map((c) => (
-              <option key={c.id} value={c.id}>{c.nombre}</option>
+              <option key={c.id} value={c.id}>
+                {c.nombre} {c.tipo_cliente === 'mayorista' ? ' [Mayorista]' : ''}
+              </option>
             ))}
           </select>
+          {selectedCliente?.tipo_cliente === 'mayorista' && (
+            <div className="mt-2.5 flex items-center gap-2 px-3 py-1.5 bg-amber-50 border border-amber-200 rounded-xl text-xs font-semibold text-amber-800">
+              <span>⭐ Tarifa mayorista activa: los productos se agregan con precio mayorista o 20% de descuento.</span>
+            </div>
+          )}
           {errors.cliente_id && (
             <p className="mt-1 text-xs text-red-400">{errors.cliente_id.message}</p>
           )}

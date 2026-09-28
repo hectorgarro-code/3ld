@@ -12,7 +12,7 @@ const clienteSchema = z.object({
   telefono: z.string().optional(),
   direccion: z.string().optional(),
   notas: z.string().optional(),
-  tipo_cliente: z.string().optional(),
+  tipo_cliente: z.enum(['minorista', 'mayorista']).optional(),
   descuento_porcentaje: z.coerce.number().min(0, 'No puede ser negativo').max(100, 'Máximo 100%').optional(),
 })
 
@@ -41,18 +41,22 @@ export function ClienteFormModal({
       telefono: initialData?.telefono || '',
       direccion: initialData?.direccion || '',
       notas: initialData?.notas || '',
-      tipo_cliente: initialData?.tipo_cliente || 'minorista',
+      tipo_cliente: initialData?.tipo_cliente === 'mayorista' ? 'mayorista' : 'minorista',
       descuento_porcentaje: initialData?.descuento_porcentaje || 0,
     },
   })
 
   const onSubmit = async (data: ClienteForm) => {
     try {
+      const payload: Partial<Cliente> = {
+        ...data,
+        tipo_cliente: data.tipo_cliente === 'mayorista' ? 'mayorista' : 'minorista',
+      }
       if (isEditing && initialData) {
-        await updateCliente.mutateAsync({ id: initialData.id, payload: data })
+        await updateCliente.mutateAsync({ id: initialData.id, payload })
         toast('Cliente actualizado exitosamente', 'success')
       } else {
-        await createCliente.mutateAsync(data)
+        await createCliente.mutateAsync(payload)
         toast('Cliente creado exitosamente', 'success')
       }
       onClose()
@@ -111,7 +115,6 @@ export function ClienteFormModal({
             >
               <option value="minorista">Minorista (Precio de Lista / Venta)</option>
               <option value="mayorista">Mayorista (Precio Mayorista del Producto)</option>
-              <option value="distribuidor">Distribuidor / Especial</option>
             </select>
           </div>
           <div>

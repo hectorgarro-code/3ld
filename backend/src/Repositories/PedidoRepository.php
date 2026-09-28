@@ -234,9 +234,32 @@ class PedidoRepository
                 $cantidad    = (float) ($item['cantidad']    ?? 1);
                 $precioUnit  = (float) ($item['precio_unit'] ?? 0);
                 $descuentoPct = (float) ($item['descuento_pct'] ?? 0);
-                $subtotal    = $cantidad * $precioUnit * (1 - $descuentoPct / 100);
-
                 $productoId  = !empty($item['producto_id']) ? (int) $item['producto_id'] : null;
+
+                if ($precioUnit <= 0 && $productoId) {
+                    $stmtProd = $this->db->prepare("SELECT precio_venta, precio_mayorista FROM productos WHERE id = ?");
+                    $stmtProd->execute([$productoId]);
+                    $prod = $stmtProd->fetch();
+                    if ($prod) {
+                        $precioUnit = (float)$prod['precio_venta'];
+                        if (!empty($body['cliente_id'])) {
+                            $stmtCli = $this->db->prepare("SELECT tipo_cliente, descuento_porcentaje FROM clientes WHERE id = ?");
+                            $stmtCli->execute([(int)$body['cliente_id']]);
+                            $cli = $stmtCli->fetch();
+                            if ($cli && $cli['tipo_cliente'] === 'mayorista') {
+                                if (!empty($prod['precio_mayorista']) && (float)$prod['precio_mayorista'] > 0) {
+                                    $precioUnit = (float)$prod['precio_mayorista'];
+                                } else {
+                                    $precioUnit = round($precioUnit * 0.8, 2);
+                                }
+                            }
+                            if ($cli && !empty($cli['descuento_porcentaje']) && (float)$cli['descuento_porcentaje'] > 0) {
+                                $precioUnit = round($precioUnit * (1 - (float)$cli['descuento_porcentaje'] / 100), 2);
+                            }
+                        }
+                    }
+                }
+                $subtotal    = $cantidad * $precioUnit * (1 - $descuentoPct / 100);
                 $costoUnit   = isset($item['costo_unitario']) ? (float) $item['costo_unitario'] : (isset($item['precio_costo']) ? (float) $item['precio_costo'] : null);
                 $stmtItem = $this->db->prepare(
                     "INSERT INTO pedido_items
@@ -411,8 +434,36 @@ class PedidoRepository
         $cantidad     = (float) ($body['cantidad']     ?? 1);
         $precioUnit   = (float) ($body['precio_unit']  ?? 0);
         $descuentoPct = (float) ($body['descuento_pct'] ?? 0);
-        $subtotal     = $cantidad * $precioUnit * (1 - $descuentoPct / 100);
+        $productoId   = !empty($body['producto_id']) ? (int) $body['producto_id'] : null;
 
+        if ($precioUnit <= 0 && $productoId) {
+            $stmtProd = $this->db->prepare("SELECT precio_venta, precio_mayorista FROM productos WHERE id = ?");
+            $stmtProd->execute([$productoId]);
+            $prod = $stmtProd->fetch();
+            if ($prod) {
+                $precioUnit = (float)$prod['precio_venta'];
+                $stmtPed = $this->db->prepare("SELECT cliente_id FROM pedidos WHERE id = ?");
+                $stmtPed->execute([$pedidoId]);
+                $clienteId = (int)$stmtPed->fetchColumn();
+                if ($clienteId > 0) {
+                    $stmtCli = $this->db->prepare("SELECT tipo_cliente, descuento_porcentaje FROM clientes WHERE id = ?");
+                    $stmtCli->execute([$clienteId]);
+                    $cli = $stmtCli->fetch();
+                    if ($cli && $cli['tipo_cliente'] === 'mayorista') {
+                        if (!empty($prod['precio_mayorista']) && (float)$prod['precio_mayorista'] > 0) {
+                            $precioUnit = (float)$prod['precio_mayorista'];
+                        } else {
+                            $precioUnit = round($precioUnit * 0.8, 2);
+                        }
+                    }
+                    if ($cli && !empty($cli['descuento_porcentaje']) && (float)$cli['descuento_porcentaje'] > 0) {
+                        $precioUnit = round($precioUnit * (1 - (float)$cli['descuento_porcentaje'] / 100), 2);
+                    }
+                }
+            }
+        }
+
+        $subtotal     = $cantidad * $precioUnit * (1 - $descuentoPct / 100);
         $costoUnit    = isset($body['costo_unitario']) ? (float) $body['costo_unitario'] : (isset($body['precio_costo']) ? (float) $body['precio_costo'] : null);
         $stmt = $this->db->prepare(
             "INSERT INTO pedido_items

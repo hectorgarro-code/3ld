@@ -98,6 +98,21 @@ class Database
             // Se ignora si ya existe
         }
         try {
+            $db->exec("ALTER TABLE pedidos ADD COLUMN mercadopago_preference_id VARCHAR(100) NULL");
+        } catch (\Throwable $e) {
+            // Se ignora si ya existe
+        }
+        try {
+            $db->exec("ALTER TABLE pedidos ADD COLUMN mercadopago_payment_id VARCHAR(100) NULL");
+        } catch (\Throwable $e) {
+            // Se ignora si ya existe
+        }
+        try {
+            $db->exec("ALTER TABLE pedidos ADD COLUMN mercadopago_status VARCHAR(50) NULL");
+        } catch (\Throwable $e) {
+            // Se ignora si ya existe
+        }
+        try {
             $db->exec("ALTER TABLE productos ADD COLUMN horas_impresion DECIMAL(8,2) NOT NULL DEFAULT 0.00");
         } catch (\Throwable $e) {
             // Se ignora si ya existe
@@ -168,9 +183,22 @@ class Database
             // Se ignora si ya existe
         }
         try {
-            $db->exec("ALTER TABLE clientes ADD COLUMN tipo_cliente VARCHAR(50) NOT NULL DEFAULT 'minorista'");
+            $db->exec("ALTER TABLE clientes MODIFY COLUMN tipo_cliente VARCHAR(50) NOT NULL DEFAULT 'minorista'");
         } catch (\Throwable $e) {
-            // Se ignora si ya existe
+            try {
+                $db->exec("ALTER TABLE clientes CHANGE tipo_cliente tipo_cliente VARCHAR(50) NOT NULL DEFAULT 'minorista'");
+            } catch (\Throwable $e2) {
+                try {
+                    $db->exec("ALTER TABLE clientes ADD COLUMN tipo_cliente VARCHAR(50) NOT NULL DEFAULT 'minorista'");
+                } catch (\Throwable $e3) {
+                    // Se ignora
+                }
+            }
+        }
+        try {
+            $db->exec("UPDATE clientes SET tipo_cliente = 'minorista' WHERE tipo_cliente NOT IN ('minorista', 'mayorista') OR tipo_cliente IS NULL OR tipo_cliente = ''");
+        } catch (\Throwable $e) {
+            // Se ignora
         }
         try {
             $db->exec("ALTER TABLE clientes ADD COLUMN descuento_porcentaje DECIMAL(5,2) NOT NULL DEFAULT 0.00");

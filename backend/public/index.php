@@ -28,6 +28,7 @@ use App\Controllers\ProveedoresController;
 use App\Controllers\ComprasController;
 use App\Controllers\TiendaController;
 use App\Controllers\AiController;
+use App\Controllers\MercadoPagoController;
 use App\Services\OpenAiService;
 use App\Services\MakerWorldScraper;
 use App\Helpers\UploadHelper;
@@ -85,6 +86,9 @@ $containerBuilder->addDefinitions([
     },
     TiendaController::class => function ($c) {
         return new TiendaController($c->get(TiendaRepository::class));
+    },
+    MercadoPagoController::class => function ($c) {
+        return new MercadoPagoController($c->get(PDO::class));
     },
     AuthController::class => function ($c) {
         return new AuthController($c->get('config'));
@@ -528,6 +532,15 @@ $app->group('/api/v1', function (RouteCollectorProxy $api) use ($config, $auth, 
         $g->put('/costos',  function ($req, $res) use ($container) {
             return $container->get(CotizadorController::class)->updateConfig($req, $res);
         });
+        $g->get('/mercadopago', function ($req, $res) use ($container) {
+            return $container->get(MercadoPagoController::class)->getConfig($req, $res);
+        });
+        $g->post('/mercadopago', function ($req, $res) use ($container) {
+            return $container->get(MercadoPagoController::class)->saveConfig($req, $res);
+        });
+        $g->post('/mercadopago/test', function ($req, $res) use ($container) {
+            return $container->get(MercadoPagoController::class)->testConnection($req, $res);
+        });
     })->add($auth);
 
     // Tienda Admin
@@ -567,6 +580,20 @@ $app->get('/api/v1/tienda/categorias', function ($req, $res) use ($container) {
 });
 $app->get('/api/v1/tienda/config', function ($req, $res) use ($container) {
     return $container->get(TiendaController::class)->getConfig($req, $res);
+});
+$app->get('/api/v1/tienda/mercadopago/status', function ($req, $res) use ($container) {
+    return $container->get(MercadoPagoController::class)->getPublicStatus($req, $res);
+});
+$app->post('/api/v1/tienda/mercadopago/crear-preferencia', function ($req, $res) use ($container) {
+    return $container->get(MercadoPagoController::class)->createPreference($req, $res);
+});
+
+// Webhook Mercado Pago (público)
+$app->post('/api/v1/mercadopago/webhook', function ($req, $res) use ($container) {
+    return $container->get(MercadoPagoController::class)->webhook($req, $res);
+});
+$app->get('/api/v1/mercadopago/webhook', function ($req, $res) use ($container) {
+    return $container->get(MercadoPagoController::class)->webhook($req, $res);
 });
 
 // Proxy público de imágenes de MakerWorld

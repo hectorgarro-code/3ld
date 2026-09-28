@@ -75,7 +75,18 @@ export default function ClienteDetailPage() {
             {cliente.nombre.charAt(0).toUpperCase()}
           </div>
           <div>
-            <h2 className="text-xl font-black text-slate-800">{cliente.nombre}</h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-xl font-black text-slate-800">{cliente.nombre}</h2>
+              {cliente.tipo_cliente === 'mayorista' ? (
+                <span className="rounded-lg bg-amber-500/10 px-2 py-0.5 text-xs font-black text-amber-700 border border-amber-500/30">
+                  Mayorista
+                </span>
+              ) : (
+                <span className="rounded-lg bg-slate-100 px-2 py-0.5 text-xs font-bold text-slate-600">
+                  Minorista
+                </span>
+              )}
+            </div>
             <p className="text-xs text-slate-400">
               Cliente desde {formatDate(cliente.created_at)}
             </p>

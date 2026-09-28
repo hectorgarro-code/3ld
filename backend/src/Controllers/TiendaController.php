@@ -28,7 +28,8 @@ class TiendaController
         try {
             $params = $request->getQueryParams();
             $productos = $this->repository->getProductosPublicos($params);
-            return Response::success($productos);
+            $res = Response::success($productos);
+            return $res->withHeader('Cache-Control', 'public, max-age=60, s-maxage=300, stale-while-revalidate=600');
         } catch (Throwable $e) {
             return Response::error('Error al obtener productos de tienda: ' . $e->getMessage(), 500);
         }
@@ -42,7 +43,8 @@ class TiendaController
     {
         try {
             $categorias = $this->repository->getCategoriasPublicas();
-            return Response::success($categorias);
+            $res = Response::success($categorias);
+            return $res->withHeader('Cache-Control', 'public, max-age=120, s-maxage=600, stale-while-revalidate=1200');
         } catch (Throwable $e) {
             return Response::error('Error al obtener categorías de tienda: ' . $e->getMessage(), 500);
         }
