@@ -119,6 +119,7 @@ AppFactory::setContainer($container);
 
 // ── App setup ────────────────────────────────────────────────────────────────
 $app = AppFactory::create();
+$app->setBasePath('');
 
 // Strip trailing slashes for cleaner URLs
 $app->addRoutingMiddleware();
