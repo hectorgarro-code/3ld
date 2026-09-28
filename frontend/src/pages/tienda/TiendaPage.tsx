@@ -317,7 +317,8 @@ export default function TiendaPage() {
     return activeProductModal.price;
   }, [activeProductModal, modalSelectedPiezas]);
 
-  // Shipping
+  // Shipping & Delivery Method
+  const [deliveryMethod, setDeliveryMethod] = useState<'pickup' | 'shipping'>('pickup');
   const [postalCode, setPostalCode] = useState('');
   const [shippingQuote, setShippingQuote] = useState<{
     serviceName: string;
@@ -328,7 +329,7 @@ export default function TiendaPage() {
   } | null>(null);
   const [isCalculatingShipping, setIsCalculatingShipping] = useState(false);
 
-  // Mercado Pago States
+  // Mercado Pago States & Comprobante
   const [isMpEnabled, setIsMpEnabled] = useState(false);
   const [isProcessingMp, setIsProcessingMp] = useState(false);
   const [isBuyerModalOpen, setIsBuyerModalOpen] = useState(false);
@@ -340,6 +341,24 @@ export default function TiendaPage() {
     notas: '',
   });
   const [paymentSuccessModal, setPaymentSuccessModal] = useState<string | null>(null);
+  const [receiptOrder, setReceiptOrder] = useState<any | null>(null);
+  const [isLoadingReceipt, setIsLoadingReceipt] = useState(false);
+
+  const handleOpenReceipt = async (pedidoNum: string) => {
+    setIsLoadingReceipt(true);
+    try {
+      const res = await api.get(`/tienda/pedido/${pedidoNum}`);
+      if (res.data?.success && res.data?.data) {
+        setReceiptOrder(res.data.data);
+      } else {
+        showToast('No se pudo cargar el detalle del comprobante', 'error');
+      }
+    } catch {
+      showToast('Error al obtener comprobante', 'error');
+    } finally {
+      setIsLoadingReceipt(false);
+    }
+  };
 
   useEffect(() => {
     api.get('/tienda/mercadopago/status')
@@ -381,6 +400,12 @@ export default function TiendaPage() {
       return;
     }
 
+    if (deliveryMethod === 'shipping' && !buyerInfo.direccion.trim()) {
+      setIsBuyerModalOpen(true);
+      showToast('Por favor completá la dirección de entrega', 'info');
+      return;
+    }
+
     setIsProcessingMp(true);
     try {
       const itemsPayload = cart.map(item => ({
@@ -392,13 +417,25 @@ export default function TiendaPage() {
         image: item.image,
       }));
 
+      const envioPayload = deliveryMethod === 'pickup'
+        ? {
+            costo: 0,
+            tipo: 'Retiro en Taller (Salta 3169, San Bernardo)',
+            direccion: 'Salta 3169, San Bernardo del Tuyú',
+          }
+        : (shippingQuote ? {
+            costo: shippingQuote.price,
+            tipo: shippingQuote.serviceName,
+            direccion: buyerInfo.direccion,
+          } : {
+            costo: 0,
+            tipo: 'Envío a coordinar',
+            direccion: buyerInfo.direccion,
+          });
+
       const res = await api.post('/tienda/mercadopago/crear-preferencia', {
         items: itemsPayload,
-        envio: shippingQuote ? {
-          costo: shippingQuote.price,
-          tipo: shippingQuote.serviceName,
-          direccion: buyerInfo.direccion,
-        } : null,
+        envio: envioPayload,
         comprador: buyerInfo,
         notas: buyerInfo.notas,
       });
@@ -829,12 +866,15 @@ export default function TiendaPage() {
     });
 
     text += `\n📦 *Subtotal:* $${cartSubtotal.toLocaleString('es-AR')}\n`;
-    if (shippingQuote) {
+    if (deliveryMethod === 'pickup') {
+      text += `🏪 *Entrega:* Retiro en Taller (Salta 3169, San Bernardo del Tuyú - ¡GRATIS!)\n`;
+      text += `💰 *TOTAL FINAL:* $${cartSubtotal.toLocaleString('es-AR')}\n`;
+    } else if (shippingQuote) {
       text += `🚚 *Envío (${shippingQuote.serviceName}):* ${shippingQuote.price === 0 ? '¡GRATIS!' : '$' + shippingQuote.price.toLocaleString('es-AR')}\n`;
-      text += `📍 *CP Destino:* ${postalCode}\n`;
+      text += `📍 *CP Destino:* ${postalCode || 'A coordinar'}\n`;
       text += `💰 *TOTAL FINAL:* $${(cartSubtotal + (shippingQuote.price || 0)).toLocaleString('es-AR')}\n`;
     } else {
-      text += `🚚 *Envío:* A coordinar dirección\n`;
+      text += `🚚 *Envío:* A coordinar entrega a domicilio (CP: ${postalCode || 'A confirmar'})\n`;
       text += `💰 *TOTAL ESTIMADO:* $${cartSubtotal.toLocaleString('es-AR')}\n`;
     }
 
@@ -1563,60 +1603,116 @@ export default function TiendaPage() {
               )}
             </div>
 
-            {/* Shipping & Total Footer */}
+            {/* Shipping & Delivery Method + Total Footer */}
             {cart.length > 0 && (
               <div className="p-4 border-t border-slate-200 bg-slate-50 space-y-3">
-                {/* Calculate Shipping */}
-                <form onSubmit={handleCalculateShipping} className="flex gap-2">
-                  <input
-                    type="text"
-                    value={postalCode}
-                    onChange={(e) => setPostalCode(e.target.value)}
-                    placeholder="Código Postal (ej: 7111)"
-                    className="flex-1 px-3 py-2 text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-cyan-500 bg-white"
-                  />
-                  <button
-                    type="submit"
-                    disabled={isCalculatingShipping}
-                    className="px-3 py-2 bg-slate-900 text-white text-xs font-bold rounded-xl hover:bg-slate-800 transition disabled:opacity-50"
-                  >
-                    {isCalculatingShipping ? 'Cotizando...' : 'Calcular Envío'}
-                  </button>
-                </form>
+                {/* Selector Forma de Entrega */}
+                <div className="space-y-2">
+                  <label className="text-[11px] font-black uppercase tracking-wider text-slate-500 block">
+                    Forma de Entrega:
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setDeliveryMethod('pickup')}
+                      className={`p-2.5 rounded-xl border text-left transition flex flex-col justify-between cursor-pointer ${
+                        deliveryMethod === 'pickup'
+                          ? 'bg-cyan-50 border-cyan-500 text-cyan-950 font-bold shadow-xs'
+                          : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'
+                      }`}
+                    >
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <Store className="w-4 h-4 text-cyan-600" />
+                        <span className="text-xs font-black">Retiro en Taller</span>
+                      </div>
+                      <span className="text-[10px] text-emerald-600 font-extrabold">¡GRATIS!</span>
+                    </button>
 
-                {shippingQuote && (
-                  <div className="p-2.5 bg-cyan-50 border border-cyan-200 rounded-xl text-xs flex justify-between items-center text-cyan-950 font-semibold">
-                    <div>
-                      <p className="font-bold">{shippingQuote.serviceName}</p>
-                      <p className="text-[10px] text-cyan-700">
-                        Demora: {shippingQuote.estimatedDays}
-                        {shippingQuote.weightKg ? ` • ${shippingQuote.weightKg} kg facturables` : ''}
-                      </p>
+                    <button
+                      type="button"
+                      onClick={() => setDeliveryMethod('shipping')}
+                      className={`p-2.5 rounded-xl border text-left transition flex flex-col justify-between cursor-pointer ${
+                        deliveryMethod === 'shipping'
+                          ? 'bg-cyan-50 border-cyan-500 text-cyan-950 font-bold shadow-xs'
+                          : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'
+                      }`}
+                    >
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <Truck className="w-4 h-4 text-cyan-600" />
+                        <span className="text-xs font-black">Envío Domicilio</span>
+                      </div>
+                      <span className="text-[10px] text-slate-500 font-medium">Andreani / Correo</span>
+                    </button>
+                  </div>
+
+                  {deliveryMethod === 'pickup' ? (
+                    <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-900 flex items-start gap-2">
+                      <MapPin className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-extrabold text-[11px]">Retiro en Nuestro Taller:</p>
+                        <p className="text-[11px] font-semibold text-emerald-800">Salta 3169, San Bernardo del Tuyú</p>
+                        <p className="text-[10px] text-emerald-700 mt-0.5">Te avisaremos por WhatsApp o Email cuando tu pieza esté lista para retirar.</p>
+                      </div>
                     </div>
-                    <span className="font-black text-sm shrink-0 ml-2">
-                      {shippingQuote.isFree || shippingQuote.price === 0 ? '¡GRATIS!' : `$${shippingQuote.price.toLocaleString('es-AR')}`}
-                    </span>
-                  </div>
-                )}
+                  ) : (
+                    <div className="space-y-2">
+                      <form onSubmit={handleCalculateShipping} className="flex gap-2">
+                        <input
+                          type="text"
+                          value={postalCode}
+                          onChange={(e) => setPostalCode(e.target.value)}
+                          placeholder="Código Postal (ej: 7111)"
+                          className="flex-1 px-3 py-2 text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-cyan-500 bg-white"
+                        />
+                        <button
+                          type="submit"
+                          disabled={isCalculatingShipping}
+                          className="px-3 py-2 bg-slate-900 text-white text-xs font-bold rounded-xl hover:bg-slate-800 transition disabled:opacity-50 cursor-pointer"
+                        >
+                          {isCalculatingShipping ? 'Cotizando...' : 'Calcular'}
+                        </button>
+                      </form>
 
-                {/* Subtotal & Total */}
-                <div className="space-y-1 text-xs">
-                  <div className="flex justify-between text-slate-600">
-                    <span>Subtotal:</span>
-                    <span className="font-bold">${cartSubtotal.toLocaleString('es-AR')}</span>
-                  </div>
-                  {shippingQuote && (
-                    <div className="flex justify-between text-slate-600">
-                      <span>Envío:</span>
-                      <span className="font-bold">
-                        {shippingQuote.price === 0 ? '¡GRATIS!' : `$${shippingQuote.price.toLocaleString('es-AR')}`}
-                      </span>
+                      {shippingQuote && (
+                        <div className="p-2.5 bg-cyan-50 border border-cyan-200 rounded-xl text-xs flex justify-between items-center text-cyan-950 font-semibold">
+                          <div>
+                            <p className="font-bold">{shippingQuote.serviceName}</p>
+                            <p className="text-[10px] text-cyan-700">
+                              Demora: {shippingQuote.estimatedDays}
+                              {shippingQuote.weightKg ? ` • ${shippingQuote.weightKg} kg facturables` : ''}
+                            </p>
+                          </div>
+                          <span className="font-black text-sm shrink-0 ml-2">
+                            {shippingQuote.isFree || shippingQuote.price === 0 ? '¡GRATIS!' : `$${shippingQuote.price.toLocaleString('es-AR')}`}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   )}
+                </div>
+
+                {/* Subtotal & Total */}
+                <div className="space-y-1 text-xs pt-1">
+                  <div className="flex justify-between text-slate-600">
+                    <span>Subtotal productos:</span>
+                    <span className="font-bold">${cartSubtotal.toLocaleString('es-AR')}</span>
+                  </div>
+                  <div className="flex justify-between text-slate-600">
+                    <span>Entrega ({deliveryMethod === 'pickup' ? 'Retiro en Taller' : 'Envío a Domicilio'}):</span>
+                    <span className="font-bold">
+                      {deliveryMethod === 'pickup' || (deliveryMethod === 'shipping' && shippingQuote?.price === 0)
+                        ? '¡GRATIS!'
+                        : deliveryMethod === 'shipping' && shippingQuote
+                          ? `$${shippingQuote.price.toLocaleString('es-AR')}`
+                          : deliveryMethod === 'shipping'
+                            ? 'A cotizar'
+                            : '$0'}
+                    </span>
+                  </div>
                   <div className="flex justify-between text-sm font-black text-slate-900 pt-2 border-t border-slate-200">
                     <span>TOTAL FINAL:</span>
                     <span className="text-cyan-600">
-                      ${(cartSubtotal + (shippingQuote?.price || 0)).toLocaleString('es-AR')}
+                      ${(cartSubtotal + (deliveryMethod === 'shipping' ? (shippingQuote?.price || 0) : 0)).toLocaleString('es-AR')}
                     </span>
                   </div>
                 </div>
@@ -1982,7 +2078,7 @@ export default function TiendaPage() {
                   <CreditCard className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-extrabold text-base text-slate-900 leading-tight">Datos para el Cobro y Envío</h3>
+                  <h3 className="font-extrabold text-base text-slate-900 leading-tight">Datos para el Cobro y Entrega</h3>
                   <p className="text-[11px] text-slate-500">Completá tus datos para redirigirte a Mercado Pago</p>
                 </div>
               </div>
@@ -2035,18 +2131,30 @@ export default function TiendaPage() {
                 </div>
               </div>
 
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">
-                  Dirección de Entrega {shippingQuote ? `(${shippingQuote.serviceName})` : ''}
-                </label>
-                <input
-                  type="text"
-                  placeholder="Calle, número, piso/depto, localidad..."
-                  value={buyerInfo.direccion}
-                  onChange={(e) => setBuyerInfo({ ...buyerInfo, direccion: e.target.value })}
-                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 focus:ring-2 focus:ring-sky-500 outline-none"
-                />
-              </div>
+              {deliveryMethod === 'pickup' ? (
+                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-900 flex items-start gap-2.5">
+                  <Store className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-extrabold text-[12px] block">Retiro en Taller (Sin costo):</span>
+                    <p className="font-semibold text-emerald-800 text-[11px]">Salta 3169, San Bernardo del Tuyú</p>
+                    <p className="text-[10px] text-emerald-700 mt-0.5">Te notificaremos por WhatsApp y Email cuando tu pedido esté fabricado.</p>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">
+                    Dirección de Entrega a Domicilio * {shippingQuote ? `(${shippingQuote.serviceName})` : ''}
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Calle, número, piso/depto, localidad..."
+                    value={buyerInfo.direccion}
+                    onChange={(e) => setBuyerInfo({ ...buyerInfo, direccion: e.target.value })}
+                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 focus:ring-2 focus:ring-sky-500 outline-none"
+                  />
+                </div>
+              )}
 
               <div>
                 <label className="font-bold text-slate-700 block mb-1">Notas o aclaraciones para el taller (Opcional)</label>
@@ -2062,7 +2170,7 @@ export default function TiendaPage() {
               <div className="p-3 bg-sky-50 rounded-2xl border border-sky-100 flex items-center justify-between text-xs">
                 <span className="font-bold text-sky-900">Total a Pagar en Mercado Pago:</span>
                 <span className="font-black text-base text-sky-600">
-                  ${(cartSubtotal + (shippingQuote?.price || 0)).toLocaleString('es-AR')}
+                  ${(cartSubtotal + (deliveryMethod === 'shipping' ? (shippingQuote?.price || 0) : 0)).toLocaleString('es-AR')}
                 </span>
               </div>
 
@@ -2114,11 +2222,26 @@ export default function TiendaPage() {
             </p>
 
             <div className="mt-5 space-y-2">
+              {paymentSuccessModal && paymentSuccessModal !== 'OK' && (
+                <button
+                  onClick={() => handleOpenReceipt(paymentSuccessModal)}
+                  disabled={isLoadingReceipt}
+                  className="w-full py-3 bg-cyan-600 hover:bg-cyan-500 text-white font-extrabold text-xs rounded-xl shadow-md flex items-center justify-center gap-2 transition cursor-pointer"
+                >
+                  {isLoadingReceipt ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Printer className="w-4 h-4" />
+                  )}
+                  <span>Ver Comprobante / Ticket PDF</span>
+                </button>
+              )}
+
               <a
                 href={`https://wa.me/5492257559540?text=${encodeURIComponent(`¡Hola 3LD! 👋 Acabo de abonar mi pedido ${paymentSuccessModal !== 'OK' ? `#${paymentSuccessModal}` : ''} por la tienda web.`)}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full py-3 bg-[#25D366] hover:bg-[#20ba5a] text-white font-extrabold text-xs rounded-xl shadow-md flex items-center justify-center gap-2 transition"
+                className="w-full py-2.5 bg-[#25D366] hover:bg-[#20ba5a] text-white font-extrabold text-xs rounded-xl shadow-sm flex items-center justify-center gap-2 transition"
               >
                 <MessageCircle className="w-4 h-4" />
                 <span>Avisar por WhatsApp</span>
@@ -2126,10 +2249,139 @@ export default function TiendaPage() {
 
               <button
                 onClick={() => setPaymentSuccessModal(null)}
-                className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition"
+                className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition"
               >
                 Continuar Navegando
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL COMPROBANTE DE COMPRA / TICKET IMPRIMIBLE */}
+      {receiptOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-xl w-full p-6 shadow-2xl border border-slate-200 max-h-[95vh] flex flex-col">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200 print:hidden">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-cyan-500/10 text-cyan-600 flex items-center justify-center">
+                  <Printer className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-black text-sm text-slate-900 leading-tight">Comprobante de Pedido</h3>
+                  <p className="text-[11px] text-slate-500">Orden #{receiptOrder.numero}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => window.print()}
+                  className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-xs"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  <span>Imprimir / PDF</span>
+                </button>
+                <button
+                  onClick={() => setReceiptOrder(null)}
+                  className="p-1.5 text-slate-400 hover:text-slate-700 rounded-full"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Printable Content Area */}
+            <div className="p-2 sm:p-4 overflow-y-auto flex-1 text-slate-800 space-y-4 text-xs font-sans">
+              {/* Header */}
+              <div className="flex justify-between items-start border-b border-slate-200 pb-3">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl font-black tracking-tight text-slate-900">3LD</span>
+                    <span className="text-xs bg-cyan-100 text-cyan-800 font-extrabold px-2 py-0.5 rounded-md">Impresión 3D</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-1">Fabricación Aditiva & Prototipado</p>
+                  <p className="text-[11px] text-slate-500">Salta 3169, San Bernardo del Tuyú</p>
+                  <p className="text-[11px] text-slate-500">WhatsApp: +54 9 2257 55-9540</p>
+                </div>
+                <div className="text-right">
+                  <span className="inline-block px-2.5 py-1 bg-emerald-100 text-emerald-800 rounded-lg text-[10px] font-black uppercase mb-1">
+                    {receiptOrder.estado === 'aprobado' || receiptOrder.estado === 'cobrado' ? 'Pago Acreditado' : 'Pedido Registrado'}
+                  </span>
+                  <p className="text-xs font-bold text-slate-900">Orden: #{receiptOrder.numero}</p>
+                  <p className="text-[11px] text-slate-500">
+                    Fecha: {receiptOrder.fecha ? new Date(receiptOrder.fecha).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Customer & Delivery Details */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-50 p-3 rounded-2xl border border-slate-200">
+                <div>
+                  <h4 className="font-black text-[11px] text-slate-500 uppercase tracking-wider mb-1">Datos del Cliente:</h4>
+                  <p className="font-extrabold text-slate-900">{receiptOrder.cliente?.nombre || 'Consumidor Final'}</p>
+                  {receiptOrder.cliente?.telefono && <p className="text-[11px] text-slate-600">Tel: {receiptOrder.cliente.telefono}</p>}
+                  {receiptOrder.cliente?.email && <p className="text-[11px] text-slate-600">Email: {receiptOrder.cliente.email}</p>}
+                </div>
+                <div>
+                  <h4 className="font-black text-[11px] text-slate-500 uppercase tracking-wider mb-1">Forma de Entrega:</h4>
+                  <p className="font-extrabold text-slate-900">{receiptOrder.entrega_tipo || 'A coordinar'}</p>
+                  <p className="text-[11px] text-slate-600">{receiptOrder.entrega_direccion || 'Salta 3169, San Bernardo'}</p>
+                  {receiptOrder.notas && (
+                    <p className="text-[10px] text-slate-500 italic mt-1 bg-white p-1 rounded border border-slate-100">
+                      Nota: {receiptOrder.notas}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Items Table */}
+              <div>
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-slate-200 text-[10px] font-black uppercase text-slate-400">
+                      <th className="py-1.5">Cant.</th>
+                      <th className="py-1.5">Descripción / Producto</th>
+                      <th className="py-1.5 text-right">Precio Unit.</th>
+                      <th className="py-1.5 text-right">Subtotal</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {receiptOrder.items?.map((item: any, idx: number) => (
+                      <tr key={idx} className="text-xs">
+                        <td className="py-2 font-black">{item.cantidad}x</td>
+                        <td className="py-2">
+                          <p className="font-bold text-slate-900">{item.descripcion}</p>
+                          {item.notas && <p className="text-[10px] text-slate-500">{item.notas}</p>}
+                        </td>
+                        <td className="py-2 text-right font-medium">${Number(item.precio_unit).toLocaleString('es-AR')}</td>
+                        <td className="py-2 text-right font-bold">${Number(item.subtotal).toLocaleString('es-AR')}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Totals */}
+              <div className="border-t border-slate-200 pt-3 space-y-1 text-xs">
+                <div className="flex justify-between text-slate-600">
+                  <span>Subtotal Productos:</span>
+                  <span className="font-bold">${Number(receiptOrder.subtotal || 0).toLocaleString('es-AR')}</span>
+                </div>
+                <div className="flex justify-between text-slate-600">
+                  <span>Costo de Entrega:</span>
+                  <span className="font-bold">
+                    {Number(receiptOrder.costo_envio || 0) === 0 ? '¡GRATIS!' : `$${Number(receiptOrder.costo_envio).toLocaleString('es-AR')}`}
+                  </span>
+                </div>
+                <div className="flex justify-between text-base font-black text-slate-900 pt-2 border-t border-slate-200">
+                  <span>TOTAL ABONADO:</span>
+                  <span className="text-cyan-600">${Number(receiptOrder.total || 0).toLocaleString('es-AR')}</span>
+                </div>
+              </div>
+
+              {/* Footer Note */}
+              <div className="bg-cyan-50 p-2.5 rounded-xl border border-cyan-100 text-[10px] text-cyan-900 text-center leading-relaxed">
+                ¡Gracias por confiar en <strong>3LD Impresión 3D</strong>! Conservá este comprobante. Te enviaremos actualizaciones del estado de producción a tu contacto.
+              </div>
             </div>
           </div>
         </div>

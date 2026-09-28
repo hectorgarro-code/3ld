@@ -587,6 +587,9 @@ $app->get('/api/v1/tienda/mercadopago/status', function ($req, $res) use ($conta
 $app->post('/api/v1/tienda/mercadopago/crear-preferencia', function ($req, $res) use ($container) {
     return $container->get(MercadoPagoController::class)->createPreference($req, $res);
 });
+$app->get('/api/v1/tienda/pedido/{numero}', function ($req, $res, $args) use ($container) {
+    return $container->get(MercadoPagoController::class)->getPedidoPublico($req, $res, $args);
+});
 
 // Webhook Mercado Pago (público)
 $app->post('/api/v1/mercadopago/webhook', function ($req, $res) use ($container) {
