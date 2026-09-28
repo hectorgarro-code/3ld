@@ -75,7 +75,7 @@ jobs:
           password: ${{ secrets.FTP_PASSWORD }}
           port: ${{ secrets.FTP_PORT || 21 }}
           local-dir: ./deploy_dist/
-          server-dir: ./sistema.3ld.com.ar/public_html/
+          server-dir: ./sistema/
           dangerous-clean-slate: false
           exclude: |
             **/backend/config/config.local.php
