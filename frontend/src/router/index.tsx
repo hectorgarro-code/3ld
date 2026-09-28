@@ -71,15 +71,16 @@ const TiendaBuilderPage = lazy(() => import('@/pages/tienda/TiendaBuilderPage'))
 const ConfiguracionPage = lazy(() => import('@/pages/configuracion/ConfiguracionPage'))
 
 function RootEntryPage() {
-  const isSistemaSubdomain = typeof window !== 'undefined' && window.location.hostname.toLowerCase().startsWith('sistema.')
-  if (isSistemaSubdomain) {
-    return (
-      <ProtectedRoute>
-        <AppShell />
-      </ProtectedRoute>
-    )
+  const hostname = typeof window !== 'undefined' ? window.location.hostname.toLowerCase() : ''
+  const isTiendaDomain = (hostname === '3ld.com.ar' || hostname === 'www.3ld.com.ar' || hostname.startsWith('tienda.')) && !hostname.includes('sistema')
+  if (isTiendaDomain) {
+    return <TiendaPage />
   }
-  return <TiendaPage />
+  return (
+    <ProtectedRoute>
+      <AppShell />
+    </ProtectedRoute>
+  )
 }
 
 export const router = createBrowserRouter([
