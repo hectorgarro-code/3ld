@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useProductos, useCategorias, useDeleteProducto, useUpdateProducto } from '@/hooks/useProductos'
 import { formatARS } from '@/lib/cost-calculator'
-import { cn } from '@/lib/utils'
+import { cn, resolveImageUrl } from '@/lib/utils'
 import { Search, AlertTriangle, Package, Plus, Minus, Pencil, Copy, Trash2, Loader2, Bot, Sparkles, Tags, Download, ExternalLink, ChevronLeft, ChevronRight, Images, Printer } from 'lucide-react'
 import type { Producto, ProductoTipo } from '@/types'
 import { ProductoFormModal } from '@/components/productos/ProductoFormModal'
@@ -107,7 +107,7 @@ function ProductoCard({
       {currentImg ? (
         <div className="relative mb-3 flex h-28 items-center justify-center rounded-xl bg-slate-50 overflow-hidden group/img">
           <img
-            src={currentImg}
+            src={resolveImageUrl(currentImg)}
             alt={producto.nombre}
             className="h-full w-full object-cover transition duration-300"
             onError={(e) => {

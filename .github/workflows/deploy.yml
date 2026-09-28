@@ -65,3 +65,18 @@ jobs:
           exclude: |
             **/backend/config/config.local.php
             **/backend/public/uploads/**
+
+      - name: 📂 Sync Files via FTP to Hostinger Subdomain (sistema.3ld.com.ar)
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        continue-on-error: true
+        with:
+          server: ${{ env.FTP_CLEAN_HOST }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          port: ${{ secrets.FTP_PORT || 21 }}
+          local-dir: ./deploy_dist/
+          server-dir: ./sistema.3ld.com.ar/public_html/
+          dangerous-clean-slate: false
+          exclude: |
+            **/backend/config/config.local.php
+            **/backend/public/uploads/**

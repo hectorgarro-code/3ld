@@ -28,3 +28,15 @@ export function timeAgo(date?: string | Date | null): string {
   if (!date) return '-'
   return formatDistanceToNow(toDate(date), { addSuffix: true, locale: es })
 }
+
+export function resolveImageUrl(url?: string | null): string {
+  if (!url) return ''
+  if (url.startsWith('data:') || url.startsWith('http://') || url.startsWith('https://')) {
+    return url
+  }
+  const base = typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1'
+    ? 'https://3ld.com.ar'
+    : ''
+  const cleanPath = url.startsWith('/') ? url : `/${url}`
+  return `${base}${cleanPath}`
+}
