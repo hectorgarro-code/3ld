@@ -273,45 +273,45 @@ $app->group('/api/v1', function (RouteCollectorProxy $api) use ($config, $auth, 
 
     // ── Auth ─────────────────────────────────────────────────────────────────
     $api->group('/auth', function (RouteCollectorProxy $g) use ($config, $container, $auth) {
-        $g->post('/login', function ($req, $res) use ($container) {
+        $g->post('/login[/]', function ($req, $res) use ($container) {
             return $container->get(AuthController::class)->login($req, $res);
         });
 
         // Protected auth routes
-        $g->get('/me', function ($req, $res) use ($container) {
+        $g->get('/me[/]', function ($req, $res) use ($container) {
             return $container->get(AuthController::class)->me($req, $res);
         })->add($auth);
 
-        $g->post('/refresh', function ($req, $res) use ($container) {
+        $g->post('/refresh[/]', function ($req, $res) use ($container) {
             return $container->get(AuthController::class)->refresh($req, $res);
         })->add($auth);
     });
 
     // ── Dashboard ─────────────────────────────────────────────────────────────
     $api->group('/dashboard', function (RouteCollectorProxy $g) use ($container) {
-        $g->get('/kpis',    function ($req, $res) use ($container) {
+        $g->get('/kpis[/]',    function ($req, $res) use ($container) {
             return $container->get(DashboardController::class)->kpis($req, $res);
         });
-        $g->get('/alertas', function ($req, $res) use ($container) {
+        $g->get('/alertas[/]', function ($req, $res) use ($container) {
             return $container->get(DashboardController::class)->alertas($req, $res);
         });
     })->add($auth);
 
     // ── Clientes ──────────────────────────────────────────────────────────────
     $api->group('/clientes', function (RouteCollectorProxy $g) use ($container) {
-        $g->get('',        function ($req, $res) use ($container) {
+        $g->get('[/]',        function ($req, $res) use ($container) {
             return $container->get(ClientesController::class)->index($req, $res);
         });
         $g->get('/{id}',   function ($req, $res, $args) use ($container) {
             return $container->get(ClientesController::class)->show($req, $res, $args);
         });
-        $g->post('',       function ($req, $res) use ($container) {
+        $g->post('[/]',       function ($req, $res) use ($container) {
             return $container->get(ClientesController::class)->create($req, $res);
         });
-        $g->get('/{id}/precios-especiales', function ($req, $res, $args) use ($container) {
+        $g->get('/{id}/precios-especiales[/]', function ($req, $res, $args) use ($container) {
             return $container->get(ClientesController::class)->getPreciosEspeciales($req, $res, $args);
         });
-        $g->post('/{id}/precios-especiales', function ($req, $res, $args) use ($container) {
+        $g->post('/{id}/precios-especiales[/]', function ($req, $res, $args) use ($container) {
             return $container->get(ClientesController::class)->setPrecioEspecial($req, $res, $args);
         });
         $g->delete('/{id}/precios-especiales/{productoId}', function ($req, $res, $args) use ($container) {
@@ -327,10 +327,10 @@ $app->group('/api/v1', function (RouteCollectorProxy $api) use ($config, $auth, 
 
     // ── Categorías ────────────────────────────────────────────────────────────
     $api->group('/categorias', function (RouteCollectorProxy $g) use ($container) {
-        $g->get('', function ($req, $res) use ($container) {
+        $g->get('[/]', function ($req, $res) use ($container) {
             return $container->get(CategoriasController::class)->index($req, $res);
         });
-        $g->post('', function ($req, $res) use ($container) {
+        $g->post('[/]', function ($req, $res) use ($container) {
             return $container->get(CategoriasController::class)->create($req, $res);
         });
         $g->put('/{id}', function ($req, $res, $args) use ($container) {
@@ -343,16 +343,16 @@ $app->group('/api/v1', function (RouteCollectorProxy $api) use ($config, $auth, 
 
     // ── Proveedores ───────────────────────────────────────────────────────────
     $api->group('/proveedores', function (RouteCollectorProxy $g) use ($container) {
-        $g->get('',        function ($req, $res) use ($container) {
+        $g->get('[/]',        function ($req, $res) use ($container) {
             return $container->get(ProveedoresController::class)->index($req, $res);
         });
         $g->get('/{id}',   function ($req, $res, $args) use ($container) {
             return $container->get(ProveedoresController::class)->show($req, $res, $args);
         });
-        $g->get('/{id}/articulos', function ($req, $res, $args) use ($container) {
+        $g->get('/{id}/articulos[/]', function ($req, $res, $args) use ($container) {
             return $container->get(ProveedoresController::class)->articulos($req, $res, $args);
         });
-        $g->post('',       function ($req, $res) use ($container) {
+        $g->post('[/]',       function ($req, $res) use ($container) {
             return $container->get(ProveedoresController::class)->create($req, $res);
         });
         $g->put('/{id}',   function ($req, $res, $args) use ($container) {
@@ -365,29 +365,29 @@ $app->group('/api/v1', function (RouteCollectorProxy $api) use ($config, $auth, 
 
     // ── Compras ───────────────────────────────────────────────────────────────
     $api->group('/compras', function (RouteCollectorProxy $g) use ($container) {
-        $g->get('',      function ($req, $res) use ($container) {
+        $g->get('[/]',      function ($req, $res) use ($container) {
             return $container->get(ComprasController::class)->index($req, $res);
         });
         $g->get('/{id}', function ($req, $res, $args) use ($container) {
             return $container->get(ComprasController::class)->show($req, $res, $args);
         });
-        $g->post('',     function ($req, $res) use ($container) {
+        $g->post('[/]',     function ($req, $res) use ($container) {
             return $container->get(ComprasController::class)->create($req, $res);
         });
     })->add($auth);
 
     // ── Productos ─────────────────────────────────────────────────────────────
     $api->group('/productos', function (RouteCollectorProxy $g) use ($container) {
-        $g->get('',        function ($req, $res) use ($container) {
+        $g->get('[/]',        function ($req, $res) use ($container) {
             return $container->get(ProductosController::class)->index($req, $res);
         });
         $g->get('/{id}',   function ($req, $res, $args) use ($container) {
             return $container->get(ProductosController::class)->show($req, $res, $args);
         });
-        $g->get('/{id}/movimientos', function ($req, $res, $args) use ($container) {
+        $g->get('/{id}/movimientos[/]', function ($req, $res, $args) use ($container) {
             return $container->get(ProductosController::class)->movimientos($req, $res, $args);
         });
-        $g->post('',       function ($req, $res) use ($container) {
+        $g->post('[/]',       function ($req, $res) use ($container) {
             return $container->get(ProductosController::class)->create($req, $res);
         });
         $g->put('/{id}',   function ($req, $res, $args) use ($container) {
@@ -400,10 +400,10 @@ $app->group('/api/v1', function (RouteCollectorProxy $api) use ($config, $auth, 
 
     // ── Pedidos ───────────────────────────────────────────────────────────────
     $api->group('/pedidos', function (RouteCollectorProxy $g) use ($container) {
-        $g->get('',                  function ($req, $res) use ($container) {
+        $g->get('[/]',                  function ($req, $res) use ($container) {
             return $container->get(PedidosController::class)->index($req, $res);
         });
-        $g->get('/items',            function ($req, $res) use ($container) {
+        $g->get('/items[/]',            function ($req, $res) use ($container) {
             return $container->get(PedidosController::class)->itemsIndex($req, $res);
         });
         $g->put('/items/{id}/estado',function ($req, $res, $args) use ($container) {
@@ -418,7 +418,7 @@ $app->group('/api/v1', function (RouteCollectorProxy $api) use ($config, $auth, 
         $g->get('/{id}',             function ($req, $res, $args) use ($container) {
             return $container->get(PedidosController::class)->show($req, $res, $args);
         });
-        $g->post('',                 function ($req, $res) use ($container) {
+        $g->post('[/]',                 function ($req, $res) use ($container) {
             return $container->get(PedidosController::class)->create($req, $res);
         });
         $g->put('/{id}',             function ($req, $res, $args) use ($container) {
@@ -440,13 +440,13 @@ $app->group('/api/v1', function (RouteCollectorProxy $api) use ($config, $auth, 
 
     // ── Filamentos ────────────────────────────────────────────────────────────
     $api->group('/filamentos', function (RouteCollectorProxy $g) use ($container) {
-        $g->get('',              function ($req, $res) use ($container) {
+        $g->get('[/]',              function ($req, $res) use ($container) {
             return $container->get(FilamentosController::class)->index($req, $res);
         });
         $g->get('/{id}',         function ($req, $res, $args) use ($container) {
             return $container->get(FilamentosController::class)->show($req, $res, $args);
         });
-        $g->post('',             function ($req, $res) use ($container) {
+        $g->post('[/]',             function ($req, $res) use ($container) {
             return $container->get(FilamentosController::class)->create($req, $res);
         });
         $g->put('/{id}',         function ($req, $res, $args) use ($container) {
@@ -462,13 +462,13 @@ $app->group('/api/v1', function (RouteCollectorProxy $api) use ($config, $auth, 
 
     // ── Impresoras ────────────────────────────────────────────────────────────
     $api->group('/impresoras', function (RouteCollectorProxy $g) use ($container) {
-        $g->get('',             function ($req, $res) use ($container) {
+        $g->get('[/]',             function ($req, $res) use ($container) {
             return $container->get(ImpresorasController::class)->index($req, $res);
         });
         $g->get('/{id}',        function ($req, $res, $args) use ($container) {
             return $container->get(ImpresorasController::class)->show($req, $res, $args);
         });
-        $g->post('',            function ($req, $res) use ($container) {
+        $g->post('[/]',            function ($req, $res) use ($container) {
             return $container->get(ImpresorasController::class)->create($req, $res);
         });
         $g->put('/{id}',        function ($req, $res, $args) use ($container) {
@@ -484,13 +484,13 @@ $app->group('/api/v1', function (RouteCollectorProxy $api) use ($config, $auth, 
 
     // ── Órdenes de Producción ─────────────────────────────────────────────────
     $api->group('/ordenes', function (RouteCollectorProxy $g) use ($container) {
-        $g->get('',              function ($req, $res) use ($container) {
+        $g->get('[/]',              function ($req, $res) use ($container) {
             return $container->get(ProduccionController::class)->index($req, $res);
         });
         $g->get('/{id}',         function ($req, $res, $args) use ($container) {
             return $container->get(ProduccionController::class)->show($req, $res, $args);
         });
-        $g->post('',             function ($req, $res) use ($container) {
+        $g->post('[/]',             function ($req, $res) use ($container) {
             return $container->get(ProduccionController::class)->create($req, $res);
         });
         $g->put('/{id}',         function ($req, $res, $args) use ($container) {
