@@ -37,6 +37,7 @@ export interface AdminProduct {
   precio_costo?: number
   precio_venta: number
   precio_oferta?: number | null
+  precio_mayorista?: number | null
   stock_actual: number
   estado_stock?: 'ready' | 'custom' | string
   subcategoria?: string
@@ -1400,6 +1401,9 @@ export default function TiendaAdminPage() {
 
               const costo = sumPiezasCosto > 0 ? sumPiezasCosto : (p.precio_costo || 0)
               const venta = sumPiezasVenta > 0 ? sumPiezasVenta : (p.precio_venta || 0)
+              const mayorista = (p.precio_mayorista && Number(p.precio_mayorista) > 0)
+                ? Number(p.precio_mayorista)
+                : Math.round(venta * 0.8)
               const margenPct = costo > 0 ? Math.round(((venta - costo) / costo) * 100) : null
               const dimensionsStr = formatDimensions(p)
               const printTimeStr = formatPrintTime(p)
@@ -1442,6 +1446,9 @@ export default function TiendaAdminPage() {
                           <p className="font-black text-slate-900 text-sm">
                             Venta: {'$' + venta.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </p>
+                          <p className="text-xs font-black text-indigo-700">
+                            Mayorista (-20%): {'$' + mayorista.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </p>
                           <p className="text-xs font-bold text-slate-600">
                             Costo: {'$' + costo.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </p>
@@ -1468,6 +1475,9 @@ export default function TiendaAdminPage() {
                           {parsedPiezas.map((pz: any, idx: number) => {
                             const pzCosto = pz.precio_costo || 0
                             const pzVenta = pz.precio || 0
+                            const pzMayorista = (pz.precio_mayorista && Number(pz.precio_mayorista) > 0)
+                              ? Number(pz.precio_mayorista)
+                              : Math.round(pzVenta * 0.8)
                             const pzMargen = pzCosto > 0 ? Math.round(((pzVenta - pzCosto) / pzCosto) * 100) : null
                             return (
                               <div key={idx} className="flex items-center justify-between bg-white p-2 rounded-xl border border-indigo-100 shadow-2xs">
@@ -1488,7 +1498,7 @@ export default function TiendaAdminPage() {
                                   <p className="font-black text-indigo-900">${pzVenta.toLocaleString('es-AR')}</p>
                                   {reportType === 'completo' && (
                                     <p className="text-[10px] text-slate-500">
-                                      Costo: ${pzCosto.toLocaleString('es-AR')} {pzMargen !== null ? `(+${pzMargen}%)` : ''}
+                                      Mayorista: ${pzMayorista.toLocaleString('es-AR')} · Costo: ${pzCosto.toLocaleString('es-AR')} {pzMargen !== null ? `(+${pzMargen}%)` : ''}
                                     </p>
                                   )}
                                 </div>

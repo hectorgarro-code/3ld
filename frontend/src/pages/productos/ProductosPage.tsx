@@ -417,6 +417,7 @@ export default function ProductosPage() {
               <th className="p-2 border border-slate-300">Medidas</th>
               <th className="p-2 border border-slate-300 text-right">Costo ($)</th>
               <th className="p-2 border border-slate-300 text-right">Venta ($)</th>
+              <th className="p-2 border border-slate-300 text-right text-indigo-900">Mayorista (-20%) ($)</th>
               <th className="p-2 border border-slate-300 text-center">Stock</th>
             </tr>
           </thead>
@@ -434,6 +435,9 @@ export default function ProductosPage() {
 
               const costoVal = sumPiezasCosto > 0 ? sumPiezasCosto : Number(p.precio_costo || 0)
               const ventaVal = sumPiezasVenta > 0 ? sumPiezasVenta : Number(p.precio_venta || 0)
+              const mayoristaVal = (p.precio_mayorista && Number(p.precio_mayorista) > 0)
+                ? Number(p.precio_mayorista)
+                : Math.round(ventaVal * 0.8)
 
               const dimStr = (p.alto_mm || p.ancho_mm || p.profundidad_mm)
                 ? `${p.alto_mm || 0}x${p.ancho_mm || 0}x${p.profundidad_mm || 0} mm`
@@ -450,22 +454,30 @@ export default function ProductosPage() {
                     <td className="p-2 border border-slate-300">{dimStr}</td>
                     <td className="p-2 border border-slate-300 text-right">${costoVal.toLocaleString('es-AR')}</td>
                     <td className="p-2 border border-slate-300 text-right font-black">${ventaVal.toLocaleString('es-AR')}</td>
+                    <td className="p-2 border border-slate-300 text-right font-black text-indigo-700">${mayoristaVal.toLocaleString('es-AR')}</td>
                     <td className="p-2 border border-slate-300 text-center">{p.stock_actual}</td>
                   </tr>
                   {parsedPiezas.length > 0 && (
                     <tr className="bg-slate-50/90 border-b border-slate-300">
-                      <td colSpan={6} className="p-2 pl-6 border border-slate-300 text-[10px]">
+                      <td colSpan={7} className="p-2 pl-6 border border-slate-300 text-[10px]">
                         <p className="font-extrabold text-indigo-900 uppercase mb-1">Desglose de Componentes / Piezas:</p>
                         <div className="space-y-1">
-                          {parsedPiezas.map((pieza: any, idx: number) => (
-                            <div key={idx} className="flex items-center justify-between border-b border-slate-200/60 pb-0.5 last:border-0">
-                              <span>• <strong>{pieza.nombre}</strong> {pieza.medidas ? `[Medidas: ${pieza.medidas}]` : ''}</span>
-                              <div className="space-x-3 text-right">
-                                <span className="text-slate-500">Costo: ${Number(pieza.precio_costo || 0).toLocaleString('es-AR')}</span>
-                                <span className="font-bold text-indigo-950">Venta: ${Number(pieza.precio || 0).toLocaleString('es-AR')}</span>
+                          {parsedPiezas.map((pieza: any, idx: number) => {
+                            const pzVenta = Number(pieza.precio || 0)
+                            const pzMayorista = (pieza.precio_mayorista && Number(pieza.precio_mayorista) > 0)
+                              ? Number(pieza.precio_mayorista)
+                              : Math.round(pzVenta * 0.8)
+                            return (
+                              <div key={idx} className="flex items-center justify-between border-b border-slate-200/60 pb-0.5 last:border-0">
+                                <span>• <strong>{pieza.nombre}</strong> {pieza.medidas ? `[Medidas: ${pieza.medidas}]` : ''}</span>
+                                <div className="space-x-3 text-right">
+                                  <span className="text-slate-500">Costo: ${Number(pieza.precio_costo || 0).toLocaleString('es-AR')}</span>
+                                  <span className="font-bold text-slate-900">Venta: ${pzVenta.toLocaleString('es-AR')}</span>
+                                  <span className="font-bold text-indigo-800">Mayorista: ${pzMayorista.toLocaleString('es-AR')}</span>
+                                </div>
                               </div>
-                            </div>
-                          ))}
+                            )
+                          })}
                         </div>
                       </td>
                     </tr>

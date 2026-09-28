@@ -525,7 +525,7 @@ class PedidoRepository
         $binds = [];
 
         if (!empty($q)) {
-            $where  .= " AND (pi.nombre LIKE ? OR pr.nombre LIKE ? OR c.nombre LIKE ? OR p.numero_pedido LIKE ?)";
+            $where  .= " AND (pi.descripcion LIKE ? OR pr.nombre LIKE ? OR c.nombre LIKE ? OR p.numero_pedido LIKE ?)";
             $like    = "%{$q}%";
             $binds   = array_merge($binds, [$like, $like, $like, $like]);
         }
@@ -552,7 +552,7 @@ class PedidoRepository
         $stmtCount->execute($binds);
         $total = (int) $stmtCount->fetchColumn();
 
-        $sql = "SELECT pi.*, COALESCE(NULLIF(pi.nombre, ''), pr.nombre, 'Artículo sin nombre') AS producto_nombre,
+        $sql = "SELECT pi.*, COALESCE(NULLIF(pi.descripcion, ''), pr.nombre, 'Artículo sin nombre') AS producto_nombre,
                        pr.variante AS producto_variante,
                        p.numero_pedido, p.fecha_entrega_estimada, p.created_at AS pedido_fecha,
                        c.id AS cliente_id, c.nombre AS cliente_nombre, p.descuento_pct AS pedido_descuento_pct
