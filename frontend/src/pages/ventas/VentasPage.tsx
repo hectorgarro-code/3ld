@@ -10,13 +10,13 @@ import { PedidoCard } from '@/components/ventas/PedidoCard'
 import { MultiSelectFilter } from '@/components/ui/MultiSelectFilter'
 
 const ESTADOS: { value: PedidoEstado; label: string; color: string }[] = [
-  { value: 'presupuesto', label: 'Presupuesto', color: 'bg-accent/20 text-accent' },
-  { value: 'aprobado', label: 'Pedido', color: 'bg-brand-green/20 text-brand-green' },
-  { value: 'en_produccion', label: 'En proceso', color: 'bg-brand-purple/20 text-brand-purple' },
-  { value: 'terminado', label: 'Terminado', color: 'bg-secondary/20 text-secondary' },
-  { value: 'entregado', label: 'Entregado', color: 'bg-primary/20 text-primary' },
-  { value: 'cobrado', label: 'Cobrado', color: 'bg-green-500/20 text-green-400' },
-  { value: 'anulado', label: 'Anulado', color: 'bg-red-500/20 text-red-400' },
+  { value: 'presupuesto', label: 'Presupuesto', color: 'bg-slate-100 text-slate-700 border border-slate-200' },
+  { value: 'aprobado', label: 'Pedido', color: 'bg-sky-100 text-sky-800 border border-sky-200' },
+  { value: 'en_produccion', label: 'En proceso', color: 'bg-amber-100 text-amber-800 border border-amber-200' },
+  { value: 'terminado', label: 'Terminado', color: 'bg-teal-100 text-teal-800 border border-teal-200' },
+  { value: 'entregado', label: 'Entregado', color: 'bg-purple-100 text-purple-800 border border-purple-200' },
+  { value: 'cobrado', label: 'Cobrado', color: 'bg-emerald-100 text-emerald-800 border border-emerald-200' },
+  { value: 'anulado', label: 'Anulado', color: 'bg-rose-100 text-rose-800 border border-rose-200' },
 ]
 
 export default function VentasPage() {

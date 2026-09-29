@@ -31,13 +31,13 @@ const estadoLabels: Record<PedidoEstado, string> = {
 }
 
 const estadoColors: Record<PedidoEstado, string> = {
-  presupuesto: 'text-accent',
-  aprobado: 'text-brand-green',
-  en_produccion: 'text-brand-purple',
-  terminado: 'text-secondary',
-  entregado: 'text-primary',
-  cobrado: 'text-green-400',
-  anulado: 'text-red-400',
+  presupuesto: 'bg-slate-100 text-slate-700 border border-slate-200',
+  aprobado: 'bg-sky-100 text-sky-800 border border-sky-200',
+  en_produccion: 'bg-amber-100 text-amber-800 border border-amber-200',
+  terminado: 'bg-teal-100 text-teal-800 border border-teal-200',
+  entregado: 'bg-purple-100 text-purple-800 border border-purple-200',
+  cobrado: 'bg-emerald-100 text-emerald-800 border border-emerald-200',
+  anulado: 'bg-rose-100 text-rose-800 border border-rose-200',
 }
 
 export default function PedidoDetailPage() {

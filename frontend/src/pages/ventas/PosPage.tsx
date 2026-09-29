@@ -67,7 +67,7 @@ export default function PosPage() {
   // Order Details State
   const [clienteId, setClienteId] = useState<number | ''>('')
   const [descuentoPct, setDescuentoPct] = useState<number>(0)
-  const [estadoPedido, setEstadoPedido] = useState<PedidoEstado>('cobrado')
+  const [estadoPedido, setEstadoPedido] = useState<PedidoEstado>('aprobado')
   const [notasGenerales, setNotasGenerales] = useState<string>('')
 
   // Shipping (Correo Argentino) State
@@ -501,6 +501,7 @@ export default function PosPage() {
       setNotasGenerales('')
       setDescuentoPct(0)
       setIncludeShipping(false)
+      setEstadoPedido('aprobado')
     } catch (e: any) {
       toast(e?.response?.data?.message || 'Error al procesar la venta', 'error')
     }
