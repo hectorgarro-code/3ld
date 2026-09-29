@@ -43,9 +43,10 @@ export function EntregasPanel({ alertas }: Props) {
 
           return (
             <Link 
-              to={`/ventas/${e.id}`}
+              to={`/pedidos/${e.id}`}
               key={e.id} 
-              className={`flex items-center justify-between rounded-xl px-4 py-3 transition-colors ${bg}`}
+              title="Ver detalle del pedido"
+              className={`flex items-center justify-between rounded-xl px-4 py-3 transition-all cursor-pointer hover:scale-[1.01] ${bg}`}
             >
               <div>
                 <p className="text-sm font-black text-slate-800">{e.numero_pedido}</p>
