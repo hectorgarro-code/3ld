@@ -4,7 +4,7 @@ import { useCambiarEstadoItem, useAnularPedido } from '@/hooks/usePedidos'
 import { toast } from '@/store/toastStore'
 import { formatARS } from '@/lib/cost-calculator'
 import { formatDate, cn } from '@/lib/utils'
-import { ArrowUpDown, Pencil, Ban, ExternalLink, AlertTriangle } from 'lucide-react'
+import { ArrowUpDown, Pencil, Ban, Trash2, ExternalLink, AlertTriangle } from 'lucide-react'
 import { EditItemModal } from './EditItemModal'
 import type { PedidoItemFlattened, PedidoEstado } from '@/types'
 
@@ -213,16 +213,14 @@ export function ProductoTableView({ items }: { items: PedidoItemFlattened[] }) {
                     <Pencil className="h-4 w-4" />
                   </button>
 
-                  {item.estado !== 'anulado' && (
-                    <button
-                      type="button"
-                      title="Anular Pedido"
-                      onClick={() => setPedidoToAnular({ id: item.pedido_id, numero: item.numero_pedido })}
-                      className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-500 transition-colors"
-                    >
-                      <Ban className="h-4 w-4" />
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    title="Eliminar Pedido"
+                    onClick={() => setPedidoToAnular({ id: item.pedido_id, numero: item.numero_pedido })}
+                    className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-500 transition-colors"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
 
                   <button
                     type="button"
@@ -263,13 +261,13 @@ export function ProductoTableView({ items }: { items: PedidoItemFlattened[] }) {
                 <AlertTriangle className="h-6 w-6" />
               </div>
               <div>
-                <h3 className="text-base font-bold text-slate-800">¿Anular Pedido?</h3>
+                <h3 className="text-base font-bold text-slate-800">¿Eliminar Pedido?</h3>
                 <p className="text-xs text-slate-500 font-semibold">{pedidoToAnular.numero}</p>
               </div>
             </div>
 
             <p className="text-xs text-slate-600 leading-relaxed">
-              Esta acción marcará el pedido y sus artículos como anulados. Si el stock había sido descontado, será restaurado automáticamente.
+              El pedido será eliminado permanentemente del sistema para liberar espacio en la lista.
             </p>
 
             <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
@@ -287,7 +285,7 @@ export function ProductoTableView({ items }: { items: PedidoItemFlattened[] }) {
                 disabled={anularPedido.isPending}
                 className="rounded-xl bg-red-600 px-4 py-2 text-xs font-bold text-white shadow-md shadow-red-500/20 hover:bg-red-700 active:scale-95 transition-all disabled:opacity-50"
               >
-                {anularPedido.isPending ? 'Anulando...' : 'Confirmar Anulación'}
+                {anularPedido.isPending ? 'Eliminando...' : 'Eliminar Pedido'}
               </button>
             </div>
           </div>

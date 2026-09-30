@@ -775,8 +775,9 @@ export default function PosPage() {
           </div>
         </div>
 
-        {/* Selected Items Ticket List */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-2 divide-y divide-slate-100">
+        {/* Selected Items Ticket List & Footer (Scrollable container) */}
+        <div className="flex-1 overflow-y-auto min-h-0 flex flex-col">
+          <div className="p-4 space-y-2 divide-y divide-slate-100 flex-1">
           {cart.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-48 text-slate-400">
               <ShoppingBag className="h-10 w-10 mb-2 stroke-1 text-slate-300" />
@@ -843,10 +844,10 @@ export default function PosPage() {
               </div>
             ))
           )}
-        </div>
+          </div>
 
-        {/* Footer Summary & Payment */}
-        <div className="p-4 border-t border-slate-200 bg-slate-50/80 space-y-3">
+          {/* Footer Summary & Payment */}
+          <div className="p-4 border-t border-slate-200 bg-slate-50/80 space-y-3 shrink-0">
           {/* Options: Discount & Status */}
           <div className="grid grid-cols-2 gap-2 text-xs">
             <div>
@@ -1127,6 +1128,7 @@ export default function PosPage() {
           </button>
         </div>
       </div>
+    </div>
 
       {/* MOBILE FLOATING TICKET BAR (Catalog view) */}
       {mobileView === 'catalog' && cart.length > 0 && (

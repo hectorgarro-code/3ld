@@ -352,7 +352,18 @@ class PedidoRepository
 
     public function delete(int $id, ?int $usuarioId = null): void
     {
-        $this->cambiarEstado($id, 'anulado', 'Pedido anulado por usuario', $usuarioId);
+        $this->db->beginTransaction();
+        try {
+            $this->db->prepare("DELETE FROM pedido_items WHERE pedido_id = ?")->execute([$id]);
+            try {
+                $this->db->prepare("DELETE FROM pedido_historial WHERE pedido_id = ?")->execute([$id]);
+            } catch (Throwable $e) {}
+            $this->db->prepare("DELETE FROM pedidos WHERE id = ?")->execute([$id]);
+            $this->db->commit();
+        } catch (Throwable $e) {
+            $this->db->rollBack();
+            throw $e;
+        }
     }
 
     public function updateItem(int $itemId, array $body, ?int $usuarioId = null): array

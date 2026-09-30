@@ -299,28 +299,36 @@ class MercadoPagoController
                 $origin = 'https://' . $_SERVER['HTTP_HOST'];
             }
 
+            $cleanPhone = preg_replace('/\D/', '', $telComprador);
+            $payerEmail = filter_var($emailComprador, FILTER_VALIDATE_EMAIL) ? $emailComprador : 'comprador_test@3ld.com.ar';
+
+            $payerData = [
+                'name'  => !empty($nombreComprador) ? $nombreComprador : 'Cliente Tienda',
+                'email' => $payerEmail,
+            ];
+            if (!empty($cleanPhone)) {
+                $payerData['phone'] = ['number' => $cleanPhone];
+            }
+            if (!empty($dirComprador)) {
+                $payerData['address'] = ['street_name' => $dirComprador];
+            }
+
             $preferenceData = [
                 'items'               => $mpItems,
-                'payer'               => [
-                    'name'    => $nombreComprador,
-                    'email'   => !empty($emailComprador) ? $emailComprador : 'ventas@3ld.com.ar',
-                    'phone'   => [
-                        'number' => preg_replace('/\D/', '', $telComprador),
-                    ],
-                    'address' => [
-                        'street_name' => !empty($dirComprador) ? $dirComprador : 'Argentina',
-                    ],
-                ],
+                'payer'               => $payerData,
                 'back_urls'           => [
                     'success' => "{$origin}/tienda?mp_status=approved&pedido={$numeroPedido}",
                     'pending' => "{$origin}/tienda?mp_status=pending&pedido={$numeroPedido}",
                     'failure' => "{$origin}/tienda?mp_status=failure&pedido={$numeroPedido}",
                 ],
-                'auto_return'         => 'approved',
                 'external_reference'  => (string)$pedidoId,
                 'statement_descriptor'=> '3LD IMPRESION 3D',
                 'notification_url'    => "https://3ld.com.ar/api/v1/mercadopago/webhook",
             ];
+
+            if (empty($cfg['sandbox'])) {
+                $preferenceData['auto_return'] = 'approved';
+            }
 
             // 4. Llamar a la API de Mercado Pago
             $ch = curl_init('https://api.mercadopago.com/checkout/preferences');

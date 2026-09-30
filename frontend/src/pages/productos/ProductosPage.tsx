@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react'
 import { useProductos, useCategorias, useDeleteProducto, useUpdateProducto } from '@/hooks/useProductos'
 import { formatARS } from '@/lib/cost-calculator'
 import { cn, resolveImageUrl } from '@/lib/utils'
-import { Search, AlertTriangle, Package, Plus, Minus, Pencil, Copy, Trash2, Loader2, Bot, Sparkles, Tags, Download, ExternalLink, ChevronLeft, ChevronRight, Images, Printer } from 'lucide-react'
+import { Search, AlertTriangle, Package, Plus, Minus, Pencil, Copy, Trash2, Loader2, Bot, Sparkles, Tags, Download, ExternalLink, ChevronLeft, ChevronRight, Images, Printer, Share2 } from 'lucide-react'
 import type { Producto, ProductoTipo } from '@/types'
 import { ProductoFormModal } from '@/components/productos/ProductoFormModal'
 import { MakerWorldImportModal } from '@/components/productos/MakerWorldImportModal'
 import { CategoriasModal } from '@/components/productos/CategoriasModal'
+import { SocialShareModal } from '@/components/productos/SocialShareModal'
 import { toast } from '@/store/toastStore'
 
 const tipoConfig: Record<string, { label: string; color: string; emoji: string }> = {
@@ -31,12 +32,14 @@ function ProductoCard({
   producto, 
   onEdit, 
   onDuplicate, 
-  onDelete 
+  onDelete,
+  onShare
 }: { 
   producto: Producto, 
   onEdit: (p: Producto) => void,
   onDuplicate: (p: Producto) => void,
-  onDelete: (p: Producto) => void
+  onDelete: (p: Producto) => void,
+  onShare: (p: Producto) => void
 }) {
   const cfg = tipoConfig[producto.tipo] || { label: producto.tipo, color: 'bg-gray-500/20 text-slate-500', emoji: '📦' }
   const isBajStock = Number(producto.stock_actual) <= Number(producto.stock_minimo)
@@ -69,6 +72,13 @@ function ProductoCard({
     <div className="group relative rounded-2xl border border-slate-100 bg-white card-shadow p-4 transition-all hover:border-primary/30">
       {/* Action Buttons (visible on hover) */}
       <div className="absolute right-2 top-2 z-10 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+        <button
+          onClick={() => onShare(producto)}
+          className="rounded-lg bg-cyan-500/90 text-white p-1.5 hover:bg-cyan-600 transition-colors shadow-xs"
+          title="Compartir en Facebook Marketplace / Instagram Stories"
+        >
+          <Share2 className="h-4 w-4" />
+        </button>
         {producto.archivo_url && (
           <a
             href={producto.archivo_url}
@@ -221,6 +231,7 @@ export default function ProductosPage() {
   const [isMakerWorldModalOpen, setIsMakerWorldModalOpen] = useState(false)
   const [isCategoriasModalOpen, setIsCategoriasModalOpen] = useState(false)
   const [selectedProducto, setSelectedProducto] = useState<Producto | null>(null)
+  const [shareProducto, setShareProducto] = useState<Producto | null>(null)
   const [isDuplicate, setIsDuplicate] = useState(false)
 
   useEffect(() => {
@@ -255,6 +266,10 @@ export default function ProductosPage() {
     setSelectedProducto(p)
     setIsDuplicate(true)
     setIsModalOpen(true)
+  }
+
+  const handleShare = (p: Producto) => {
+    setShareProducto(p)
   }
 
   const handleDelete = async (p: Producto) => {
@@ -347,6 +362,7 @@ export default function ProductosPage() {
               onEdit={handleEdit}
               onDuplicate={handleDuplicate}
               onDelete={handleDelete}
+              onShare={handleShare}
             />
           ))}
         </div>
@@ -374,6 +390,12 @@ export default function ProductosPage() {
       <CategoriasModal
         isOpen={isCategoriasModalOpen}
         onClose={() => setIsCategoriasModalOpen(false)}
+      />
+
+      <SocialShareModal
+        isOpen={!!shareProducto}
+        onClose={() => setShareProducto(null)}
+        product={shareProducto}
       />
 
       {/* Estilos para impresión del Informe de Productos */}

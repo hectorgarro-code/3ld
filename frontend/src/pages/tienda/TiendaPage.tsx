@@ -33,6 +33,7 @@ import { useCartStore, type CartItem } from '@/store/cartStore';
 import api from '@/lib/api';
 import { optimizeImagesForPrint } from '@/lib/imageOptimization';
 import { calcularTarifaCorreoArgentino } from '@/lib/correoArgentino';
+import { SocialShareModal } from '@/components/productos/SocialShareModal';
 
 export type { CartItem };
 
@@ -284,6 +285,7 @@ export default function TiendaPage() {
   // Modals & Notifications
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [activeProductModal, setActiveProductModal] = useState<StoreProduct | null>(null);
+  const [socialShareProduct, setSocialShareProduct] = useState<StoreProduct | null>(null);
   const [modalActiveImage, setModalActiveImage] = useState<string | null>(null);
   const [isQuoteModalOpen, setIsQuoteModalOpen] = useState(false);
   const [isMobileCatMenuOpen, setIsMobileCatMenuOpen] = useState(false);
@@ -544,18 +546,7 @@ export default function TiendaPage() {
 
   const handleShareProduct = (e: React.MouseEvent | null, product: StoreProduct) => {
     if (e) e.stopPropagation();
-    const url = new URL(window.location.href);
-    url.searchParams.set('producto', String(product.id));
-    url.searchParams.set('categoria', product.category);
-    const shareUrl = url.toString();
-    const shareTitle = `${product.title} - 3LD Impresión 3D`;
-
-    if (navigator.share) {
-      navigator.share({ title: shareTitle, text: product.description, url: shareUrl }).catch(() => {});
-    } else {
-      navigator.clipboard.writeText(shareUrl);
-      showToast(`¡Enlace de "${product.title}" copiado al portapapeles!`, 'success');
-    }
+    setSocialShareProduct(product);
   };
 
   const [isPreparingCatalog, setIsPreparingCatalog] = useState(false);
@@ -2685,6 +2676,12 @@ export default function TiendaPage() {
           <p>Pedidos y cotizaciones vía WhatsApp (+54 9 2257 55-9540)</p>
         </div>
       </div>
+
+      <SocialShareModal
+        isOpen={!!socialShareProduct}
+        onClose={() => setSocialShareProduct(null)}
+        product={socialShareProduct}
+      />
     </div>
   );
 }
