@@ -223,6 +223,42 @@ class Database
         } catch (\Throwable $e) {
             // Se ignora si ya existe
         }
+        try {
+            $db->exec("CREATE TABLE IF NOT EXISTS tienda_visitas (
+                id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                session_id VARCHAR(64) NOT NULL UNIQUE,
+                ip_hash VARCHAR(64) NULL,
+                user_agent VARCHAR(500) NULL,
+                device_type VARCHAR(20) DEFAULT 'desktop',
+                browser VARCHAR(50) NULL,
+                os VARCHAR(50) NULL,
+                referer VARCHAR(500) NULL,
+                landing_page VARCHAR(500) NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                INDEX idx_visitas_created (created_at),
+                INDEX idx_visitas_session (session_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        } catch (\Throwable $e) {
+            // Se ignora si ya existe
+        }
+        try {
+            $db->exec("CREATE TABLE IF NOT EXISTS tienda_visitas_eventos (
+                id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                session_id VARCHAR(64) NOT NULL,
+                tipo VARCHAR(50) NOT NULL,
+                producto_id VARCHAR(50) NULL,
+                producto_nombre VARCHAR(255) NULL,
+                metadata JSON NULL,
+                url VARCHAR(500) NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_eventos_tipo (tipo, created_at),
+                INDEX idx_eventos_session (session_id),
+                INDEX idx_eventos_producto (producto_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        } catch (\Throwable $e) {
+            // Se ignora si ya existe
+        }
     }
 
     /**

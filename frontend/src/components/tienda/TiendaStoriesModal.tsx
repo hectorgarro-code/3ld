@@ -16,6 +16,7 @@ import {
   ArrowRight
 } from 'lucide-react';
 import type { StoreProduct } from '@/pages/tienda/TiendaPage';
+import { trackViewStory, trackWhatsAppClick, trackEvent } from '@/lib/analyticsTracker';
 
 interface TiendaStoriesModalProps {
   isOpen: boolean;
@@ -93,6 +94,13 @@ export function TiendaStoriesModal({
   const currentProduct = shuffledProducts[currentIndex];
   const isFavorite = currentProduct ? favorites.includes(currentProduct.id) : false;
 
+  // Registrar analítica de historia vista
+  useEffect(() => {
+    if (isOpen && currentProduct) {
+      trackViewStory(currentProduct);
+    }
+  }, [isOpen, currentProduct?.id]);
+
   const nextStory = useCallback(() => {
     if (currentIndex < shuffledProducts.length - 1) {
       setCurrentIndex((prev) => prev + 1);
@@ -141,6 +149,11 @@ export function TiendaStoriesModal({
   const handleScreenDoubleTap = () => {
     if (!currentProduct) return;
     onToggleFavorite(currentProduct.id);
+    trackEvent({
+      tipo: 'like_producto',
+      producto_id: currentProduct.id,
+      producto_nombre: currentProduct.title,
+    });
     setShowHeartBurst(true);
     if (navigator.vibrate) {
       navigator.vibrate(60);
@@ -223,6 +236,7 @@ export function TiendaStoriesModal({
 
   const handleWhatsAppConsult = () => {
     if (!currentProduct) return;
+    trackWhatsAppClick('historia', currentProduct);
     const phone = '5492257559540';
     const text = `¡Hola 3LD! 👋 Vi esta historia en la tienda y me interesa saber más:\n\n*${currentProduct.title}*\nPrecio: $${currentProduct.price.toLocaleString('es-AR')}\nEnlace: ${window.location.origin}/tienda?producto=${currentProduct.id}`;
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(text)}`, '_blank');

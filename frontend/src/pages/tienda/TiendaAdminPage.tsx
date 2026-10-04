@@ -23,6 +23,7 @@ import {
   ArrowDown,
   Printer,
   ChevronDown,
+  Activity,
 } from 'lucide-react'
 import api from '@/lib/api'
 import { ProductoFormModal } from '@/components/productos/ProductoFormModal'
@@ -479,6 +480,13 @@ export default function TiendaAdminPage() {
               </div>
             )}
           </div>
+          <Link
+            to="/visitas"
+            className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-extrabold rounded-xl shadow-md transition"
+          >
+            <Activity className="h-4 w-4" />
+            <span>Métricas & Visitas</span>
+          </Link>
           <Link
             to="/tienda-builder"
             className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-cyan-600 to-cyan-500 hover:from-cyan-500 hover:to-cyan-400 text-white text-xs font-extrabold rounded-xl shadow-md transition"

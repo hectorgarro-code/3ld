@@ -35,6 +35,13 @@ import { optimizeImagesForPrint } from '@/lib/imageOptimization';
 import { calcularTarifaCorreoArgentino } from '@/lib/correoArgentino';
 import { SocialShareModal } from '@/components/productos/SocialShareModal';
 import { TiendaStoriesModal } from '@/components/tienda/TiendaStoriesModal';
+import {
+  trackPageView,
+  trackViewProduct,
+  trackAddToCart,
+  trackWhatsAppClick,
+  trackQuoteClick,
+} from '@/lib/analyticsTracker';
 
 export type { CartItem };
 
@@ -344,6 +351,7 @@ export default function TiendaPage() {
   const openProductModal = (product: StoreProduct) => {
     setActiveProductModal(product);
     setModalActiveImage(product.image);
+    trackViewProduct(product);
 
     const currentUrl = new URL(window.location.href);
     if (currentUrl.searchParams.get('producto') !== String(product.id)) {
@@ -546,6 +554,11 @@ export default function TiendaPage() {
     }
   }, [products]);
 
+  // Registrar PageView al montar la página sin bloquear
+  useEffect(() => {
+    trackPageView();
+  }, []);
+
   // Escuchar el botón "Atrás" del celular / navegador para cerrar el modal y volver a la tienda
   useEffect(() => {
     const handlePopState = () => {
@@ -742,6 +755,7 @@ export default function TiendaPage() {
 
   const addToCart = (product: StoreProduct, qty = 1, color = 'Negro Mate') => {
     storeAddToCart(product, qty, color);
+    trackAddToCart(product, qty);
     showToast(`¡"${product.title}" agregado al carrito!`, 'success');
   };
 
@@ -1070,7 +1084,10 @@ export default function TiendaPage() {
               </button>
 
               <button
-                onClick={() => setIsQuoteModalOpen(true)}
+                onClick={() => {
+                  trackQuoteClick();
+                  setIsQuoteModalOpen(true);
+                }}
                 className="hidden sm:flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold bg-[#EFEBFC] text-[#6B66C8] border border-[#D5D0F7] rounded-full hover:bg-[#E2DCFA] transition active:scale-95"
               >
                 <Layers className="w-4 h-4 text-[#6B66C8]" />
@@ -2655,6 +2672,7 @@ export default function TiendaPage() {
             href={getAdvisorWhatsAppUrl()}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={() => trackWhatsAppClick('asesor_flotante', activeProductModal || undefined)}
             aria-label="Contactar a un asesor por WhatsApp"
             className="relative flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] hover:bg-[#20ba5a] text-white shadow-lg shadow-emerald-600/30 hover:shadow-xl hover:shadow-emerald-600/50 transition-all duration-300 hover:scale-110 active:scale-95 border-2 border-white/40"
           >

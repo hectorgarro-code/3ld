@@ -27,6 +27,7 @@ use App\Controllers\ProduccionController;
 use App\Controllers\ProveedoresController;
 use App\Controllers\ComprasController;
 use App\Controllers\TiendaController;
+use App\Controllers\AnalyticsController;
 use App\Controllers\AiController;
 use App\Controllers\MediaController;
 use App\Controllers\MercadoPagoController;
@@ -34,6 +35,7 @@ use App\Services\OpenAiService;
 use App\Services\MakerWorldScraper;
 use App\Helpers\UploadHelper;
 use App\Repositories\TiendaRepository;
+use App\Repositories\AnalyticsRepository;
 use App\Middleware\AuthMiddleware;
 use App\Middleware\CorsMiddleware;
 use Slim\Factory\AppFactory;
@@ -87,6 +89,12 @@ $containerBuilder->addDefinitions([
     },
     TiendaController::class => function ($c) {
         return new TiendaController($c->get(TiendaRepository::class));
+    },
+    AnalyticsRepository::class => function ($c) {
+        return new AnalyticsRepository($c->get(PDO::class));
+    },
+    AnalyticsController::class => function ($c) {
+        return new AnalyticsController($c->get(AnalyticsRepository::class));
     },
     MercadoPagoController::class => function ($c) {
         return new MercadoPagoController($c->get(PDO::class));
@@ -586,9 +594,22 @@ $app->group('/api/v1', function (RouteCollectorProxy $api) use ($config, $auth, 
             return $container->get(MediaController::class)->delete($req, $res);
         });
     })->add($auth);
+
+    // Analytics Admin
+    $api->group('/analytics', function (RouteCollectorProxy $g) use ($container) {
+        $g->get('/stats', function ($req, $res) use ($container) {
+            return $container->get(AnalyticsController::class)->getStats($req, $res);
+        });
+    })->add($auth);
 });
 
 // Tienda Pública (sin autenticación requerida)
+$app->post('/api/v1/analytics/track', function ($req, $res) use ($container) {
+    return $container->get(AnalyticsController::class)->track($req, $res);
+});
+$app->post('/api/analytics/track', function ($req, $res) use ($container) {
+    return $container->get(AnalyticsController::class)->track($req, $res);
+});
 $app->get('/api/v1/tienda/productos', function ($req, $res) use ($container) {
     return $container->get(TiendaController::class)->getProductos($req, $res);
 });

@@ -69,6 +69,7 @@ const TiendaPage = lazy(() => import('@/pages/tienda/TiendaPage'))
 const TiendaAdminPage = lazy(() => import('@/pages/tienda/TiendaAdminPage'))
 const TiendaBuilderPage = lazy(() => import('@/pages/tienda/TiendaBuilderPage'))
 const MediaPage = lazy(() => import('@/pages/media/MediaPage'))
+const VisitasPage = lazy(() => import('@/pages/analytics/VisitasPage'))
 const ConfiguracionPage = lazy(() => import('@/pages/configuracion/ConfiguracionPage'))
 
 function RootEntryPage() {
@@ -277,6 +278,22 @@ export const router = createBrowserRouter([
         element: (
           <Suspense fallback={<PageLoader />}>
             <MediaPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'visitas',
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            <VisitasPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'analytics',
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            <VisitasPage />
           </Suspense>
         ),
       },
