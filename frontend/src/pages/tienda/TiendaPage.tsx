@@ -428,6 +428,49 @@ export default function TiendaPage() {
     }
   };
 
+  const handleDownloadReceiptTxt = (order: any) => {
+    if (!order) return;
+    const border = '='.repeat(48);
+    const dash = '-'.repeat(48);
+    let content = `${border}\r\n            3LD IMPRESIÓN 3D\r\n     COMPROBANTE DE PEDIDO & PAGO\r\n${border}\r\n\r\n`;
+    content += `Orden de Pedido: #${order.numero || order.numero_pedido}\r\n`;
+    content += `Fecha: ${order.fecha ? new Date(order.fecha).toLocaleString('es-AR') : new Date().toLocaleString('es-AR')}\r\n`;
+    content += `Estado de Pago: ACREDITADO (Mercado Pago)\r\n\r\n`;
+    content += `DATOS DEL CLIENTE:\r\n`;
+    content += `• Nombre: ${order.cliente?.nombre || 'Consumidor Final'}\r\n`;
+    if (order.cliente?.telefono) content += `• Teléfono: ${order.cliente.telefono}\r\n`;
+    if (order.cliente?.email) content += `• Email: ${order.cliente.email}\r\n`;
+    if (order.cliente?.direccion) content += `• Dirección: ${order.cliente.direccion}\r\n`;
+    content += `\r\nFORMA DE ENTREGA:\r\n`;
+    content += `• Tipo: ${order.entrega_tipo || 'Retiro en Taller'}\r\n`;
+    if (order.entrega_direccion) content += `• Destino: ${order.entrega_direccion}\r\n`;
+    content += `\r\n${dash}\r\nDETALLE DE PRODUCTOS:\r\n${dash}\r\n`;
+    order.items?.forEach((it: any) => {
+      content += `x${it.cantidad || 1} ${it.descripcion}\r\n`;
+      content += `   Unit: $${Number(it.precio_unit || 0).toLocaleString('es-AR')} | Subtotal: $${Number(it.subtotal || 0).toLocaleString('es-AR')}\r\n`;
+    });
+    content += `\r\n${dash}\r\n`;
+    content += `Subtotal: $${Number(order.subtotal || 0).toLocaleString('es-AR')}\r\n`;
+    content += `Envío: ${Number(order.costo_envio || 0) === 0 ? 'GRATIS' : '$' + Number(order.costo_envio).toLocaleString('es-AR')}\r\n`;
+    content += `TOTAL ABONADO: $${Number(order.total || 0).toLocaleString('es-AR')}\r\n`;
+    content += `${border}\r\n\r\n`;
+    content += `Taller 3LD: Salta 3169, San Bernardo del Tuyú\r\n`;
+    content += `WhatsApp: +54 9 2257 55-9540\r\n`;
+    content += `Web: https://3ld.com.ar\r\n`;
+    content += `¡Muchas gracias por tu compra!\r\n`;
+
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Comprobante-3LD-${order.numero || order.numero_pedido || 'Pedido'}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast('¡Comprobante guardado en tus descargas!', 'success');
+  };
+
   useEffect(() => {
     api.get('/tienda/mercadopago/status')
       .then((res) => {
@@ -445,6 +488,9 @@ export default function TiendaPage() {
     if (mpStatus === 'approved') {
       setPaymentSuccessModal(pedidoNum || 'OK');
       clearCart();
+      if (pedidoNum && pedidoNum !== 'OK') {
+        handleOpenReceipt(pedidoNum);
+      }
       const cleanUrl = window.location.pathname;
       window.history.replaceState({}, '', cleanUrl);
     } else if (mpStatus === 'failure') {
@@ -2357,18 +2403,32 @@ export default function TiendaPage() {
             </p>
 
             <div className="mt-5 space-y-2">
+              <button
+                onClick={() => {
+                  if (receiptOrder) {
+                    handleDownloadReceiptTxt(receiptOrder);
+                  } else if (paymentSuccessModal && paymentSuccessModal !== 'OK') {
+                    handleOpenReceipt(paymentSuccessModal);
+                  }
+                }}
+                className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs rounded-xl shadow-md flex items-center justify-center gap-2 transition cursor-pointer"
+              >
+                <Download className="w-4 h-4" />
+                <span>Descargar Comprobante al Celular</span>
+              </button>
+
               {paymentSuccessModal && paymentSuccessModal !== 'OK' && (
                 <button
                   onClick={() => handleOpenReceipt(paymentSuccessModal)}
                   disabled={isLoadingReceipt}
-                  className="w-full py-3 bg-cyan-600 hover:bg-cyan-500 text-white font-extrabold text-xs rounded-xl shadow-md flex items-center justify-center gap-2 transition cursor-pointer"
+                  className="w-full py-2.5 bg-cyan-600 hover:bg-cyan-500 text-white font-extrabold text-xs rounded-xl shadow-md flex items-center justify-center gap-2 transition cursor-pointer"
                 >
                   {isLoadingReceipt ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
                   ) : (
                     <Printer className="w-4 h-4" />
                   )}
-                  <span>Ver Comprobante / Ticket PDF</span>
+                  <span>Ver / Imprimir Ticket Completo</span>
                 </button>
               )}
 
@@ -2408,6 +2468,14 @@ export default function TiendaPage() {
                 </div>
               </div>
               <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleDownloadReceiptTxt(receiptOrder)}
+                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-xs active:scale-95"
+                  title="Descargar comprobante en tu dispositivo"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Descargar</span>
+                </button>
                 <button
                   onClick={() => window.print()}
                   className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-xs"

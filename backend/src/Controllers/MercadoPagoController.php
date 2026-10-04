@@ -203,7 +203,22 @@ class MercadoPagoController
                 $clienteId = $stmtC->fetchColumn() ?: null;
             }
 
-            if (!$clienteId) {
+            if ($clienteId) {
+                $stmtUpdC = $this->db->prepare(
+                    "UPDATE clientes SET
+                        nombre = IF(nombre = '' OR nombre = 'Cliente Tienda Online', ?, nombre),
+                        telefono = IF(telefono IS NULL OR telefono = '', ?, telefono),
+                        direccion = IF(direccion IS NULL OR direccion = '', ?, direccion),
+                        updated_at = NOW()
+                     WHERE id = ?"
+                );
+                $stmtUpdC->execute([
+                    $nombreComprador,
+                    !empty($telComprador) ? $telComprador : null,
+                    !empty($dirComprador) ? $dirComprador : null,
+                    $clienteId,
+                ]);
+            } else {
                 $stmtNew = $this->db->prepare(
                     "INSERT INTO clientes (nombre, email, telefono, direccion, tipo_cliente, notas, activo, created_at, updated_at)
                      VALUES (?, ?, ?, ?, 'minorista', 'Registrado desde Checkout Tienda Web', 1, NOW(), NOW())"
@@ -418,7 +433,39 @@ class MercadoPagoController
             $stmtItems->execute([$pedido['id']]);
             $items = $stmtItems->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
-            $pedido['items'] = $items;
+            $costoEnvio = 0.0;
+            $itemsFiltered = [];
+            $entregaTipo = 'Retiro en Taller (Salta 3169, San Bernardo)';
+            $entregaDireccion = 'Salta 3169, San Bernardo del Tuyú';
+
+            foreach ($items as $it) {
+                if (str_starts_with($it['descripcion'] ?? '', 'Costo de Envío:')) {
+                    $costoEnvio = (float)$it['subtotal'];
+                    $entregaTipo = str_replace('Costo de Envío: ', '', $it['descripcion']);
+                    $entregaDireccion = str_replace('Destino: ', '', $it['notas'] ?? '');
+                } else {
+                    $itemsFiltered[] = $it;
+                }
+            }
+
+            if (empty($entregaDireccion) && !empty($pedido['notas'])) {
+                if (preg_match('/Envío:\s*([^\n\r]+)/i', $pedido['notas'], $m)) {
+                    $entregaTipo = trim($m[1]);
+                }
+            }
+
+            $pedido['numero'] = $pedido['numero_pedido'];
+            $pedido['fecha'] = $pedido['created_at'];
+            $pedido['costo_envio'] = $costoEnvio;
+            $pedido['entrega_tipo'] = $entregaTipo;
+            $pedido['entrega_direccion'] = $entregaDireccion;
+            $pedido['items'] = $itemsFiltered;
+            $pedido['cliente'] = [
+                'nombre'    => $pedido['cliente_nombre'] ?: 'Consumidor Final',
+                'email'     => $pedido['cliente_email'] ?: '',
+                'telefono'  => $pedido['cliente_telefono'] ?: '',
+                'direccion' => $pedido['cliente_direccion'] ?: '',
+            ];
 
             return Response::success($pedido);
         } catch (Throwable $e) {
@@ -564,6 +611,31 @@ class MercadoPagoController
                                     );
                                     $stmtH->execute([$pedidoId, $nuevoEstado, "Pago confirmado automáticamente por Mercado Pago (ID {$paymentId})"]);
                                 } catch (\Throwable $e) {}
+
+                                // Enviar email de confirmación de pago aprobado
+                                if ($status === 'approved') {
+                                    try {
+                                        $stmtPedData = $this->db->prepare(
+                                            "SELECT p.numero_pedido, p.total, c.email, c.nombre, c.telefono
+                                             FROM pedidos p
+                                             LEFT JOIN clientes c ON c.id = p.cliente_id
+                                             WHERE p.id = ?"
+                                        );
+                                        $stmtPedData->execute([$pedidoId]);
+                                        $pData = $stmtPedData->fetch(PDO::FETCH_ASSOC);
+
+                                        if ($pData && !empty($pData['email'])) {
+                                            $this->enviarEmailConfirmacion([
+                                                'email'            => $pData['email'],
+                                                'nombre'           => $pData['nombre'] ?? 'Cliente',
+                                                'numero_pedido'    => $pData['numero_pedido'],
+                                                'total'            => (float)$pData['total'],
+                                                'estado_pago'      => 'Acreditado',
+                                                'items'            => [],
+                                            ]);
+                                        }
+                                    } catch (\Throwable $e) {}
+                                }
                             }
                         }
                     }
