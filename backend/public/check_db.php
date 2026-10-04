@@ -171,6 +171,20 @@ try {
                     'details' => 'La columna existe correctamente.'
                 ];
             }
+            if (!in_array('archivo_url', $columns)) {
+                $diagnostics[] = [
+                    'component' => 'Columna `pedido_items.archivo_url`',
+                    'status' => 'ERROR',
+                    'details' => 'Falta la columna para registrar la URL del archivo/STL del ítem.',
+                    'fix_sql' => "ALTER TABLE pedido_items ADD COLUMN archivo_url VARCHAR(500) NULL AFTER notas;"
+                ];
+            } else {
+                $diagnostics[] = [
+                    'component' => 'Columna `pedido_items.archivo_url`',
+                    'status' => 'OK',
+                    'details' => 'La columna existe correctamente.'
+                ];
+            }
         }
 
         // D. Verificar Tabla: filamentos y columnas

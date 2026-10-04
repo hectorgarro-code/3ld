@@ -5,7 +5,7 @@ import { useClientes } from '@/hooks/useClientes'
 import { toast } from '@/store/toastStore'
 import { formatARS } from '@/lib/cost-calculator'
 import { calcularPrecioProductoCliente } from '@/lib/pricing'
-import { X, Plus, Loader2 } from 'lucide-react'
+import { X, Plus, Loader2, ExternalLink } from 'lucide-react'
 
 interface AddItemModalProps {
   pedidoId: number
@@ -24,6 +24,7 @@ export function AddItemModal({ pedidoId, clienteId, onClose, onSuccess }: AddIte
   const [productoId, setProductoId] = useState<number | undefined>(undefined)
   const [descripcion, setDescripcion] = useState('')
   const [notas, setNotas] = useState('')
+  const [archivoUrl, setArchivoUrl] = useState('')
   const [cantidad, setCantidad] = useState<number>(1)
   const [precioUnit, setPrecioUnit] = useState<number>(0)
   const [costoUnit, setCostoUnit] = useState<string>('')
@@ -41,6 +42,9 @@ export function AddItemModal({ pedidoId, clienteId, onClose, onSuccess }: AddIte
       })
       setPrecioUnit(price)
       setCostoUnit(prod.precio_costo != null ? String(prod.precio_costo) : '')
+      if (prod.archivo_url) {
+        setArchivoUrl(prod.archivo_url)
+      }
     }
   }
 
@@ -60,6 +64,7 @@ export function AddItemModal({ pedidoId, clienteId, onClose, onSuccess }: AddIte
           producto_id: productoId || undefined,
           descripcion: descripcion.trim() || undefined,
           notas: notas.trim() || undefined,
+          archivo_url: archivoUrl.trim() || undefined,
           cantidad: Number(cantidad),
           precio_unit: Number(precioUnit),
           costo_unitario: costoUnit !== '' ? Number(costoUnit) : null,
@@ -160,6 +165,30 @@ export function AddItemModal({ pedidoId, clienteId, onClose, onSuccess }: AddIte
               value={notas}
               onChange={(e) => setNotas(e.target.value)}
               placeholder="Ej: Perchero bomberos con llavero"
+              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-800 focus:border-primary focus:outline-none"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 mb-1 flex items-center justify-between">
+              <span>URL del Archivo / STL</span>
+              {archivoUrl && (
+                <a
+                  href={archivoUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-primary hover:underline inline-flex items-center gap-1 font-semibold text-[11px]"
+                >
+                  <ExternalLink className="h-3 w-3" />
+                  Abrir enlace
+                </a>
+              )}
+            </label>
+            <input
+              type="url"
+              value={archivoUrl}
+              onChange={(e) => setArchivoUrl(e.target.value)}
+              placeholder="https://drive.google.com/... o MakerWorld"
               className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-800 focus:border-primary focus:outline-none"
             />
           </div>

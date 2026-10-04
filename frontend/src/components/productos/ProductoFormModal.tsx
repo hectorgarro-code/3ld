@@ -10,8 +10,8 @@ import { useCreateProducto, useUpdateProducto, useCategorias, useProductos } fro
 import { toast } from '@/store/toastStore'
 import { cn } from '@/lib/utils'
 import { StockHistory } from './StockHistory'
-
 import { CostoImpresionModal } from './CostoImpresionModal'
+import { MediaLibraryModal } from '@/components/media/MediaLibraryModal'
 
 const productoSchema = z.object({
   nombre: z.string().min(1, 'El nombre es requerido'),
@@ -71,6 +71,7 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
   const [receta, setReceta] = useState<{insumo_id: number, cantidad: number, insumo_nombre?: string, precio_costo?: number, unidad_medida?: string}[]>([])
   const [activeTab, setActiveTab] = useState<'detalles' | 'historial'>('detalles')
   const [isCostoModalOpen, setIsCostoModalOpen] = useState(false)
+  const [isMediaModalOpen, setIsMediaModalOpen] = useState(false)
   const [urlInput, setUrlInput] = useState('')
 
   const handleAddUrlImage = () => {
@@ -531,8 +532,29 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
                       <Plus className="h-3.5 w-3.5" />
                       <span>Agregar URL</span>
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsMediaModalOpen(true)}
+                      className="px-3 py-1.5 bg-cyan-50 hover:bg-cyan-100 text-cyan-700 rounded-xl text-xs font-black transition flex items-center gap-1 border border-cyan-200 shrink-0"
+                    >
+                      <Sparkles className="h-3.5 w-3.5 text-cyan-600" />
+                      <span>Biblioteca Fotos & WebP</span>
+                    </button>
                   </div>
                 )}
+
+                <MediaLibraryModal
+                  isOpen={isMediaModalOpen}
+                  onClose={() => setIsMediaModalOpen(false)}
+                  onSelectImage={(url) => {
+                    if (imagesBase64.length < 5) {
+                      setImagesBase64((prev) => [...prev, url].slice(0, 5))
+                      toast('Foto agregada desde la Biblioteca Multimedia', 'success')
+                    } else {
+                      toast('Máximo 5 fotos por artículo', 'error')
+                    }
+                  }}
+                />
 
                 <p className="text-[11px] text-slate-400 text-center">
                   {imagesBase64.length === 0

@@ -34,6 +34,7 @@ import api from '@/lib/api';
 import { optimizeImagesForPrint } from '@/lib/imageOptimization';
 import { calcularTarifaCorreoArgentino } from '@/lib/correoArgentino';
 import { SocialShareModal } from '@/components/productos/SocialShareModal';
+import { TiendaStoriesModal } from '@/components/tienda/TiendaStoriesModal';
 
 export type { CartItem };
 
@@ -284,6 +285,27 @@ export default function TiendaPage() {
 
   // Modals & Notifications
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [isStoriesOpen, setIsStoriesOpen] = useState(false);
+  const [favorites, setFavorites] = useState<(string | number)[]>(() => {
+    try {
+      const saved = localStorage.getItem('3ld_tienda_favoritos');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const toggleFavorite = (productId: string | number) => {
+    setFavorites((prev) => {
+      const exists = prev.includes(productId);
+      const next = exists ? prev.filter((id) => id !== productId) : [...prev, productId];
+      try {
+        localStorage.setItem('3ld_tienda_favoritos', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  };
+
   const [activeProductModal, setActiveProductModal] = useState<StoreProduct | null>(null);
   const [socialShareProduct, setSocialShareProduct] = useState<StoreProduct | null>(null);
   const [modalActiveImage, setModalActiveImage] = useState<string | null>(null);
@@ -318,6 +340,42 @@ export default function TiendaPage() {
     }
     return activeProductModal.price;
   }, [activeProductModal, modalSelectedPiezas]);
+
+  const openProductModal = (product: StoreProduct) => {
+    setActiveProductModal(product);
+    setModalActiveImage(product.image);
+
+    const currentUrl = new URL(window.location.href);
+    if (currentUrl.searchParams.get('producto') !== String(product.id)) {
+      currentUrl.searchParams.set('producto', String(product.id));
+      window.history.pushState(
+        { modal: 'producto', id: product.id },
+        '',
+        currentUrl.pathname + currentUrl.search + currentUrl.hash
+      );
+    }
+  };
+
+  const closeProductModal = () => {
+    setActiveProductModal(null);
+    setModalActiveImage(null);
+    setModalSelectedColor('');
+
+    if (window.history.state?.modal === 'producto') {
+      window.history.back();
+    } else {
+      const currentUrl = new URL(window.location.href);
+      if (currentUrl.searchParams.has('producto')) {
+        currentUrl.searchParams.delete('producto');
+        const newSearch = currentUrl.searchParams.toString();
+        window.history.replaceState(
+          window.history.state,
+          '',
+          currentUrl.pathname + (newSearch ? `?${newSearch}` : '') + currentUrl.hash
+        );
+      }
+    }
+  };
 
   // Shipping & Delivery Method
   const [deliveryMethod, setDeliveryMethod] = useState<'pickup' | 'shipping'>('pickup');
@@ -471,9 +529,60 @@ export default function TiendaPage() {
       if (found) {
         setActiveProductModal(found);
         setModalActiveImage(found.image);
+
+        // Si se abrió directamente por link (?producto=), crear entrada de historial base
+        // para que al presionar "Atrás" en el celular vuelva al inicio de la tienda en lugar de salir de la web
+        if (window.history.state?.modal !== 'producto') {
+          const baseParams = new URLSearchParams(window.location.search);
+          baseParams.delete('producto');
+          const baseSearchStr = baseParams.toString();
+          const baseUrl = window.location.pathname + (baseSearchStr ? `?${baseSearchStr}` : '') + window.location.hash;
+          const fullCurrentUrl = window.location.pathname + window.location.search + window.location.hash;
+
+          window.history.replaceState({ modal: 'store' }, '', baseUrl);
+          window.history.pushState({ modal: 'producto', id: found.id }, '', fullCurrentUrl);
+        }
       }
     }
   }, [products]);
+
+  // Escuchar el botón "Atrás" del celular / navegador para cerrar el modal y volver a la tienda
+  useEffect(() => {
+    const handlePopState = () => {
+      const params = new URLSearchParams(window.location.search);
+      const prodParam = params.get('producto');
+
+      if (prodParam && products.length > 0) {
+        const found = products.find((p) => String(p.id) === String(prodParam));
+        if (found) {
+          setActiveProductModal(found);
+          setModalActiveImage(found.image);
+          return;
+        }
+      }
+
+      // Si ya no hay parámetro de producto en la URL, cerrar el modal
+      setActiveProductModal(null);
+      setModalActiveImage(null);
+      setModalSelectedColor('');
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [products]);
+
+  // Cerrar modal al presionar Escape en teclado físico
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && activeProductModal) {
+        closeProductModal();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeProductModal]);
 
   // Schema.org Structured Data (JSON-LD) para indexación de catálogo en Google
   useEffect(() => {
@@ -911,16 +1020,24 @@ export default function TiendaPage() {
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16 gap-3">
-            {/* Logo 3LD */}
+            {/* Logo 3LD con Anillo de Historias WhatsApp / TikTok */}
             <div
               onClick={() => {
-                setSelectedCategory('all');
-                setSelectedSubcategory('all');
-                setSearchQuery('');
+                setIsStoriesOpen(true);
               }}
-              className="flex items-center gap-2.5 cursor-pointer group"
+              className="flex items-center gap-2.5 cursor-pointer group select-none"
+              title="Tocá para ver Historias de productos"
             >
-              <img src="/logo.png" alt="3LD Logo" className="h-10 sm:h-12 w-auto object-contain transition group-hover:scale-105" />
+              <div className="relative p-0.5 rounded-2xl bg-gradient-to-tr from-[#06b6d4] via-[#6B66C8] to-[#F88D86] animate-pulse">
+                <img src="/logo.png" alt="3LD Logo" className="h-10 sm:h-12 w-auto object-contain transition group-hover:scale-105 rounded-xl bg-white p-0.5" />
+              </div>
+              <div className="flex flex-col">
+                <span className="text-[10px] sm:text-xs font-black uppercase tracking-wider text-[#6B66C8] flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping inline-block"></span>
+                  Historias
+                </span>
+                <span className="hidden sm:inline text-[9px] text-slate-400 font-bold">Ver catálogo interactivo</span>
+              </div>
             </div>
 
             {/* Desktop Search Bar */}
@@ -942,6 +1059,16 @@ export default function TiendaPage() {
 
             {/* Quick Actions */}
             <div className="flex items-center gap-2">
+              {/* Botón Historias */}
+              <button
+                onClick={() => setIsStoriesOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-2 text-xs font-black bg-gradient-to-r from-[#6B66C8] via-[#5752B3] to-[#06b6d4] text-white rounded-2xl hover:opacity-95 transition shadow-xs active:scale-95"
+                title="Ver historias de productos"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Historias</span>
+              </button>
+
               <button
                 onClick={() => setIsQuoteModalOpen(true)}
                 className="hidden sm:flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold bg-[#EFEBFC] text-[#6B66C8] border border-[#D5D0F7] rounded-full hover:bg-[#E2DCFA] transition active:scale-95"
@@ -1240,8 +1367,7 @@ export default function TiendaPage() {
                 key={product.id}
                 className="bg-white rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition overflow-hidden flex flex-col group cursor-pointer"
                 onClick={() => {
-                  setActiveProductModal(product);
-                  setModalActiveImage(product.image);
+                  openProductModal(product);
                 }}
               >
                 {/* Product Image */}
@@ -1329,8 +1455,7 @@ export default function TiendaPage() {
                         onClick={(e) => {
                           e.stopPropagation();
                           if (product.piezas && product.piezas.length > 0) {
-                            setActiveProductModal(product);
-                            setModalActiveImage(product.image);
+                            openProductModal(product);
                           } else {
                             addToCart(product);
                           }
@@ -1778,15 +1903,18 @@ export default function TiendaPage() {
 
       {/* Product Detail Modal */}
       {activeProductModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs">
-          <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-150 border border-slate-200 max-h-[90vh] flex flex-col overflow-y-auto">
+        <div
+          onClick={closeProductModal}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-3xl max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-150 border border-slate-200 max-h-[90vh] flex flex-col overflow-y-auto"
+          >
             <div className="relative aspect-square max-h-[380px] bg-slate-100 shrink-0 overflow-hidden">
               <img src={currentDisplayImage} alt={activeProductModal.title} className="w-full h-full object-cover transition-all duration-300" />
               <button
-                onClick={() => {
-                  setActiveProductModal(null);
-                  setModalActiveImage(null);
-                }}
+                onClick={closeProductModal}
                 className="absolute top-3 right-3 z-10 p-2 bg-slate-900/80 text-white rounded-full hover:bg-slate-900 transition shadow-md"
               >
                 <X className="w-4 h-4" />
@@ -2012,8 +2140,7 @@ export default function TiendaPage() {
                       } else {
                         addToCart(activeProductModal, 1, finalColor);
                       }
-                      setActiveProductModal(null);
-                      setModalSelectedColor('');
+                      closeProductModal();
                     }}
                     className="px-5 py-2.5 bg-slate-900 hover:bg-cyan-600 text-white font-bold text-xs rounded-2xl shadow-md transition active:scale-95 flex items-center gap-2"
                   >
@@ -2681,6 +2808,21 @@ export default function TiendaPage() {
         isOpen={!!socialShareProduct}
         onClose={() => setSocialShareProduct(null)}
         product={socialShareProduct}
+      />
+
+      <TiendaStoriesModal
+        isOpen={isStoriesOpen}
+        onClose={() => setIsStoriesOpen(false)}
+        products={products}
+        onOpenProduct={(prod) => {
+          setIsStoriesOpen(false);
+          openProductModal(prod);
+        }}
+        onAddToCart={(prod) => {
+          addToCart(prod);
+        }}
+        favorites={favorites}
+        onToggleFavorite={toggleFavorite}
       />
     </div>
   );

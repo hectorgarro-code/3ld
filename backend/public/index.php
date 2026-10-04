@@ -28,6 +28,7 @@ use App\Controllers\ProveedoresController;
 use App\Controllers\ComprasController;
 use App\Controllers\TiendaController;
 use App\Controllers\AiController;
+use App\Controllers\MediaController;
 use App\Controllers\MercadoPagoController;
 use App\Services\OpenAiService;
 use App\Services\MakerWorldScraper;
@@ -116,6 +117,9 @@ $containerBuilder->addDefinitions([
     },
     ProveedoresController::class => function ($c) {
         return new ProveedoresController($c->get('config'));
+    },
+    MediaController::class => function ($c) {
+        return new MediaController($c->get(PDO::class));
     },
 ]);
 $container = $containerBuilder->build();
@@ -567,6 +571,19 @@ $app->group('/api/v1', function (RouteCollectorProxy $api) use ($config, $auth, 
         });
         $g->post('/generate-text', function ($req, $res) use ($container) {
             return $container->get(AiController::class)->generateText($req, $res);
+        });
+    })->add($auth);
+
+    // Media / Biblioteca Multimedia
+    $api->group('/media', function (RouteCollectorProxy $g) use ($container) {
+        $g->get('[/]', function ($req, $res) use ($container) {
+            return $container->get(MediaController::class)->index($req, $res);
+        });
+        $g->post('/upload[/]', function ($req, $res) use ($container) {
+            return $container->get(MediaController::class)->upload($req, $res);
+        });
+        $g->delete('/delete[/]', function ($req, $res) use ($container) {
+            return $container->get(MediaController::class)->delete($req, $res);
         });
     })->add($auth);
 });

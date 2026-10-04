@@ -11,8 +11,13 @@ import {
   AlertCircle,
   RefreshCw,
   Image as ImageIcon,
+  Trash2,
+  Plus,
+  Upload,
 } from 'lucide-react'
 import api from '@/lib/api'
+import type { ProductoPieza } from '@/types'
+import { compressImage } from '@/lib/imageUtils'
 import { useCreateProducto, useCategorias } from '@/hooks/useProductos'
 import { toast } from '@/store/toastStore'
 import { CostoImpresionModal } from './CostoImpresionModal'
@@ -33,6 +38,7 @@ export function MakerWorldImportModal({ isOpen, onClose, onSuccess }: Props) {
     title: string
     description: string
     category: string
+    subcategoria?: string
     suggested_price: number
     images: string[]
     source_url: string
@@ -46,6 +52,9 @@ export function MakerWorldImportModal({ isOpen, onClose, onSuccess }: Props) {
     const saved = localStorage.getItem('last_categoria_id')
     return saved ? parseInt(saved, 10) : undefined
   })
+  const [subcategoria, setSubcategoria] = useState<string>(() => {
+    return localStorage.getItem('last_subcategoria') || ''
+  })
   const [precioVenta, setPrecioVenta] = useState<number>(0)
   const [precioCosto, setPrecioCosto] = useState<number>(0)
   const [horasImpresion, setHorasImpresion] = useState<number>(0)
@@ -57,6 +66,7 @@ export function MakerWorldImportModal({ isOpen, onClose, onSuccess }: Props) {
   const [stockMinimo, setStockMinimo] = useState<number>(1)
   const [esTienda, setEsTienda] = useState<boolean>(true)
   const [archivoUrl, setArchivoUrl] = useState<string>('')
+  const [piezas, setPiezas] = useState<ProductoPieza[]>([])
   const [saving, setSaving] = useState(false)
   const [isCostoModalOpen, setIsCostoModalOpen] = useState(false)
 
@@ -69,6 +79,12 @@ export function MakerWorldImportModal({ isOpen, onClose, onSuccess }: Props) {
       if (saved) {
         setCategoriaId(parseInt(saved, 10))
       }
+      const savedSubcat = localStorage.getItem('last_subcategoria')
+      if (savedSubcat) {
+        setSubcategoria(savedSubcat)
+      }
+    } else {
+      setPiezas([])
     }
   }, [isOpen])
 
@@ -81,6 +97,7 @@ export function MakerWorldImportModal({ isOpen, onClose, onSuccess }: Props) {
     setLoading(true)
     setErrorMsg(null)
     setImportedData(null)
+    setPiezas([])
 
     try {
       const res = await api.post('/ai/import-makerworld', { url: url.trim() })
@@ -122,6 +139,10 @@ export function MakerWorldImportModal({ isOpen, onClose, onSuccess }: Props) {
           )
           if (match) setCategoriaId(match.id)
         }
+
+        if (d.subcategoria) {
+          setSubcategoria(d.subcategoria)
+        }
       } else {
         setErrorMsg(res.data?.message || 'No se pudieron extraer datos del enlace.')
       }
@@ -158,6 +179,13 @@ export function MakerWorldImportModal({ isOpen, onClose, onSuccess }: Props) {
 
     setSaving(true)
     try {
+      if (categoriaId) {
+        localStorage.setItem('last_categoria_id', String(categoriaId))
+      }
+      if (subcategoria.trim()) {
+        localStorage.setItem('last_subcategoria', subcategoria.trim())
+      }
+
       await createMutation.mutateAsync({
         nombre: title.trim(),
         descripcion: description.trim(),
@@ -171,6 +199,8 @@ export function MakerWorldImportModal({ isOpen, onClose, onSuccess }: Props) {
         stock_actual: stockActual,
         stock_minimo: stockMinimo,
         categoria_id: categoriaId,
+        subcategoria: subcategoria.trim() || undefined,
+        piezas: piezas.filter((p) => p.nombre.trim() !== ''),
         imagen_url: selectedImages[0] || undefined,
         imagenes: selectedImages,
         tipo: 'impresion_3d',
@@ -503,26 +533,220 @@ export function MakerWorldImportModal({ isOpen, onClose, onSuccess }: Props) {
                   </div>
                 </div>
 
-                <div>
-                  <label className="font-bold text-slate-700 block mb-1">Categoría</label>
-                  <select
-                    value={categoriaId || ''}
-                    onChange={(e) => {
-                      const val = e.target.value ? parseInt(e.target.value) : undefined
-                      setCategoriaId(val)
-                      if (val) {
-                        localStorage.setItem('last_categoria_id', String(val))
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Categoría Principal</label>
+                    <select
+                      value={categoriaId || ''}
+                      onChange={(e) => {
+                        const val = e.target.value ? parseInt(e.target.value) : undefined
+                        setCategoriaId(val)
+                        if (val) {
+                          localStorage.setItem('last_categoria_id', String(val))
+                        }
+                      }}
+                      className="w-full p-2.5 bg-white border border-slate-200 rounded-xl font-semibold text-slate-800 focus:ring-2 focus:ring-cyan-500"
+                    >
+                      <option value="">Ninguna</option>
+                      {categorias?.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.nombre}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Categorías Secundarias / Etiquetas</label>
+                    <input
+                      type="text"
+                      value={subcategoria}
+                      onChange={(e) => {
+                        setSubcategoria(e.target.value)
+                        if (e.target.value) {
+                          localStorage.setItem('last_subcategoria', e.target.value)
+                        }
+                      }}
+                      placeholder="Ej. Día de la Madre, San Valentín, Llaveros"
+                      className="w-full p-2.5 bg-white border border-slate-200 rounded-xl font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-cyan-500"
+                    />
+                    <p className="text-[10px] text-slate-400 mt-1">
+                      Ingresá varias categorías o etiquetas separadas por coma.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Sección de Piezas / Kit Configurable */}
+                <div className="bg-indigo-50/60 p-4 rounded-2xl border border-indigo-200/80 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-black uppercase tracking-wider text-indigo-950 flex items-center gap-1.5">
+                      🧩 Piezas / Kit Configurable (Opcional)
+                    </label>
+                    <span className="text-[10px] font-bold text-indigo-600">
+                      {piezas.length > 0 ? `${piezas.length} pieza(s) configurada(s)` : 'Sin piezas (Producto individual)'}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-600">
+                    Si este producto se compone de varias piezas que el cliente puede seleccionar individualmente (ej. Sets de decoración, juegos con piezas opcionales), agregalas acá con su precio.
+                  </p>
+
+                  {piezas.length > 0 && (
+                    <div className="space-y-2.5">
+                      {piezas.map((pieza, idx) => (
+                        <div key={pieza.id || idx} className="p-3 bg-white rounded-xl border border-indigo-100 shadow-2xs space-y-2">
+                          <div className="flex items-center gap-2">
+                            {pieza.imagen_url && (
+                              <img src={pieza.imagen_url} alt={pieza.nombre} className="w-9 h-9 object-cover rounded-lg border border-slate-200 shrink-0" />
+                            )}
+                            <input
+                              type="text"
+                              placeholder="Nombre de la pieza / componente"
+                              value={pieza.nombre}
+                              onChange={(e) => {
+                                const copy = [...piezas]
+                                copy[idx].nombre = e.target.value
+                                setPiezas(copy)
+                              }}
+                              className="flex-1 text-xs font-bold text-slate-800 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 outline-none focus:border-indigo-500"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setPiezas(piezas.filter((_, i) => i !== idx))}
+                              className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors shrink-0"
+                              title="Eliminar pieza"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                            <div>
+                              <label className="block text-[10px] font-bold text-slate-500 mb-0.5">Precio Venta ($)</label>
+                              <input
+                                type="number"
+                                placeholder="Venta ($)"
+                                value={pieza.precio}
+                                onChange={(e) => {
+                                  const copy = [...piezas]
+                                  copy[idx].precio = parseFloat(e.target.value) || 0
+                                  setPiezas(copy)
+                                }}
+                                className="w-full text-xs font-bold text-slate-800 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 outline-none focus:border-indigo-500"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[10px] font-bold text-slate-500 mb-0.5">Costo ($)</label>
+                              <input
+                                type="number"
+                                placeholder="Costo ($)"
+                                value={pieza.precio_costo ?? 0}
+                                onChange={(e) => {
+                                  const copy = [...piezas]
+                                  copy[idx].precio_costo = parseFloat(e.target.value) || 0
+                                  setPiezas(copy)
+                                }}
+                                className="w-full text-xs font-bold text-slate-800 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 outline-none focus:border-indigo-500"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[10px] font-bold text-slate-500 mb-0.5">Medidas / Dimensiones</label>
+                              <input
+                                type="text"
+                                placeholder="Ej: 12 x 8 cm"
+                                value={pieza.medidas || ''}
+                                onChange={(e) => {
+                                  const copy = [...piezas]
+                                  copy[idx].medidas = e.target.value
+                                  setPiezas(copy)
+                                }}
+                                className="w-full text-xs font-bold text-slate-800 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 outline-none focus:border-indigo-500"
+                              />
+                            </div>
+                            <div>
+                              <div className="flex items-center justify-between mb-0.5">
+                                <label className="block text-[10px] font-bold text-slate-500">Foto (Subir o Enlace)</label>
+                                {pieza.imagen_url && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const copy = [...piezas]
+                                      copy[idx].imagen_url = ''
+                                      setPiezas(copy)
+                                    }}
+                                    className="text-[9px] text-red-500 hover:underline font-semibold"
+                                  >
+                                    Quitar
+                                  </button>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                {pieza.imagen_url && (
+                                  <div className="relative h-7 w-7 rounded-lg overflow-hidden border border-indigo-200 shrink-0 bg-white shadow-2xs">
+                                    <img src={pieza.imagen_url} alt="" className="h-full w-full object-cover" />
+                                  </div>
+                                )}
+                                <input
+                                  type="text"
+                                  placeholder="https://... o subí foto"
+                                  value={pieza.imagen_url?.startsWith('data:') ? '(Foto subida)' : (pieza.imagen_url || '')}
+                                  onChange={(e) => {
+                                    const copy = [...piezas]
+                                    copy[idx].imagen_url = e.target.value
+                                    setPiezas(copy)
+                                  }}
+                                  className="w-full min-w-0 text-[11px] font-medium text-slate-600 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 outline-none focus:border-indigo-500"
+                                />
+                                <label
+                                  title="Subir foto para esta pieza"
+                                  className="h-7 px-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg flex items-center justify-center cursor-pointer shrink-0 transition text-[10px] font-bold gap-1 active:scale-95"
+                                >
+                                  <Upload className="h-3 w-3" />
+                                  <span>Subir</span>
+                                  <input
+                                    type="file"
+                                    accept="image/*"
+                                    className="hidden"
+                                    onChange={async (e) => {
+                                      const file = e.target.files?.[0]
+                                      if (!file) return
+                                      try {
+                                        const compressed = await compressImage(file, 600, 600, 0.7)
+                                        const copy = [...piezas]
+                                        copy[idx].imagen_url = compressed
+                                        setPiezas(copy)
+                                        toast('Foto de pieza cargada', 'success')
+                                      } catch (err) {
+                                        toast('Error al procesar la imagen', 'error')
+                                      }
+                                    }}
+                                  />
+                                </label>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const newPieza: ProductoPieza = {
+                        id: 'pieza_' + Math.random().toString(36).substring(2, 7),
+                        nombre: '',
+                        precio: 0,
+                        precio_costo: 0,
+                        medidas: '',
+                        imagen_url: ''
                       }
+                      setPiezas([...piezas, newPieza])
                     }}
-                    className="w-full p-2.5 bg-white border border-slate-200 rounded-xl font-semibold text-slate-800"
+                    className="w-full py-2 bg-indigo-100/70 hover:bg-indigo-200/80 text-indigo-900 font-extrabold text-xs rounded-xl flex items-center justify-center gap-1.5 transition"
                   >
-                    <option value="">Ninguna</option>
-                    {categorias?.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.nombre}
-                      </option>
-                    ))}
-                  </select>
+                    <Plus className="w-4 h-4" />
+                    <span>+ Agregar Pieza / Componente al Set</span>
+                  </button>
                 </div>
 
                 <div>

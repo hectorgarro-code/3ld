@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useUpdatePedidoItem } from '@/hooks/usePedidos'
 import { toast } from '@/store/toastStore'
 import { formatARS } from '@/lib/cost-calculator'
-import { X, Save, Loader2 } from 'lucide-react'
+import { X, Save, Loader2, ExternalLink } from 'lucide-react'
 import type { PedidoItem, PedidoItemFlattened } from '@/types'
 
 interface EditItemModalProps {
@@ -18,6 +18,7 @@ export function EditItemModal({ item, onClose, onSuccess }: EditItemModalProps) 
     item.descripcion ?? (item as any).producto_nombre ?? ''
   )
   const [notas, setNotas] = useState(item.notas ?? '')
+  const [archivoUrl, setArchivoUrl] = useState(item.archivo_url ?? '')
   const [cantidad, setCantidad] = useState<number>(Number(item.cantidad) || 1)
   const [precioUnit, setPrecioUnit] = useState<number>(
     Number(item.precio_unit ?? (item as any).precio_unitario ?? 0)
@@ -39,6 +40,7 @@ export function EditItemModal({ item, onClose, onSuccess }: EditItemModalProps) 
         payload: {
           descripcion: descripcion.trim() || undefined,
           notas: notas.trim() || undefined,
+          archivo_url: archivoUrl.trim() || null,
           cantidad: Number(cantidad),
           precio_unit: Number(precioUnit),
           costo_unitario: costoUnit !== '' ? Number(costoUnit) : null,
@@ -94,6 +96,30 @@ export function EditItemModal({ item, onClose, onSuccess }: EditItemModalProps) 
               value={notas}
               onChange={(e) => setNotas(e.target.value)}
               placeholder="Ej: Perchero bomberos con llavero"
+              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-800 focus:border-primary focus:outline-none"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 mb-1 flex items-center justify-between">
+              <span>URL del Archivo / STL</span>
+              {archivoUrl && (
+                <a
+                  href={archivoUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-primary hover:underline inline-flex items-center gap-1 font-semibold text-[11px]"
+                >
+                  <ExternalLink className="h-3 w-3" />
+                  Abrir enlace
+                </a>
+              )}
+            </label>
+            <input
+              type="url"
+              value={archivoUrl}
+              onChange={(e) => setArchivoUrl(e.target.value)}
+              placeholder="https://drive.google.com/... o MakerWorld"
               className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-800 focus:border-primary focus:outline-none"
             />
           </div>

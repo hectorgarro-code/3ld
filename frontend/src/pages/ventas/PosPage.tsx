@@ -25,6 +25,8 @@ import {
   Truck,
   Printer,
   ChevronDown,
+  ExternalLink,
+  Link2,
 } from 'lucide-react'
 import {
   calcularTarifaCorreoArgentino,
@@ -47,6 +49,7 @@ export interface PosCartItem {
   precio_unit: number
   costo_unitario?: number
   notas: string
+  archivo_url?: string
   precio_base?: number
   selected_piezas?: Record<string, boolean>
 }
@@ -104,6 +107,7 @@ export default function PosPage() {
   // Item Edit Note Modal
   const [itemNoteModalIndex, setItemNoteModalIndex] = useState<number | null>(null)
   const [tempNoteValue, setTempNoteValue] = useState<string>('')
+  const [tempUrlValue, setTempUrlValue] = useState<string>('')
 
   // Quick Add Item Modal/State
   const [selectedProductForAdd, setSelectedProductForAdd] = useState<any | null>(null)
@@ -111,6 +115,7 @@ export default function PosPage() {
   const [quickPrice, setQuickPrice] = useState<number>(0)
   const [quickCosto, setQuickCosto] = useState<number>(0)
   const [quickNota, setQuickNota] = useState<string>('')
+  const [quickArchivoUrl, setQuickArchivoUrl] = useState<string>('')
   const [posSelectedPiezas, setPosSelectedPiezas] = useState<Record<string, boolean>>({})
 
   // Auto select default client
@@ -177,6 +182,7 @@ export default function PosPage() {
     setSelectedProductForAdd(p)
     setQuickQty(1)
     setQuickNota('')
+    setQuickArchivoUrl(p.archivo_url || '')
 
     let parsedPiezas: any[] = []
     if (Array.isArray(p.piezas)) {
@@ -272,7 +278,11 @@ export default function PosPage() {
     }
 
     const existingIndex = cart.findIndex(
-      (item) => item.producto_id === selectedProductForAdd.id && item.nombre === itemNombre && item.notas === quickNota
+      (item) =>
+        item.producto_id === selectedProductForAdd.id &&
+        item.nombre === itemNombre &&
+        item.notas === quickNota &&
+        (item.archivo_url || '') === (quickArchivoUrl.trim() || '')
     )
 
     if (existingIndex >= 0) {
@@ -293,6 +303,7 @@ export default function PosPage() {
           precio_unit: quickPrice,
           costo_unitario: quickCosto,
           notas: quickNota,
+          archivo_url: quickArchivoUrl.trim() || undefined,
           precio_base: baseListPrice,
           selected_piezas: { ...posSelectedPiezas },
         },
@@ -363,12 +374,17 @@ export default function PosPage() {
   const openNoteEdit = (index: number) => {
     setItemNoteModalIndex(index)
     setTempNoteValue(cart[index]?.notas || '')
+    setTempUrlValue(cart[index]?.archivo_url || '')
   }
 
   const saveNoteEdit = () => {
     if (itemNoteModalIndex !== null) {
       setCart((prev) =>
-        prev.map((item, i) => (i === itemNoteModalIndex ? { ...item, notas: tempNoteValue } : item))
+        prev.map((item, i) =>
+          i === itemNoteModalIndex
+            ? { ...item, notas: tempNoteValue, archivo_url: tempUrlValue.trim() || undefined }
+            : item
+        )
       )
       setItemNoteModalIndex(null)
     }
@@ -453,6 +469,7 @@ export default function PosPage() {
         costo_unitario?: number
         subtotal: number
         notas?: string
+        archivo_url?: string
       }> = cart.map((item) => ({
         producto_id: item.producto_id,
         cantidad: item.cantidad,
@@ -460,6 +477,7 @@ export default function PosPage() {
         costo_unitario: item.costo_unitario,
         subtotal: item.cantidad * item.precio_unit,
         notas: item.notas,
+        archivo_url: item.archivo_url,
       }))
 
       if (includeShipping && shippingCalculation.precioFinal > 0) {
@@ -801,18 +819,33 @@ export default function PosPage() {
                       </strong>
                     </p>
 
-                    {/* Nota Breve Badge / Field */}
-                    <button
-                      onClick={() => openNoteEdit(index)}
-                      className={`mt-1.5 flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-lg border transition ${
-                        item.notas
-                          ? 'bg-amber-50 text-amber-800 border-amber-200'
-                          : 'bg-slate-50 text-slate-400 hover:text-slate-600 border-dashed border-slate-200'
-                      }`}
-                    >
-                      <MessageSquare className="h-3 w-3" />
-                      <span>{item.notas ? `Nota: ${item.notas}` : '+ Agregar Nota Breve'}</span>
-                    </button>
+                    {/* Nota Breve & Archivo STL Badges */}
+                    <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                      <button
+                        onClick={() => openNoteEdit(index)}
+                        className={`flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-lg border transition ${
+                          item.notas
+                            ? 'bg-amber-50 text-amber-800 border-amber-200'
+                            : 'bg-slate-50 text-slate-400 hover:text-slate-600 border-dashed border-slate-200'
+                        }`}
+                      >
+                        <MessageSquare className="h-3 w-3 shrink-0" />
+                        <span className="truncate max-w-[130px]">{item.notas ? `Nota: ${item.notas}` : '+ Agregar Nota'}</span>
+                      </button>
+
+                      {item.archivo_url && (
+                        <a
+                          href={item.archivo_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-lg border bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100 transition truncate max-w-[130px]"
+                          title={item.archivo_url}
+                        >
+                          <ExternalLink className="h-3 w-3 shrink-0" />
+                          <span className="truncate">STL / Archivo</span>
+                        </a>
+                      )}
+                    </div>
                   </div>
 
                   {/* Quantity buttons */}
@@ -1251,6 +1284,33 @@ export default function PosPage() {
                 />
               </div>
 
+              <div>
+                <label className="font-bold text-slate-700 block mb-1 text-[11px] flex items-center justify-between">
+                  <span>URL DEL ARCHIVO / STL PERSONALIZADO</span>
+                  {quickArchivoUrl && (
+                    <a
+                      href={quickArchivoUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-teal-600 hover:text-teal-700 inline-flex items-center gap-1 font-semibold text-[10px] hover:underline"
+                    >
+                      <ExternalLink className="h-3 w-3" />
+                      Probar enlace
+                    </a>
+                  )}
+                </label>
+                <div className="relative">
+                  <input
+                    type="url"
+                    value={quickArchivoUrl}
+                    onChange={(e) => setQuickArchivoUrl(e.target.value)}
+                    placeholder="https://drive.google.com/... o MakerWorld / Printables"
+                    className="w-full p-2.5 pl-8 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-800 text-xs focus:ring-2 focus:ring-teal-500 focus:outline-none"
+                  />
+                  <Link2 className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+                </div>
+              </div>
+
               <div className="grid grid-cols-3 gap-2">
                 <div>
                   <label className="font-bold text-slate-700 block mb-1 text-[11px]">Cantidad</label>
@@ -1310,19 +1370,49 @@ export default function PosPage() {
           <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-200">
             <h3 className="font-extrabold text-base text-slate-900 mb-1">Editar Nota Breve</h3>
             <p className="text-xs text-slate-500 mb-4">
-              Modifica la especificación del ítem seleccionado.
+              Modifica la especificación o enlace del archivo del ítem.
             </p>
 
-            <div>
-              <input
-                type="text"
-                maxLength={50}
-                autoFocus
-                value={tempNoteValue}
-                onChange={(e) => setTempNoteValue(e.target.value)}
-                placeholder="Ej: Marca, Club, Frase personalizada..."
-                className="w-full p-3 bg-slate-50 border border-teal-300 rounded-xl font-bold text-slate-900 text-xs focus:ring-2 focus:ring-teal-500 focus:outline-none"
-              />
+            <div className="space-y-3">
+              <div>
+                <label className="font-bold text-slate-700 block mb-1 text-[11px]">Nota Breve</label>
+                <input
+                  type="text"
+                  maxLength={50}
+                  autoFocus
+                  value={tempNoteValue}
+                  onChange={(e) => setTempNoteValue(e.target.value)}
+                  placeholder="Ej: Marca, Club, Frase personalizada..."
+                  className="w-full p-2.5 bg-slate-50 border border-teal-300 rounded-xl font-bold text-slate-900 text-xs focus:ring-2 focus:ring-teal-500 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1 text-[11px] flex items-center justify-between">
+                  <span>URL del Archivo / STL</span>
+                  {tempUrlValue && (
+                    <a
+                      href={tempUrlValue}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-teal-600 hover:text-teal-700 inline-flex items-center gap-1 font-semibold text-[10px] hover:underline"
+                    >
+                      <ExternalLink className="h-2.5 w-2.5" />
+                      Probar
+                    </a>
+                  )}
+                </label>
+                <div className="relative">
+                  <input
+                    type="url"
+                    value={tempUrlValue}
+                    onChange={(e) => setTempUrlValue(e.target.value)}
+                    placeholder="https://..."
+                    className="w-full p-2.5 pl-8 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-800 text-xs focus:ring-2 focus:ring-teal-500 focus:outline-none"
+                  />
+                  <Link2 className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+                </div>
+              </div>
             </div>
 
             <div className="flex items-center justify-end gap-2 pt-4 mt-4 border-t border-slate-100 text-xs">

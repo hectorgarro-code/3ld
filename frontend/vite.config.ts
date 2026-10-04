@@ -33,7 +33,16 @@ export default defineConfig({
         manualChunks(id) {
           if (id.includes('node_modules')) {
             if (id.includes('recharts') || id.includes('d3-')) {
-              return 'vendor-charts'
+              return 'vendor-erp-charts'
+            }
+            if (id.includes('@dnd-kit')) {
+              return 'vendor-erp-dnd'
+            }
+            if (id.includes('cmdk') || id.includes('vaul')) {
+              return 'vendor-erp-ui'
+            }
+            if (id.includes('react-hook-form') || id.includes('@hookform') || id.includes('zod')) {
+              return 'vendor-forms'
             }
             if (id.includes('lucide-react')) {
               return 'vendor-icons'

@@ -218,6 +218,11 @@ class Database
         } catch (\Throwable $e) {
             // Se ignora si ya existe
         }
+        try {
+            $db->exec("ALTER TABLE pedido_items ADD COLUMN archivo_url VARCHAR(500) NULL");
+        } catch (\Throwable $e) {
+            // Se ignora si ya existe
+        }
     }
 
     /**

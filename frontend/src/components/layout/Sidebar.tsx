@@ -16,7 +16,8 @@ import {
   CreditCard,
   Settings,
   PanelLeftClose,
-  PanelLeftOpen
+  PanelLeftOpen,
+  Image as ImageIcon
 } from 'lucide-react'
 
 export interface NavGroup {
@@ -44,6 +45,7 @@ export const navGroups: NavGroup[] = [
       { to: '/clientes', label: 'Clientes', icon: <Users className="h-5 w-5 shrink-0" /> },
       { to: '/productos', label: 'Productos', icon: <ShoppingBag className="h-5 w-5 shrink-0" /> },
       { to: '/tienda-admin', label: 'Gestión Tienda', icon: <Store className="h-5 w-5 shrink-0" /> },
+      { to: '/multimedia', label: 'Biblioteca Fotos', icon: <ImageIcon className="h-5 w-5 shrink-0" /> },
     ],
   },
   {

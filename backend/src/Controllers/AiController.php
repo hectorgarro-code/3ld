@@ -54,6 +54,7 @@ class AiController
                     'title'           => $scraped['raw_title'],
                     'description'     => $scraped['raw_description'],
                     'category'        => 'accesorio',
+                    'subcategoria'    => !empty($scraped['tags']) ? implode(', ', array_slice($scraped['tags'], 0, 3)) : '',
                     'suggested_price' => 8500,
                     'ai_error'        => $aiErr->getMessage(),
                 ];
@@ -63,6 +64,7 @@ class AiController
                 'title'           => $aiResult['title'] ?? $scraped['raw_title'],
                 'description'     => $aiResult['description'] ?? $scraped['raw_description'],
                 'category'        => $aiResult['category'] ?? 'accesorio',
+                'subcategoria'    => $aiResult['subcategoria'] ?? (!empty($scraped['tags']) ? implode(', ', array_slice($scraped['tags'], 0, 3)) : ''),
                 'suggested_price' => $aiResult['suggested_price'] ?? 8500,
                 'peso_gramos'     => $scraped['peso_gramos'] ?? 0,
                 'horas_impresion' => $scraped['horas_impresion'] ?? 0,

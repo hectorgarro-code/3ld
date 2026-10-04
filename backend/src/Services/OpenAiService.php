@@ -49,13 +49,15 @@ INSTRUCCIONES OBLIGATORIAS:
 6. TÍTULO: Debe tener entre 55 y 70 caracteres, optimizado para SEO, con las palabras clave con mayor intención de compra, natural y atractivo, sin exceso de mayúsculas ni emojis.
 7. DESCRIPCIÓN: Debe tener entre 500 y 1200 caracteres. Empezá con un gancho que despierte interés, explicá qué es, para quién sirve y qué beneficios aporta, convertí las características técnicas en beneficios para el comprador, incorporá naturalmente las palabras clave SEO y terminá con un llamado a la acción para comprar.
 8. Elegí la categoría más adecuada entre: cortantes, ceramica, didacticos, moldes, figuras, personalizados, accesorio.
-9. Sugiere un precio estimado de venta razonable en pesos ($).
+9. Sugiere categorías secundarias o etiquetas relevantes separadas por coma en el campo 'subcategoria' (ej. 'Decoración, San Valentín, Llaveros').
+10. Sugiere un precio estimado de venta razonable en pesos ($).
 
 Entregá ÚNICAMENTE un objeto JSON sintácticamente válido:
 {
   \"title\": \"Título comercial optimizado entre 55 y 70 caracteres\",
   \"description\": \"Descripción vendedora entre 500 y 1200 caracteres enfocado en el producto físico ya impreso\",
   \"category\": \"categoría_elegida\",
+  \"subcategoria\": \"etiqueta1, etiqueta2\",
   \"suggested_price\": 9500
 }";
 
@@ -70,6 +72,7 @@ Entregá ÚNICAMENTE un objeto JSON sintácticamente válido:
                 'title'           => mb_substr($rawTitle, 0, 70),
                 'description'     => $rawDescription,
                 'category'        => 'accesorio',
+                'subcategoria'    => !empty($options['tags']) ? implode(', ', array_slice($options['tags'], 0, 3)) : '',
                 'suggested_price' => 8500,
             ];
         }

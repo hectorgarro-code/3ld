@@ -180,7 +180,7 @@ class PedidoRepository
 
         $stmtItems = $this->db->prepare(
             "SELECT pi.*, pr.nombre AS producto_nombre, pr.sku AS producto_sku,
-                    pr.unidad_medida, pr.archivo_url
+                    pr.unidad_medida, COALESCE(NULLIF(pi.archivo_url, ''), pr.archivo_url) AS archivo_url
              FROM pedido_items pi
              LEFT JOIN productos pr ON pr.id = pi.producto_id
              WHERE pi.pedido_id = ?
@@ -261,11 +261,12 @@ class PedidoRepository
                 }
                 $subtotal    = $cantidad * $precioUnit * (1 - $descuentoPct / 100);
                 $costoUnit   = isset($item['costo_unitario']) ? (float) $item['costo_unitario'] : (isset($item['precio_costo']) ? (float) $item['precio_costo'] : null);
+                $archivoUrl  = !empty($item['archivo_url']) ? trim((string)$item['archivo_url']) : null;
                 $stmtItem = $this->db->prepare(
                     "INSERT INTO pedido_items
                         (pedido_id, producto_id, descripcion, cantidad, precio_unit,
-                         costo_unitario, descuento_pct, subtotal, notas, estado, created_at)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())"
+                         costo_unitario, descuento_pct, subtotal, notas, archivo_url, estado, created_at)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())"
                 );
                 $stmtItem->execute([
                     $pedidoId,
@@ -277,6 +278,7 @@ class PedidoRepository
                     $descuentoPct,
                     $subtotal,
                     $item['notas'] ?? null,
+                    $archivoUrl,
                     $estadoInicial,
                 ]);
 
@@ -387,6 +389,7 @@ class PedidoRepository
 
         $descripcion = array_key_exists('descripcion', $body) ? $body['descripcion'] : $item['descripcion'];
         $notas = array_key_exists('notas', $body) ? $body['notas'] : $item['notas'];
+        $archivoUrl = array_key_exists('archivo_url', $body) ? (!empty($body['archivo_url']) ? trim((string)$body['archivo_url']) : null) : ($item['archivo_url'] ?? null);
 
         $stmtUpdate = $this->db->prepare(
             "UPDATE pedido_items SET
@@ -396,7 +399,8 @@ class PedidoRepository
                 descuento_pct = ?,
                 subtotal = ?,
                 descripcion = ?,
-                notas = ?
+                notas = ?,
+                archivo_url = ?
              WHERE id = ?"
         );
         $stmtUpdate->execute([
@@ -407,6 +411,7 @@ class PedidoRepository
             $subtotal,
             $descripcion,
             $notas,
+            $archivoUrl,
             $itemId
         ]);
 
@@ -414,7 +419,7 @@ class PedidoRepository
         $this->sincronizarEstadoPedido($pedidoId, $usuarioId);
 
         $stmtNew = $this->db->prepare(
-            "SELECT pi.*, pr.nombre AS producto_nombre FROM pedido_items pi
+            "SELECT pi.*, pr.nombre AS producto_nombre, COALESCE(NULLIF(pi.archivo_url, ''), pr.archivo_url) AS archivo_url FROM pedido_items pi
              LEFT JOIN productos pr ON pr.id = pi.producto_id WHERE pi.id = ?"
         );
         $stmtNew->execute([$itemId]);
@@ -476,11 +481,12 @@ class PedidoRepository
 
         $subtotal     = $cantidad * $precioUnit * (1 - $descuentoPct / 100);
         $costoUnit    = isset($body['costo_unitario']) ? (float) $body['costo_unitario'] : (isset($body['precio_costo']) ? (float) $body['precio_costo'] : null);
+        $archivoUrl   = !empty($body['archivo_url']) ? trim((string)$body['archivo_url']) : null;
         $stmt = $this->db->prepare(
             "INSERT INTO pedido_items
                 (pedido_id, producto_id, descripcion, cantidad, precio_unit,
-                 costo_unitario, descuento_pct, subtotal, notas, created_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())"
+                 costo_unitario, descuento_pct, subtotal, notas, archivo_url, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())"
         );
         $stmt->execute([
             $pedidoId,
@@ -491,8 +497,8 @@ class PedidoRepository
             $costoUnit,
             $descuentoPct,
             $subtotal,
-
             $body['notas'] ?? null,
+            $archivoUrl,
         ]);
 
         $itemId = (int) $this->db->lastInsertId();
@@ -500,7 +506,7 @@ class PedidoRepository
         $this->sincronizarEstadoPedido($pedidoId, $usuarioId);
 
         $stmtItem = $this->db->prepare(
-            "SELECT pi.*, pr.nombre AS producto_nombre FROM pedido_items pi
+            "SELECT pi.*, pr.nombre AS producto_nombre, COALESCE(NULLIF(pi.archivo_url, ''), pr.archivo_url) AS archivo_url FROM pedido_items pi
              LEFT JOIN productos pr ON pr.id = pi.producto_id WHERE pi.id = ?"
         );
         $stmtItem->execute([$itemId]);
@@ -616,6 +622,7 @@ class PedidoRepository
 
         $sql = "SELECT pi.*, COALESCE(NULLIF(pi.descripcion, ''), pr.nombre, 'Artículo sin nombre') AS producto_nombre,
                        pr.variante AS producto_variante,
+                       COALESCE(NULLIF(pi.archivo_url, ''), pr.archivo_url) AS archivo_url,
                        p.numero_pedido, p.fecha_entrega_estimada, p.created_at AS pedido_fecha,
                        c.id AS cliente_id, c.nombre AS cliente_nombre, p.descuento_pct AS pedido_descuento_pct
                 FROM pedido_items pi

@@ -151,8 +151,25 @@ export function ProductoTableView({ items }: { items: PedidoItemFlattened[] }) {
           {sortedItems.map(item => (
             <tr key={item.id} className="cursor-pointer transition-colors hover:bg-slate-50/50" onClick={() => navigate(`/pedidos/${item.pedido_id}`)}>
               <td className="px-4 py-3 font-medium text-slate-800">
-                {item.cantidad > 1 ? `${item.cantidad}x ` : ''}
-                {item.producto_nombre ?? item.descripcion_custom} {item.producto_variante ? `(${item.producto_variante})` : ''}
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span>
+                    {item.cantidad > 1 ? `${item.cantidad}x ` : ''}
+                    {item.producto_nombre ?? item.descripcion_custom} {item.producto_variante ? `(${item.producto_variante})` : ''}
+                  </span>
+                  {item.archivo_url && (
+                    <a
+                      href={item.archivo_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="inline-flex items-center gap-0.5 rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-bold text-blue-700 hover:bg-blue-200 transition-colors"
+                      title="Descargar STL / Archivo"
+                    >
+                      <ExternalLink className="h-2.5 w-2.5" />
+                      STL
+                    </a>
+                  )}
+                </div>
               </td>
               <td className="px-4 py-3 text-xs text-slate-500 italic">
                 {item.notas || '-'}
