@@ -357,22 +357,24 @@ export function TiendaStoriesModal({
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
         >
-          {/* Fondo difuminado ambiental */}
+          {/* Fondo difuminado ambiental inmersivo */}
           <div
-            className="absolute inset-0 bg-cover bg-center filter blur-2xl opacity-40 scale-125 transition-all duration-700"
+            className="absolute inset-0 bg-cover bg-center filter blur-3xl opacity-50 scale-150 transition-all duration-700 pointer-events-none"
             style={{ backgroundImage: `url(${currentProduct.image})` }}
           />
 
-          {/* Imagen central con movimiento cinemático (Ken Burns) */}
-          <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
-            <img
-              key={currentProduct.id}
-              src={currentProduct.image}
-              alt={currentProduct.title}
-              className="w-full h-full object-cover sm:object-contain animate-ken-burns pointer-events-none"
-            />
+          {/* Imagen central 4:3 contenida al 100% sin recortes con Ken Burns */}
+          <div className="relative w-full h-full flex items-center justify-center px-4 pt-16 pb-48 overflow-hidden pointer-events-none">
+            <div className="relative max-h-full max-w-full flex items-center justify-center">
+              <img
+                key={currentProduct.id}
+                src={currentProduct.image}
+                alt={currentProduct.title}
+                className="max-h-[52vh] sm:max-h-[62vh] w-auto max-w-[92vw] sm:max-w-md object-contain rounded-2xl shadow-2xl drop-shadow-[0_20px_40px_rgba(0,0,0,0.85)] border border-white/10 animate-ken-burns pointer-events-none"
+              />
+            </div>
             {/* Gradientes oscuros superior e inferior para legibilidad */}
-            <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-black/60 pointer-events-none" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-black/70 pointer-events-none" />
           </div>
 
           {/* Efecto Corazón Pop en Doble Tap */}

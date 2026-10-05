@@ -5,6 +5,11 @@ import { RouterProvider } from 'react-router-dom'
 import { router } from '@/router'
 import './index.css'
 
+// Auto-recarga limpia ante nuevos despliegues si un chunk de código o estilo cambia de hash
+window.addEventListener('vite:preloadError', () => {
+  window.location.reload()
+})
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {

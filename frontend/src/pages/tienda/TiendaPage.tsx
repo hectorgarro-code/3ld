@@ -1080,24 +1080,18 @@ export default function TiendaPage() {
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16 gap-3">
-            {/* Logo 3LD con Anillo de Historias WhatsApp / TikTok */}
+            {/* Logo 3LD Estándar */}
             <div
               onClick={() => {
-                setIsStoriesOpen(true);
+                setSelectedCategory('all');
+                setSelectedSubcategory('all');
+                setSearchQuery('');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
               }}
-              className="flex items-center gap-2.5 cursor-pointer group select-none"
-              title="Tocá para ver Historias de productos"
+              className="flex items-center gap-2 cursor-pointer group select-none"
+              title="3LD - Inicio"
             >
-              <div className="relative p-0.5 rounded-2xl bg-gradient-to-tr from-[#06b6d4] via-[#6B66C8] to-[#F88D86] animate-pulse">
-                <img src="/logo.png" alt="3LD Logo" className="h-10 sm:h-12 w-auto object-contain transition group-hover:scale-105 rounded-xl bg-white p-0.5" />
-              </div>
-              <div className="flex flex-col">
-                <span className="text-[10px] sm:text-xs font-black uppercase tracking-wider text-[#6B66C8] flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping inline-block"></span>
-                  Historias
-                </span>
-                <span className="hidden sm:inline text-[9px] text-slate-400 font-bold">Ver catálogo interactivo</span>
-              </div>
+              <img src="/logo.png" alt="3LD Logo" className="h-10 sm:h-12 w-auto object-contain transition group-hover:scale-105" />
             </div>
 
             {/* Desktop Search Bar */}
@@ -1119,14 +1113,14 @@ export default function TiendaPage() {
 
             {/* Quick Actions */}
             <div className="flex items-center gap-2">
-              {/* Botón Historias */}
+              {/* Botón Único de Historias con Estrella Azul */}
               <button
                 onClick={() => setIsStoriesOpen(true)}
-                className="flex items-center gap-1.5 px-3 py-2 text-xs font-black bg-gradient-to-r from-[#6B66C8] via-[#5752B3] to-[#06b6d4] text-white rounded-2xl hover:opacity-95 transition shadow-xs active:scale-95"
-                title="Ver historias de productos"
+                className="flex items-center gap-1.5 px-3 py-2 text-xs font-black bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-2xl transition shadow-xs active:scale-95"
+                title="Ver historias interactivas de productos"
               >
-                <Sparkles className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Historias</span>
+                <Sparkles className="w-4 h-4 text-blue-600 fill-blue-500 animate-pulse" />
+                <span className="font-extrabold text-[11px] sm:text-xs text-blue-700">Historias</span>
               </button>
 
               <button
