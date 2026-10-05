@@ -52,7 +52,6 @@ export function TiendaStoriesModal({
   const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
   const isHoldingRef = useRef(false);
   const holdTimeoutRef = useRef<number | null>(null);
-  const lastTapRef = useRef<number>(0);
 
   // Barajar productos cada vez que se abre la vista
   useEffect(() => {
@@ -145,22 +144,6 @@ export function TiendaStoriesModal({
     };
   }, [isOpen, isPaused, currentIndex, shuffledProducts.length, nextStory, showFavoritesView]);
 
-  // Manejo de Doble Tap para dar Like
-  const handleScreenDoubleTap = () => {
-    if (!currentProduct) return;
-    onToggleFavorite(currentProduct.id);
-    trackEvent({
-      tipo: 'like_producto',
-      producto_id: currentProduct.id,
-      producto_nombre: currentProduct.title,
-    });
-    setShowHeartBurst(true);
-    if (navigator.vibrate) {
-      navigator.vibrate(60);
-    }
-    setTimeout(() => setShowHeartBurst(false), 900);
-  };
-
   // Manejo táctil (pausa al mantener, avance/retroceso al tocar, swipe down para cerrar)
   const handleTouchStart = (e: React.TouchEvent | React.MouseEvent) => {
     const clientX = 'touches' in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX;
@@ -198,19 +181,10 @@ export function TiendaStoriesModal({
       return;
     }
 
-    // Detectar doble tap
-    const now = Date.now();
-    if (now - lastTapRef.current < 280) {
-      handleScreenDoubleTap();
-      lastTapRef.current = 0;
-      return;
-    }
-    lastTapRef.current = now;
-
-    // Toque rápido: izquierda retrocede, derecha avanza
-    if (touchDuration < 300 && Math.abs(deltaX) < 30 && Math.abs(deltaY) < 30) {
+    // Toque lateral: izquierda (< 40%) retrocede a la anterior, derecha (>= 40%) avanza a la siguiente
+    if (touchDuration < 350 && Math.abs(deltaX) < 40 && Math.abs(deltaY) < 40) {
       const screenWidth = window.innerWidth;
-      if (clientX < screenWidth * 0.35) {
+      if (clientX < screenWidth * 0.4) {
         prevStory();
       } else {
         nextStory();
