@@ -315,7 +315,7 @@ class MercadoPagoController
             }
 
             $cleanPhone = preg_replace('/\D/', '', $telComprador);
-            $payerEmail = filter_var($emailComprador, FILTER_VALIDATE_EMAIL) ? $emailComprador : 'comprador_test@3ld.com.ar';
+            $payerEmail = filter_var($emailComprador, FILTER_VALIDATE_EMAIL) ? $emailComprador : '3ldidacticos@gmail.com';
 
             $payerData = [
                 'name'  => !empty($nombreComprador) ? $nombreComprador : 'Cliente Tienda',
@@ -534,19 +534,21 @@ class MercadoPagoController
             </html>
             ";
 
+            $adminEmail = '3ldidacticos@gmail.com';
             $headers = [
                 'MIME-Version: 1.0',
                 'Content-type: text/html; charset=UTF-8',
-                'From: 3LD Impresión 3D <ventas@3ld.com.ar>',
-                'Reply-To: ventas@3ld.com.ar',
-                'Bcc: ventas@3ld.com.ar',
+                'From: 3LD Impresión 3D <' . $adminEmail . '>',
+                'Reply-To: ' . $adminEmail,
             ];
 
+            // Enviar copia al comprador si ingresó un email válido
             if (filter_var($to, FILTER_VALIDATE_EMAIL)) {
                 @mail($to, $subject, $message, implode("\r\n", $headers));
-            } else {
-                @mail('ventas@3ld.com.ar', $subject, $message, implode("\r\n", $headers));
             }
+
+            // Enviar siempre notificación y copia al taller (3ldidacticos@gmail.com)
+            @mail($adminEmail, "[Nuevo Pedido] {$subject}", $message, implode("\r\n", $headers));
         } catch (\Throwable $e) {}
     }
 
