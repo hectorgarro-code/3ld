@@ -27,6 +27,7 @@ import {
 } from 'lucide-react'
 import api from '@/lib/api'
 import { ProductoFormModal } from '@/components/productos/ProductoFormModal'
+import { ProductStoreDetailModal } from '@/components/tienda/ProductStoreDetailModal'
 import { optimizeImagesForPrint } from '@/lib/imageOptimization'
 
 export interface AdminProduct {
@@ -71,8 +72,9 @@ export default function TiendaAdminPage() {
   // Selection
   const [selectedIds, setSelectedIds] = useState<number[]>([])
 
-  // Single Edit Modal State
+  // Single Edit & Preview Modal State
   const [editingProduct, setEditingProduct] = useState<AdminProduct | null>(null)
+  const [previewProduct, setPreviewProduct] = useState<AdminProduct | null>(null)
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState<{ text: string; type: 'success' | 'error' } | null>(null)
 
@@ -790,19 +792,32 @@ export default function TiendaAdminPage() {
                       </td>
                       <td className="p-4">
                         <div className="flex items-center gap-3">
-                          {p.imagen_url ? (
-                            <img
-                              src={p.imagen_url}
-                              alt={p.nombre}
-                              className="h-16 w-16 object-cover rounded-2xl border border-slate-200 shadow-xs shrink-0"
-                            />
-                          ) : (
-                            <div className="h-16 w-16 rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400 shrink-0">
-                              <Package className="h-7 w-7" />
-                            </div>
-                          )}
+                          <button
+                            type="button"
+                            onClick={() => setPreviewProduct(p)}
+                            className="cursor-pointer group/thumb relative shrink-0 transition"
+                            title="Ver cómo lo ve el cliente en la tienda"
+                          >
+                            {p.imagen_url ? (
+                              <img
+                                src={p.imagen_url}
+                                alt={p.nombre}
+                                className="h-16 w-16 object-cover rounded-2xl border border-slate-200 shadow-xs hover:ring-2 hover:ring-[#6B66C8] transition group-hover/thumb:scale-105"
+                              />
+                            ) : (
+                              <div className="h-16 w-16 rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400 shrink-0 hover:bg-slate-200 transition">
+                                <Package className="h-7 w-7" />
+                              </div>
+                            )}
+                          </button>
                           <div>
-                            <p className="font-bold text-slate-900">{p.nombre}</p>
+                            <p 
+                              onClick={() => setPreviewProduct(p)}
+                              className="font-bold text-slate-900 cursor-pointer hover:text-[#6B66C8] transition"
+                              title="Ver cómo lo ve el cliente en la tienda"
+                            >
+                              {p.nombre}
+                            </p>
                             {p.sku && <p className="text-[10px] text-slate-400">SKU: {p.sku}</p>}
                           </div>
                         </div>
@@ -1331,6 +1346,15 @@ export default function TiendaAdminPage() {
           producto={editingProduct as any}
         />
       )}
+
+      {/* Product Detail Modal (Vista Tienda Unificada) */}
+      <ProductStoreDetailModal
+        isOpen={!!previewProduct}
+        onClose={() => setPreviewProduct(null)}
+        product={previewProduct}
+        isAdminView={true}
+        onEdit={(p) => setEditingProduct(p)}
+      />
       </div>
 
       {/* Styles for Window Print */}

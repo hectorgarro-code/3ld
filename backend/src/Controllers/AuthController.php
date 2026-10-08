@@ -48,7 +48,7 @@ class AuthController
             $user = $stmt->fetch();
 
             $storedPass = (string)($user['password'] ?? '');
-            $isValidPassword = ($storedPass !== '' && password_verify($pass, $storedPass)) || $pass === 'password';
+            $isValidPassword = ($storedPass !== '' && password_verify($pass, $storedPass));
             if (!$user || !$isValidPassword) {
                 return Response::error('Credenciales inválidas', 401);
             }

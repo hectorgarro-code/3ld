@@ -35,6 +35,7 @@ interface AnalyticsStats {
   period: string
   total_sesiones: number
   visitantes_unicos: number
+  promedio_acciones_sesion?: number
   eventos: {
     pageviews: number
     vistas_producto: number
@@ -51,6 +52,7 @@ interface AnalyticsStats {
   timeline: { fecha: string; sesiones: number; total_eventos: number }[]
   recent_visits: {
     session_id: string
+    visitor_id?: string
     device_type: string
     browser: string
     os: string
@@ -58,7 +60,9 @@ interface AnalyticsStats {
     landing_page: string | null
     created_at: string
     updated_at: string
+    duracion_segundos?: number
     total_acciones: number
+    productos_vistos_count?: number
     ultima_accion: string | null
     ultimo_producto: string | null
   }[]
@@ -90,6 +94,15 @@ export default function VisitasPage() {
     } catch {
       return dateStr
     }
+  }
+
+  // Formato de permanencia / duración de la sesión
+  const formatDuration = (seconds?: number) => {
+    if (!seconds || seconds <= 0) return 'Reciente'
+    if (seconds < 60) return `${seconds}s`
+    const mins = Math.floor(seconds / 60)
+    const remSec = seconds % 60
+    return `${mins}m ${remSec > 0 ? `${remSec}s` : ''}`
   }
 
   // Traducción y badge para tipos de acciones
@@ -201,6 +214,30 @@ export default function VisitasPage() {
         </div>
       </div>
 
+      {/* Banner de Auditoría y Filtro Activo */}
+      <div className="bg-emerald-50/80 border border-emerald-200/80 rounded-3xl p-4.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-emerald-950 shadow-xs">
+        <div className="flex items-start sm:items-center gap-3">
+          <div className="p-2 bg-emerald-600 text-white rounded-xl shrink-0 shadow-xs">
+            <ShieldCheck className="w-4 h-4" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <p className="font-black text-emerald-900 text-xs sm:text-sm">Auditoría Estricta: Solo Público Real</p>
+              <span className="bg-emerald-200/70 text-emerald-800 text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider">
+                Filtro Activo
+              </span>
+            </div>
+            <p className="text-emerald-700 text-[11px] mt-0.5 leading-relaxed">
+              Excluye accesos de administradores y bots. Si un visitante navega y mira varios productos durante el mismo día, se consolida en una sola sesión continua.
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0 text-[11px] font-bold text-emerald-800 bg-white/80 px-3.5 py-1.5 rounded-xl border border-emerald-200/70">
+          <Users className="w-3.5 h-3.5 text-emerald-600" />
+          <span>{stats?.visitantes_unicos || 0} personas únicas · {stats?.total_sesiones || 0} sesiones</span>
+        </div>
+      </div>
+
       {isLoading ? (
         <div className="flex items-center justify-center p-20 bg-white rounded-3xl border border-slate-200">
           <div className="flex flex-col items-center gap-3">
@@ -215,17 +252,17 @@ export default function VisitasPage() {
             {/* Total Visitas */}
             <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs flex flex-col justify-between">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-500">Visitas (Sesiones)</span>
+                <span className="text-xs font-bold text-slate-500">Personas Únicas</span>
                 <div className="p-2 bg-blue-50 text-blue-600 rounded-xl">
                   <Users className="w-4 h-4" />
                 </div>
               </div>
               <div className="mt-3">
                 <span className="text-2xl sm:text-3xl font-black text-slate-900">
-                  {stats.total_sesiones.toLocaleString('es-AR')}
+                  {stats.visitantes_unicos.toLocaleString('es-AR')}
                 </span>
                 <span className="block text-[11px] text-slate-400 mt-0.5">
-                  {stats.visitantes_unicos.toLocaleString('es-AR')} personas únicas
+                  {stats.total_sesiones.toLocaleString('es-AR')} sesiones ({stats.promedio_acciones_sesion || 0} acciones/sesión)
                 </span>
               </div>
             </div>
@@ -488,58 +525,101 @@ export default function VisitasPage() {
               <table className="w-full text-left text-xs">
                 <thead>
                   <tr className="border-b border-slate-100 text-slate-400 font-bold">
-                    <th className="pb-2 pl-2">Tiempo</th>
+                    <th className="pb-2 pl-2">Persona</th>
+                    <th className="pb-2">Tiempo / Permanencia</th>
                     <th className="pb-2">Dispositivo / Entorno</th>
+                    <th className="pb-2 text-center">Productos Vistos</th>
                     <th className="pb-2">Última Acción Realizada</th>
-                    <th className="pb-2 text-center">Acciones</th>
+                    <th className="pb-2 text-center">Total Acciones</th>
                     <th className="pb-2 text-right pr-2">Origen</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {stats.recent_visits.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="py-8 text-center text-slate-400">
+                      <td colSpan={7} className="py-8 text-center text-slate-400">
                         No hay sesiones recientes registradas.
                       </td>
                     </tr>
                   ) : (
-                    stats.recent_visits.map((v, i) => (
-                      <tr key={v.session_id || i} className="hover:bg-slate-50/80 transition">
-                        <td className="py-3 pl-2 font-medium text-slate-500 whitespace-nowrap">
-                          {getRelativeTime(v.updated_at || v.created_at)}
-                        </td>
-                        <td className="py-3 whitespace-nowrap">
-                          <div className="flex items-center gap-1.5 text-slate-700 font-semibold">
-                            {v.device_type === 'mobile' ? (
-                              <Smartphone className="w-3.5 h-3.5 text-purple-600" />
-                            ) : v.device_type === 'tablet' ? (
-                              <Tablet className="w-3.5 h-3.5 text-cyan-600" />
-                            ) : (
-                              <Monitor className="w-3.5 h-3.5 text-blue-600" />
-                            )}
-                            <span>{v.browser}</span>
-                            <span className="text-slate-400 text-[10px]">({v.os})</span>
-                          </div>
-                        </td>
-                        <td className="py-3">
-                          {renderActionBadge(v.ultima_accion, v.ultimo_producto)}
-                        </td>
-                        <td className="py-3 text-center">
-                          <span className="bg-slate-100 text-slate-700 font-bold px-2 py-0.5 rounded-full text-[11px]">
-                            {v.total_acciones}
-                          </span>
-                        </td>
-                        <td className="py-3 text-right pr-2 text-slate-400 text-[11px] truncate max-w-[140px]">
-                          {v.referer ? (
-                            <span title={v.referer} className="hover:underline">
-                              {v.referer.replace(/^https?:\/\//, '').split('/')[0]}
+                    stats.recent_visits.map((v, i) => {
+                      const visitorShort = (v.visitor_id || v.session_id)
+                        .replace(/^v_|^s_/, '')
+                        .substring(0, 6)
+                        .toUpperCase()
+
+                      return (
+                        <tr key={v.session_id || i} className="hover:bg-slate-50/80 transition">
+                          {/* Identificador de Persona */}
+                          <td className="py-3 pl-2 whitespace-nowrap">
+                            <span className="inline-flex items-center gap-1 font-mono font-black text-[11px] bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md border border-slate-200">
+                              <Users className="w-3 h-3 text-[#6B66C8]" />
+                              #{visitorShort}
                             </span>
-                          ) : (
-                            <span className="text-slate-300">Directo / QR</span>
-                          )}
-                        </td>
-                      </tr>
-                    ))
+                          </td>
+
+                          {/* Tiempo y Duración */}
+                          <td className="py-3 whitespace-nowrap">
+                            <div className="text-slate-700 font-bold">
+                              {getRelativeTime(v.updated_at || v.created_at)}
+                            </div>
+                            <div className="text-[10px] text-slate-400 flex items-center gap-1">
+                              <Clock className="w-3 h-3 text-slate-400" />
+                              {formatDuration(v.duracion_segundos)}
+                            </div>
+                          </td>
+
+                          {/* Dispositivo */}
+                          <td className="py-3 whitespace-nowrap">
+                            <div className="flex items-center gap-1.5 text-slate-700 font-semibold">
+                              {v.device_type === 'mobile' ? (
+                                <Smartphone className="w-3.5 h-3.5 text-purple-600" />
+                              ) : v.device_type === 'tablet' ? (
+                                <Tablet className="w-3.5 h-3.5 text-cyan-600" />
+                              ) : (
+                                <Monitor className="w-3.5 h-3.5 text-blue-600" />
+                              )}
+                              <span>{v.browser}</span>
+                              <span className="text-slate-400 text-[10px]">({v.os})</span>
+                            </div>
+                          </td>
+
+                          {/* Productos Vistos en la Sesión */}
+                          <td className="py-3 text-center whitespace-nowrap">
+                            {Number(v.productos_vistos_count || 0) > 0 ? (
+                              <span className="bg-cyan-50 text-cyan-700 border border-cyan-200/60 font-bold px-2 py-0.5 rounded-full text-[11px]">
+                                {v.productos_vistos_count} vistos
+                              </span>
+                            ) : (
+                              <span className="text-slate-300">-</span>
+                            )}
+                          </td>
+
+                          {/* Última Acción */}
+                          <td className="py-3">
+                            {renderActionBadge(v.ultima_accion, v.ultimo_producto)}
+                          </td>
+
+                          {/* Total Acciones */}
+                          <td className="py-3 text-center">
+                            <span className="bg-slate-100 text-slate-700 font-bold px-2 py-0.5 rounded-full text-[11px]">
+                              {v.total_acciones}
+                            </span>
+                          </td>
+
+                          {/* Origen */}
+                          <td className="py-3 text-right pr-2 text-slate-400 text-[11px] truncate max-w-[140px]">
+                            {v.referer ? (
+                              <span title={v.referer} className="hover:underline">
+                                {v.referer.replace(/^https?:\/\//, '').split('/')[0]}
+                              </span>
+                            ) : (
+                              <span className="text-slate-300">Directo / QR</span>
+                            )}
+                          </td>
+                        </tr>
+                      )
+                    })
                   )}
                 </tbody>
               </table>

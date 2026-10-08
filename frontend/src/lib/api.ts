@@ -2,12 +2,6 @@ import axios from 'axios'
 import { useAuthStore } from '@/store/authStore'
 
 const getBaseURL = () => {
-  if (typeof window !== 'undefined') {
-    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-      return '/api/v1'
-    }
-    return 'https://3ld.com.ar/api/v1'
-  }
   return '/api/v1'
 }
 

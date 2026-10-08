@@ -2,10 +2,6 @@
 
 declare(strict_types=1);
 
-ini_set('display_errors', '1');
-ini_set('display_startup_errors', '1');
-error_reporting(E_ALL);
-
 if (PHP_SAPI === 'cli-server') {
     $url  = parse_url($_SERVER['REQUEST_URI']);
     $file = __DIR__ . $url['path'];
@@ -50,6 +46,16 @@ use App\Repositories\ClienteRepository;
 require_once __DIR__ . '/../vendor/autoload.php';
 
 $config = require __DIR__ . '/../config/config.php';
+
+if (!empty($config['app']['debug'])) {
+    ini_set('display_errors', '1');
+    ini_set('display_startup_errors', '1');
+    error_reporting(E_ALL);
+} else {
+    ini_set('display_errors', '0');
+    ini_set('display_startup_errors', '0');
+    error_reporting(0);
+}
 
 $containerBuilder = new ContainerBuilder();
 $containerBuilder->addDefinitions([
@@ -285,7 +291,7 @@ $app->group('/api/v1', function (RouteCollectorProxy $api) use ($config, $auth, 
             'totalInDest' => is_dir($primaryDest) ? count(scandir($primaryDest)) - 2 : 0,
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
         return $res->withHeader('Content-Type', 'application/json');
-    });
+    })->add($auth);
 
     // ── Auth ─────────────────────────────────────────────────────────────────
     $api->group('/auth', function (RouteCollectorProxy $g) use ($config, $container, $auth) {

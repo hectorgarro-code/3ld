@@ -97,6 +97,14 @@ class MediaController
                 if ($file->getError() === UPLOAD_ERR_OK) {
                     $contents = (string)$file->getStream();
                     $ext = strtolower(pathinfo($file->getClientFilename(), PATHINFO_EXTENSION)) ?: 'jpg';
+                    $allowedExts = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
+                    if (!in_array($ext, $allowedExts, true)) {
+                        $res->getBody()->write(json_encode([
+                            'success' => false,
+                            'message' => 'Tipo de archivo no permitido. Solo se admiten imágenes JPG, PNG, WEBP o GIF'
+                        ]));
+                        return $res->withStatus(400)->withHeader('Content-Type', 'application/json');
+                    }
                     $filename = ($customName ? preg_replace('/[^a-zA-Z0-9_-]/', '_', $customName) : uniqid('media_')) . '.' . $ext;
                     $url = UploadHelper::saveImageBinary($filename, $contents);
                     

@@ -34,6 +34,7 @@ import api from '@/lib/api';
 import { optimizeImagesForPrint } from '@/lib/imageOptimization';
 import { calcularTarifaCorreoArgentino } from '@/lib/correoArgentino';
 import { SocialShareModal } from '@/components/productos/SocialShareModal';
+import { ProductStoreDetailModal } from '@/components/tienda/ProductStoreDetailModal';
 const TiendaStoriesModal = React.lazy(() => import('@/components/tienda/TiendaStoriesModal').then(m => ({ default: m.TiendaStoriesModal })));
 import {
   trackPageView,
@@ -585,6 +586,7 @@ export default function TiendaPage() {
       if (found) {
         setActiveProductModal(found);
         setModalActiveImage(found.image);
+        trackViewProduct(found);
 
         // Si se abrió directamente por link (?producto=), crear entrada de historial base
         // para que al presionar "Atrás" en el celular vuelva al inicio de la tienda en lugar de salir de la web
@@ -2032,258 +2034,14 @@ export default function TiendaPage() {
         </div>
       )}
 
-      {/* Product Detail Modal */}
-      {activeProductModal && (
-        <div
-          onClick={closeProductModal}
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs"
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-3xl max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-150 border border-slate-200 max-h-[90vh] flex flex-col overflow-y-auto"
-          >
-            <div className="relative aspect-square max-h-[380px] bg-slate-100 shrink-0 overflow-hidden">
-              <img src={currentDisplayImage} alt={activeProductModal.title} className="w-full h-full object-cover transition-all duration-300" />
-              <button
-                onClick={closeProductModal}
-                className="absolute top-3 right-3 z-10 p-2 bg-slate-900/80 text-white rounded-full hover:bg-slate-900 transition shadow-md"
-              >
-                <X className="w-4 h-4" />
-              </button>
-
-              {/* Discrete Left / Right Arrow Buttons */}
-              {modalImages.length > 1 && (
-                <>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      const currentIndex = modalImages.indexOf(currentDisplayImage);
-                      const prevIndex = (currentIndex - 1 + modalImages.length) % modalImages.length;
-                      setModalActiveImage(modalImages[prevIndex]);
-                    }}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 z-10 p-2 bg-slate-900/40 hover:bg-slate-900/80 text-white rounded-full backdrop-blur-xs transition shadow-md"
-                    aria-label="Foto anterior"
-                  >
-                    <ChevronLeft className="w-5 h-5" />
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      const currentIndex = modalImages.indexOf(currentDisplayImage);
-                      const nextIndex = (currentIndex + 1) % modalImages.length;
-                      setModalActiveImage(modalImages[nextIndex]);
-                    }}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 z-10 p-2 bg-slate-900/40 hover:bg-slate-900/80 text-white rounded-full backdrop-blur-xs transition shadow-md"
-                    aria-label="Foto siguiente"
-                  >
-                    <ChevronRight className="w-5 h-5" />
-                  </button>
-                </>
-              )}
-            </div>
-
-            {/* Gallery Thumbnails */}
-            {modalImages.length > 1 && (
-              <div className="flex items-center gap-2 px-5 py-2.5 bg-slate-50 border-b border-slate-100 overflow-x-auto shrink-0">
-                {modalImages.map((imgUrl, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => setModalActiveImage(imgUrl)}
-                    className={`h-12 w-12 rounded-xl border-2 overflow-hidden shrink-0 transition-all ${
-                      currentDisplayImage === imgUrl ? 'border-cyan-500 ring-2 ring-cyan-500/30' : 'border-slate-200 opacity-60 hover:opacity-100'
-                    }`}
-                  >
-                    <img src={imgUrl} alt={`Foto ${idx + 1}`} className="h-full w-full object-cover" />
-                  </button>
-                ))}
-              </div>
-            )}
-
-            <div className="p-5">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-xs font-bold text-cyan-600 uppercase tracking-wide">
-                  {activeProductModal.subcategory || activeProductModal.category}
-                </span>
-                {isProductInStock(activeProductModal) ? (
-                  <span className="bg-emerald-100 text-emerald-800 text-[10px] font-black px-2 py-0.5 rounded-md flex items-center gap-1 border border-emerald-200">
-                    <Zap className="w-3 h-3 text-emerald-600" /> En Stock
-                  </span>
-                ) : (
-                  <span className="bg-amber-100 text-amber-900 text-[10px] font-black px-2 py-0.5 rounded-md flex items-center gap-1 border border-amber-300">
-                    ⚡ Impresión 3D: Listo en 24-48 hs
-                  </span>
-                )}
-              </div>
-              <h2 className="text-lg font-black text-slate-900 mt-1 leading-snug">{activeProductModal.title}</h2>
-
-              <p className="text-xs text-slate-600 mt-2 leading-relaxed">{activeProductModal.description}</p>
-
-              {/* Color options */}
-              {activeProductModal.colors && activeProductModal.colors.length > 0 && (
-                <div className="mt-4">
-                  <label className="text-xs font-bold text-slate-800 block mb-1.5">
-                    Color de Impresión (PLA): {modalSelectedColor ? <span className="text-cyan-600 font-extrabold">{modalSelectedColor}</span> : <span className="text-slate-400 font-normal">(Opcional)</span>}
-                  </label>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    {activeProductModal.colors.map((colorItem, idx) => {
-                      const colorName = typeof colorItem === 'string' ? colorItem : colorItem.name;
-                      const hexColor = typeof colorItem === 'object' && colorItem.hex ? colorItem.hex : (AVAILABLE_COLORS.find(c => c.name === colorName)?.hex || '#06b6d4');
-                      const isSelected = modalSelectedColor === colorName;
-                      return (
-                        <button
-                          key={colorName || idx}
-                          onClick={() => setModalSelectedColor(isSelected ? '' : colorName)}
-                          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border transition cursor-pointer ${
-                            isSelected
-                              ? 'border-cyan-600 bg-cyan-50 text-cyan-900 ring-2 ring-cyan-500/30 font-bold'
-                              : 'border-slate-200 text-slate-700 bg-white hover:bg-slate-50'
-                          }`}
-                        >
-                          <span className="w-3 h-3 rounded-full border border-slate-300 shrink-0" style={{ backgroundColor: hexColor }} />
-                          <span>{colorName}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Piezas / Components Selection */}
-              {activeProductModal.piezas && activeProductModal.piezas.length > 0 && (
-                <div className="mt-4 bg-indigo-50/70 p-3.5 rounded-2xl border border-indigo-100/90 space-y-2.5">
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs font-black text-indigo-950 flex items-center gap-1.5 uppercase tracking-wide">
-                      🧩 Seleccionar Piezas del Set
-                    </label>
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const allOn: Record<string, boolean> = {};
-                          activeProductModal.piezas?.forEach(p => { allOn[p.id || p.nombre] = true; });
-                          setModalSelectedPiezas(allOn);
-                        }}
-                        className="text-[10px] font-extrabold text-indigo-600 hover:text-indigo-800 underline"
-                      >
-                        Marcar todas
-                      </button>
-                      <span className="text-indigo-300">|</span>
-                      <button
-                        type="button"
-                        onClick={() => setModalSelectedPiezas({})}
-                        className="text-[10px] font-extrabold text-slate-500 hover:text-slate-700 underline"
-                      >
-                        Desmarcar
-                      </button>
-                    </div>
-                  </div>
-                  <p className="text-[11px] text-slate-600">
-                    Elegí las piezas que querés incluir en tu pedido:
-                  </p>
-                  <div className="space-y-1.5 max-h-72 sm:max-h-80 overflow-y-auto pr-1">
-                    {activeProductModal.piezas.map((pieza) => {
-                      const key = pieza.id || pieza.nombre;
-                      const isChecked = !!modalSelectedPiezas[key];
-                      return (
-                        <label
-                          key={key}
-                          className={`flex items-center justify-between p-2 rounded-xl border transition cursor-pointer ${
-                            isChecked
-                              ? 'border-indigo-500 bg-white shadow-2xs text-indigo-950 font-bold'
-                              : 'border-slate-200/80 bg-slate-50/70 text-slate-500 hover:bg-white'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <input
-                              type="checkbox"
-                              checked={isChecked}
-                              onChange={(e) => {
-                                setModalSelectedPiezas(prev => ({
-                                  ...prev,
-                                  [key]: e.target.checked
-                                }));
-                              }}
-                              className="w-4 h-4 rounded accent-indigo-600 cursor-pointer shrink-0"
-                            />
-                            {pieza.imagen_url && (
-                              <img src={pieza.imagen_url} alt={pieza.nombre} className="w-8 h-8 object-cover rounded-lg border border-slate-200 shrink-0" />
-                            )}
-                            <div className="flex flex-col min-w-0">
-                              <span className="text-xs truncate">{pieza.nombre}</span>
-                              {pieza.medidas && (
-                                <span className="text-[10px] text-slate-400 font-semibold">📏 Medidas: {pieza.medidas}</span>
-                              )}
-                            </div>
-                          </div>
-                          <span className="text-xs font-black text-indigo-700 shrink-0 ml-2">
-                            ${Number(pieza.precio).toLocaleString('es-AR')}
-                          </span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Specs */}
-              {hasValidSize(activeProductModal.size) && (
-                <div className="mt-3 text-xs text-slate-600 font-medium bg-slate-50 p-2.5 rounded-xl border border-slate-200/80 flex items-center gap-1.5">
-                  <span>📏</span>
-                  <span>Medidas: <strong className="text-slate-900">{activeProductModal.size}</strong></span>
-                </div>
-              )}
-
-              {/* Price & Action */}
-              <div className="mt-5 pt-4 border-t border-slate-100 flex items-center justify-between">
-                <div>
-                  <span className="text-xs text-slate-400 block">Precio Total</span>
-                  <span className="text-xl font-black text-slate-900">
-                    ${calculatedModalPrice.toLocaleString('es-AR')}
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={(e) => handleShareProduct(e, activeProductModal)}
-                    className="px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-2xl transition active:scale-95 flex items-center gap-1.5"
-                    title="Compartir enlace de este producto"
-                  >
-                    <Share2 className="w-4 h-4 text-cyan-600" />
-                    <span>Compartir</span>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      const finalColor = modalSelectedColor || 'Estándar';
-                      if (activeProductModal.piezas && activeProductModal.piezas.length > 0) {
-                        const selectedList = activeProductModal.piezas.filter(p => modalSelectedPiezas[p.id || p.nombre]);
-                        if (selectedList.length === 0) {
-                          showToast('Seleccioná al menos 1 pieza para agregar al carrito', 'error');
-                          return;
-                        }
-                        const piezaNames = selectedList.map(p => p.nombre).join(', ');
-                        const customProduct: StoreProduct = {
-                          ...activeProductModal,
-                          title: `${activeProductModal.title} (${selectedList.length} pieza${selectedList.length > 1 ? 's' : ''}: ${piezaNames})`,
-                          price: calculatedModalPrice
-                        };
-                        addToCart(customProduct, 1, finalColor);
-                      } else {
-                        addToCart(activeProductModal, 1, finalColor);
-                      }
-                      closeProductModal();
-                    }}
-                    className="px-5 py-2.5 bg-slate-900 hover:bg-cyan-600 text-white font-bold text-xs rounded-2xl shadow-md transition active:scale-95 flex items-center gap-2"
-                  >
-                    <ShoppingCart className="w-4 h-4" />
-                    <span>Agregar al Carrito</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Product Detail Modal (Unificado) */}
+      <ProductStoreDetailModal
+        product={activeProductModal}
+        isOpen={!!activeProductModal}
+        onClose={closeProductModal}
+        onAddToCart={(product, qty, color) => addToCart(product, qty, color)}
+        onShare={(product) => setSocialShareProduct(product)}
+      />
 
       {/* STL Quote Modal */}
       {isQuoteModalOpen && (

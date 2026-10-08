@@ -8,6 +8,7 @@ import { ProductoFormModal } from '@/components/productos/ProductoFormModal'
 import { MakerWorldImportModal } from '@/components/productos/MakerWorldImportModal'
 import { CategoriasModal } from '@/components/productos/CategoriasModal'
 import { SocialShareModal } from '@/components/productos/SocialShareModal'
+import { ProductStoreDetailModal } from '@/components/tienda/ProductStoreDetailModal'
 import { toast } from '@/store/toastStore'
 
 const tipoConfig: Record<string, { label: string; color: string; emoji: string }> = {
@@ -33,13 +34,15 @@ function ProductoCard({
   onEdit, 
   onDuplicate, 
   onDelete,
-  onShare
+  onShare,
+  onPreview
 }: { 
   producto: Producto, 
   onEdit: (p: Producto) => void,
   onDuplicate: (p: Producto) => void,
   onDelete: (p: Producto) => void,
-  onShare: (p: Producto) => void
+  onShare: (p: Producto) => void,
+  onPreview: (p: Producto) => void
 }) {
   const cfg = tipoConfig[producto.tipo] || { label: producto.tipo, color: 'bg-gray-500/20 text-slate-500', emoji: '📦' }
   const isBajStock = Number(producto.stock_actual) <= Number(producto.stock_minimo)
@@ -115,11 +118,15 @@ function ProductoCard({
 
       {/* Image / Gallery */}
       {currentImg ? (
-        <div className="relative mb-3 flex h-28 items-center justify-center rounded-xl bg-slate-50 overflow-hidden group/img">
+        <div 
+          onClick={() => onPreview(producto)}
+          className="relative mb-3 flex h-28 items-center justify-center rounded-xl bg-slate-50 overflow-hidden group/img cursor-pointer transition hover:ring-2 hover:ring-[#6B66C8]/40"
+          title="Clic para ver detalle completo como en la tienda"
+        >
           <img
             src={resolveImageUrl(currentImg)}
             alt={producto.nombre}
-            className="h-full w-full object-cover transition duration-300"
+            className="h-full w-full object-cover transition duration-300 group-hover/img:scale-105"
             onError={(e) => {
               const el = e.currentTarget
               if (el.dataset.triedFallback) return
@@ -165,7 +172,11 @@ function ProductoCard({
           )}
         </div>
       ) : (
-        <div className="mb-3 flex h-28 items-center justify-center rounded-xl bg-slate-50 text-4xl">
+        <div 
+          onClick={() => onPreview(producto)}
+          className="mb-3 flex h-28 items-center justify-center rounded-xl bg-slate-50 text-4xl cursor-pointer hover:bg-slate-100 transition"
+          title="Clic para ver detalle completo como en la tienda"
+        >
           {cfg.emoji}
         </div>
       )}
@@ -232,6 +243,7 @@ export default function ProductosPage() {
   const [isCategoriasModalOpen, setIsCategoriasModalOpen] = useState(false)
   const [selectedProducto, setSelectedProducto] = useState<Producto | null>(null)
   const [shareProducto, setShareProducto] = useState<Producto | null>(null)
+  const [previewProducto, setPreviewProducto] = useState<Producto | null>(null)
   const [isDuplicate, setIsDuplicate] = useState(false)
 
   useEffect(() => {
@@ -260,6 +272,10 @@ export default function ProductosPage() {
     setSelectedProducto(p)
     setIsDuplicate(false)
     setIsModalOpen(true)
+  }
+
+  const handlePreview = (p: Producto) => {
+    setPreviewProducto(p)
   }
 
   const handleDuplicate = (p: Producto) => {
@@ -363,6 +379,7 @@ export default function ProductosPage() {
               onDuplicate={handleDuplicate}
               onDelete={handleDelete}
               onShare={handleShare}
+              onPreview={handlePreview}
             />
           ))}
         </div>
@@ -375,6 +392,14 @@ export default function ProductosPage() {
       )}
 
       {/* Modales */}
+      <ProductStoreDetailModal
+        isOpen={!!previewProducto}
+        onClose={() => setPreviewProducto(null)}
+        product={previewProducto}
+        isAdminView={true}
+        onEdit={(p) => handleEdit(p)}
+      />
+
       <ProductoFormModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}

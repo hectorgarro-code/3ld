@@ -56,6 +56,28 @@ class AnalyticsController
 
             $ua = $serverParams['HTTP_USER_AGENT'] ?? '';
 
+            // 1. Descartar bots y rastreadores web automáticos
+            if ($this->isBot($ua)) {
+                return Response::success(['tracked' => false, 'reason' => 'bot_excluded']);
+            }
+
+            // 2. Descartar accesos de personal administrativo u operarios (con token en cabecera)
+            $authHeader = $request->getHeaderLine('Authorization');
+            if (!empty($authHeader) && str_starts_with($authHeader, 'Bearer ')) {
+                return Response::success(['tracked' => false, 'reason' => 'staff_excluded']);
+            }
+
+            // 3. Descartar si el cliente reporta modo previsualización o personal
+            if (!empty($parsed['is_staff']) || !empty($parsed['is_preview'])) {
+                return Response::success(['tracked' => false, 'reason' => 'preview_excluded']);
+            }
+
+            // 4. Descartar si la URL corresponde a pantallas privadas del panel del sistema
+            $pageUrl = (string)($parsed['url'] ?? '');
+            if (preg_match('#/(ventas|pedidos|dashboard|configuracion|clientes|produccion|compras|proveedores|login)#i', $pageUrl)) {
+                return Response::success(['tracked' => false, 'reason' => 'internal_route_excluded']);
+            }
+
             $this->repository->recordTrack($parsed, $ip, $ua);
 
             $res = Response::success(['tracked' => true]);
@@ -65,6 +87,18 @@ class AnalyticsController
             // No romper la experiencia en caso de fallo
             return Response::success(['tracked' => false]);
         }
+    }
+
+    /**
+     * Detectar si el User-Agent proviene de un bot, scraper o rastreador
+     */
+    private function isBot(string $ua): bool
+    {
+        if (empty($ua)) {
+            return false;
+        }
+        $botPattern = '/(bot|crawler|spider|slurp|facebookexternalhit|whatsapp|google-read-aloud|semrush|ahrefs|bingbot|yandex|bytespider|duckduckbot|applebot|headlesschrome|lighthouse|phantomjs|curl|wget|python|postman|insomnia|headless)/i';
+        return (bool)preg_match($botPattern, $ua);
     }
 
     /**

@@ -31,7 +31,7 @@ class Database
             $options = [
                 PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-                PDO::ATTR_EMULATE_PREPARES   => true,
+                PDO::ATTR_EMULATE_PREPARES   => false,
                 PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES {$charset} COLLATE utf8mb4_unicode_ci",
             ];
 
@@ -51,10 +51,29 @@ class Database
 
     private static function ensureSchema(PDO $db): void
     {
-        $flagFile = sys_get_temp_dir() . '/sistema3ld_schema_v3.flag';
+        $flagFile = sys_get_temp_dir() . '/sistema3ld_schema_v5.flag';
         if (file_exists($flagFile) && (time() - filemtime($flagFile) < 86400)) {
             return;
         }
+
+        try {
+            $db->exec("ALTER TABLE tienda_visitas ADD COLUMN visitor_id VARCHAR(64) NULL AFTER session_id");
+        } catch (\Throwable $e) {}
+        try {
+            $db->exec("ALTER TABLE tienda_visitas ADD COLUMN is_bot TINYINT(1) DEFAULT 0 AFTER os");
+        } catch (\Throwable $e) {}
+        try {
+            $db->exec("ALTER TABLE tienda_visitas ADD COLUMN is_staff TINYINT(1) DEFAULT 0 AFTER is_bot");
+        } catch (\Throwable $e) {}
+        try {
+            $db->exec("CREATE INDEX idx_visitas_visitor ON tienda_visitas (visitor_id)");
+        } catch (\Throwable $e) {}
+        try {
+            $db->exec("ALTER TABLE tienda_visitas_eventos ADD COLUMN visitor_id VARCHAR(64) NULL AFTER session_id");
+        } catch (\Throwable $e) {}
+        try {
+            $db->exec("CREATE INDEX idx_eventos_visitor ON tienda_visitas_eventos (visitor_id)");
+        } catch (\Throwable $e) {}
 
         try {
             $db->exec("ALTER TABLE productos ADD COLUMN archivo_url VARCHAR(500) NULL");

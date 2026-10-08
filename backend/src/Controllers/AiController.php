@@ -154,6 +154,22 @@ class AiController
             $imgUrl = 'https:' . $imgUrl;
         }
 
+        $parsed = parse_url($imgUrl);
+        $scheme = strtolower($parsed['scheme'] ?? '');
+        if (!in_array($scheme, ['http', 'https'], true)) {
+            return Response::error('Protocolo de imagen no válido', 400);
+        }
+
+        $host = strtolower($parsed['host'] ?? '');
+        if (empty($host) || $host === 'localhost') {
+            return Response::error('Host inválido', 400);
+        }
+
+        $ip = gethostbyname($host);
+        if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) === false) {
+            return Response::error('Acceso a recursos internos restringido', 403);
+        }
+
         $uploadDir = __DIR__ . '/../../public/uploads/productos/';
         if (!is_dir($uploadDir)) {
             mkdir($uploadDir, 0777, true);
