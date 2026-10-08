@@ -91,6 +91,7 @@ export function MediaLibraryModal({
   const [batchSelected, setBatchSelected] = useState<Record<string, boolean>>({})
   const [isBatchProcessing, setIsBatchProcessing] = useState(false)
   const [batchProgress, setBatchProgress] = useState<string>('')
+  const [isConvertingSingle, setIsConvertingSingle] = useState(false)
 
   // Cargar lista de imágenes al abrir
   useEffect(() => {
@@ -164,106 +165,134 @@ export function MediaLibraryModal({
       img.crossOrigin = 'anonymous'
 
       const onLoad = () => {
-        let origW = img.width
-        let origH = img.height
+        try {
+          let origW = img.naturalWidth || img.width
+          let origH = img.naturalHeight || img.height
 
-        // 1. Aplicar Recorte de Aspecto si corresponde
-        let srcX = 0
-        let srcY = 0
-        let srcW = origW
-        let srcH = origH
+          // 1. Aplicar Recorte de Aspecto si corresponde
+          let srcX = 0
+          let srcY = 0
+          let srcW = origW
+          let srcH = origH
 
-        if (cropRatio !== 'free') {
-          let targetRatio = 1
-          if (cropRatio === '1:1') targetRatio = 1
-          else if (cropRatio === '4:3') targetRatio = 4 / 3
-          else if (cropRatio === '16:9') targetRatio = 16 / 9
-          else if (cropRatio === '9:16') targetRatio = 9 / 16
+          if (cropRatio !== 'free') {
+            let targetRatio = 1
+            if (cropRatio === '1:1') targetRatio = 1
+            else if (cropRatio === '4:3') targetRatio = 4 / 3
+            else if (cropRatio === '16:9') targetRatio = 16 / 9
+            else if (cropRatio === '9:16') targetRatio = 9 / 16
 
-          const currentRatio = origW / origH
-          if (currentRatio > targetRatio) {
-            srcW = origH * targetRatio
-            srcX = (origW - srcW) / 2
-          } else {
-            srcH = origW / targetRatio
-            srcY = (origH - srcH) / 2
+            const currentRatio = origW / origH
+            if (currentRatio > targetRatio) {
+              srcW = origH * targetRatio
+              srcX = (origW - srcW) / 2
+            } else {
+              srcH = origW / targetRatio
+              srcY = (origH - srcH) / 2
+            }
           }
+
+          // 2. Redimensionar si supera maxWidth
+          let finalW = srcW
+          let finalH = srcH
+          if (maxWidth > 0 && finalW > maxWidth) {
+            finalH = Math.round((maxWidth / finalW) * finalH)
+            finalW = maxWidth
+          }
+
+          const canvas = document.createElement('canvas')
+          const ctx = canvas.getContext('2d')
+
+          if (!ctx) {
+            reject(new Error('No se pudo inicializar Canvas Context'))
+            return
+          }
+
+          // Manejar rotación 90/270
+          const isRotated90 = filters.rotation === 90 || filters.rotation === 270
+          canvas.width = isRotated90 ? finalH : finalW
+          canvas.height = isRotated90 ? finalW : finalH
+
+          ctx.save()
+
+          // Centro para transformaciones
+          ctx.translate(canvas.width / 2, canvas.height / 2)
+
+          if (filters.rotation !== 0) {
+            ctx.rotate((filters.rotation * Math.PI) / 180)
+          }
+
+          const scaleH = filters.flipH ? -1 : 1
+          const scaleV = filters.flipV ? -1 : 1
+          ctx.scale(scaleH, scaleV)
+
+          // Filtros CSS en Canvas
+          let filterStr = `brightness(${filters.brightness}%) contrast(${filters.contrast}%) saturate(${filters.saturation}%)`
+          if (filters.colorPreset === 'grayscale') filterStr += ' grayscale(100%)'
+          if (filters.colorPreset === 'sepia') filterStr += ' sepia(90%)'
+          if (filters.colorPreset === 'vivid') filterStr += ' saturate(160%) contrast(110%)'
+          ctx.filter = filterStr
+
+          const drawW = isRotated90 ? finalH : finalW
+          const drawH = isRotated90 ? finalW : finalH
+
+          ctx.drawImage(img, srcX, srcY, srcW, srcH, -drawW / 2, -drawH / 2, drawW, drawH)
+          ctx.restore()
+
+          // Exportar a Data URL WebP
+          const qualityFraction = Math.max(0.1, Math.min(1.0, qualityPercent / 100))
+          const dataUrl = canvas.toDataURL('image/webp', qualityFraction)
+
+          // Calcular tamaño aproximado en bytes del base64
+          const base64Head = 'data:image/webp;base64,'
+          const cleanBase64 = dataUrl.startsWith(base64Head) ? dataUrl.slice(base64Head.length) : dataUrl
+          const approxBytes = Math.round((cleanBase64.length * 3) / 4)
+
+          resolve({
+            dataUrl,
+            sizeBytes: approxBytes,
+            width: canvas.width,
+            height: canvas.height
+          })
+        } catch (err) {
+          reject(err)
         }
-
-        // 2. Redimensionar si supera maxWidth
-        let finalW = srcW
-        let finalH = srcH
-        if (maxWidth > 0 && finalW > maxWidth) {
-          finalH = Math.round((maxWidth / finalW) * finalH)
-          finalW = maxWidth
-        }
-
-        const canvas = document.createElement('canvas')
-        const ctx = canvas.getContext('2d')
-
-        if (!ctx) {
-          reject(new Error('No se pudo inicializar Canvas Context'))
-          return
-        }
-
-        // Manejar rotación 90/270
-        const isRotated90 = filters.rotation === 90 || filters.rotation === 270
-        canvas.width = isRotated90 ? finalH : finalW
-        canvas.height = isRotated90 ? finalW : finalH
-
-        ctx.save()
-
-        // Centro para transformaciones
-        ctx.translate(canvas.width / 2, canvas.height / 2)
-
-        if (filters.rotation !== 0) {
-          ctx.rotate((filters.rotation * Math.PI) / 180)
-        }
-
-        const scaleH = filters.flipH ? -1 : 1
-        const scaleV = filters.flipV ? -1 : 1
-        ctx.scale(scaleH, scaleV)
-
-        // Filtros CSS en Canvas
-        let filterStr = `brightness(${filters.brightness}%) contrast(${filters.contrast}%) saturate(${filters.saturation}%)`
-        if (filters.colorPreset === 'grayscale') filterStr += ' grayscale(100%)'
-        if (filters.colorPreset === 'sepia') filterStr += ' sepia(90%)'
-        if (filters.colorPreset === 'vivid') filterStr += ' saturate(160%) contrast(110%)'
-        ctx.filter = filterStr
-
-        const drawW = isRotated90 ? finalH : finalW
-        const drawH = isRotated90 ? finalW : finalH
-
-        ctx.drawImage(img, srcX, srcY, srcW, srcH, -drawW / 2, -drawH / 2, drawW, drawH)
-        ctx.restore()
-
-        // Exportar a Data URL WebP
-        const qualityFraction = Math.max(0.1, Math.min(1.0, qualityPercent / 100))
-        const dataUrl = canvas.toDataURL('image/webp', qualityFraction)
-
-        // Calcular tamaño aproximado en bytes del base64
-        const base64Head = 'data:image/webp;base64,'
-        const cleanBase64 = dataUrl.startsWith(base64Head) ? dataUrl.slice(base64Head.length) : dataUrl
-        const approxBytes = Math.round((cleanBase64.length * 3) / 4)
-
-        resolve({
-          dataUrl,
-          sizeBytes: approxBytes,
-          width: canvas.width,
-          height: canvas.height
-        })
       }
 
+      img.onload = onLoad
       img.onerror = (e) => reject(e)
 
       if (typeof imageSource === 'string') {
-        img.src = imageSource
-      } else {
-        const reader = new FileReader()
-        reader.onload = (ev) => {
-          if (ev.target?.result) img.src = ev.target.result as string
+        if (imageSource.startsWith('data:') || imageSource.startsWith('blob:')) {
+          img.src = imageSource
+        } else {
+          // Obtener como Blob primero para evitar problemas de CORS en canvas
+          fetch(imageSource)
+            .then((r) => {
+              if (!r.ok) throw new Error(`HTTP ${r.status}`)
+              return r.blob()
+            })
+            .then((blob) => {
+              const blobUrl = URL.createObjectURL(blob)
+              img.onload = () => {
+                URL.revokeObjectURL(blobUrl)
+                onLoad()
+              }
+              img.src = blobUrl
+            })
+            .catch(() => {
+              // Fallback directo si fetch falla
+              img.onload = onLoad
+              img.src = imageSource
+            })
         }
-        reader.readAsDataURL(imageSource)
+      } else {
+        const blobUrl = URL.createObjectURL(imageSource)
+        img.onload = () => {
+          URL.revokeObjectURL(blobUrl)
+          onLoad()
+        }
+        img.src = blobUrl
       }
     })
   }
@@ -330,6 +359,33 @@ export function MediaLibraryModal({
     }
   }
 
+  // Convertir individualmente una foto seleccionada a WebP
+  const handleConvertSingleToWebp = async (item: MediaItem) => {
+    setIsConvertingSingle(true)
+    try {
+      const fullUrl = resolveImageUrl(item.url)
+      const res = await processImageToWebp(fullUrl, 82, 1200)
+      const baseName = item.filename.replace(/\.[^/.]+$/, '')
+      const newFilename = `${baseName}.webp`
+
+      const uploadRes = await api.post('/media/upload', {
+        image_base64: res.dataUrl,
+        filename: newFilename,
+        original_filename: item.filename
+      })
+
+      if (uploadRes.data?.success) {
+        toast(`¡"${item.filename}" convertida a WebP con éxito!`, 'success')
+        await fetchMediaList()
+        setSelectedItem(null)
+      }
+    } catch {
+      toast('Error al convertir la imagen a WebP', 'error')
+    } finally {
+      setIsConvertingSingle(false)
+    }
+  }
+
   // Abrir editor de retoque con una imagen existente o cargada
   const handleOpenEditor = (item: MediaItem) => {
     const fullUrl = resolveImageUrl(item.url)
@@ -343,7 +399,26 @@ export function MediaLibraryModal({
     setFlipV(false)
     setColorPreset('none')
     setCropAspect('free')
+    setEditedWebpDataUrl(null)
     setActiveTab('editor')
+
+    // Renderizar lienzo de inmediato
+    processImageToWebp(fullUrl, webpQuality, targetWidth, {
+      brightness: 100,
+      contrast: 100,
+      saturation: 100,
+      rotation: 0,
+      flipH: false,
+      flipV: false,
+      colorPreset: 'none'
+    }, 'free')
+      .then((res) => {
+        setEditedWebpDataUrl(res.dataUrl)
+        setEditedSizeBytes(res.sizeBytes)
+      })
+      .catch((err) => {
+        console.error('Error cargando lienzo en editor:', err)
+      })
   }
 
   // Re-renderizar lienzo de edición cuando cambian los controles
@@ -360,7 +435,9 @@ export function MediaLibraryModal({
           )
           setEditedWebpDataUrl(res.dataUrl)
           setEditedSizeBytes(res.sizeBytes)
-        } catch {}
+        } catch (err) {
+          console.error('Error al actualizar editor:', err)
+        }
       }, 150)
       return () => clearTimeout(timer)
     }
@@ -414,7 +491,8 @@ export function MediaLibraryModal({
         const baseName = filename.replace(/\.[^/.]+$/, '')
         await api.post('/media/upload', {
           image_base64: res.dataUrl,
-          filename: `${baseName}.webp`
+          filename: `${baseName}.webp`,
+          original_filename: filename
         })
         processed++
       } catch (err) {
@@ -607,6 +685,19 @@ export function MediaLibraryModal({
                           )}
                         </div>
 
+                        {!item.is_webp && (
+                          <button
+                            title="Optimizar a WebP"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleConvertSingleToWebp(item)
+                            }}
+                            className="absolute top-2 right-2 z-10 bg-amber-500/90 hover:bg-amber-600 text-white p-1 rounded-lg backdrop-blur-xs shadow-xs transition opacity-0 group-hover:opacity-100"
+                          >
+                            <Zap className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+
                         {/* Foto Preview */}
                         <div className="aspect-square bg-slate-100 relative overflow-hidden flex items-center justify-center">
                           <img
@@ -699,6 +790,17 @@ export function MediaLibraryModal({
                     >
                       <Check className="w-4 h-4" />
                       <span>Usar esta imagen en Producto</span>
+                    </button>
+                  )}
+
+                  {!selectedItem.is_webp && (
+                    <button
+                      onClick={() => handleConvertSingleToWebp(selectedItem)}
+                      disabled={isConvertingSingle}
+                      className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-xs transition disabled:opacity-50"
+                    >
+                      <Zap className={`w-4 h-4 ${isConvertingSingle ? 'animate-spin' : ''}`} />
+                      <span>{isConvertingSingle ? 'Convirtiendo a WebP...' : 'Optimizar a WebP'}</span>
                     </button>
                   )}
 
@@ -905,9 +1007,22 @@ export function MediaLibraryModal({
                     className="max-h-[65vh] object-contain rounded-xl shadow-2xl border border-slate-800"
                   />
                 </div>
+              ) : editingImageSrc ? (
+                <div className="flex flex-col items-center justify-center space-y-3">
+                  <RefreshCw className="w-8 h-8 text-cyan-400 animate-spin" />
+                  <p className="text-xs font-bold text-slate-400">Procesando lienzo de edición...</p>
+                </div>
               ) : (
-                <div className="text-center text-slate-500 text-xs font-bold">
-                  Seleccioná una foto de la biblioteca para comenzar a retocar.
+                <div className="text-center space-y-3">
+                  <p className="text-slate-400 text-xs font-bold">
+                    No hay ninguna imagen seleccionada para retocar.
+                  </p>
+                  <button
+                    onClick={() => setActiveTab('gallery')}
+                    className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-xl text-xs font-bold transition shadow-md"
+                  >
+                    Elegir foto de la biblioteca
+                  </button>
                 </div>
               )}
 

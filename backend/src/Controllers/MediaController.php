@@ -114,9 +114,42 @@ class MediaController
         }
 
         if (!empty($imageData)) {
-            $savedUrl = UploadHelper::processSingleImage($imageData);
+            $savedUrl = UploadHelper::processSingleImage($imageData, $customName);
             if ($savedUrl) {
                 $basename = basename($savedUrl);
+
+                // Si se especificó un nombre original a reemplazar, actualizar productos en BD
+                $origFilename = $body['original_filename'] ?? null;
+                if (!empty($origFilename) && $origFilename !== $basename) {
+                    $origBasename = basename($origFilename);
+                    try {
+                        $stmt1 = $this->db->prepare("UPDATE productos SET imagen_url = REPLACE(imagen_url, :orig, :new) WHERE imagen_url LIKE :like");
+                        $stmt1->execute([
+                            'orig' => $origBasename,
+                            'new' => $basename,
+                            'like' => '%' . $origBasename . '%'
+                        ]);
+
+                        $stmt2 = $this->db->prepare("UPDATE productos SET imagenes = REPLACE(imagenes, :orig, :new) WHERE imagenes LIKE :like");
+                        $stmt2->execute([
+                            'orig' => $origBasename,
+                            'new' => $basename,
+                            'like' => '%' . $origBasename . '%'
+                        ]);
+
+                        if (!empty($body['delete_original'])) {
+                            $dirs = UploadHelper::getTargetDirectories();
+                            foreach ($dirs as $dir) {
+                                if (file_exists($dir . $origBasename)) {
+                                    @unlink($dir . $origBasename);
+                                }
+                            }
+                        }
+                    } catch (\Throwable $e) {
+                        // Continuar si la BD no requiere actualización
+                    }
+                }
+
                 $res->getBody()->write(json_encode([
                     'success' => true,
                     'message' => 'Imagen procesada y guardada correctamente',

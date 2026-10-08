@@ -37,6 +37,36 @@ class UploadHelper
             if (is_dir($docUploads) && !in_array($docUploads, $validDirs, true)) {
                 $validDirs[] = $docUploads;
             }
+
+            // Si estamos dentro del subdominio sistema (ej. public_html/sistema), agregar también el dominio raíz (public_html)
+            $parentDocRoot = dirname($docRoot);
+            if (is_dir($parentDocRoot) && (basename($docRoot) === 'sistema' || is_dir($parentDocRoot . '/backend'))) {
+                $parentUploads1 = $parentDocRoot . '/uploads/productos/';
+                $parentUploads2 = $parentDocRoot . '/backend/public/uploads/productos/';
+                foreach ([$parentUploads1, $parentUploads2] as $pDir) {
+                    if (!is_dir($pDir)) {
+                        @mkdir($pDir, 0777, true);
+                    }
+                    if (is_dir($pDir) && !in_array($pDir, $validDirs, true)) {
+                        $validDirs[] = $pDir;
+                    }
+                }
+            }
+
+            // Y si estamos en el dominio raíz, verificar y sincronizar también con el subdominio sistema
+            $sistemaDocRoot = $docRoot . '/sistema';
+            if (is_dir($sistemaDocRoot)) {
+                $subUploads1 = $sistemaDocRoot . '/uploads/productos/';
+                $subUploads2 = $sistemaDocRoot . '/backend/public/uploads/productos/';
+                foreach ([$subUploads1, $subUploads2] as $sDir) {
+                    if (!is_dir($sDir)) {
+                        @mkdir($sDir, 0777, true);
+                    }
+                    if (is_dir($sDir) && !in_array($sDir, $validDirs, true)) {
+                        $validDirs[] = $sDir;
+                    }
+                }
+            }
         }
 
         return $validDirs;
@@ -58,7 +88,7 @@ class UploadHelper
      * Procesa una imagen en base64, URL de proxy o URL directa,
      * la guarda físicamente en todas las ubicaciones y devuelve la URL estandarizada.
      */
-    public static function processSingleImage(string $img): ?string
+    public static function processSingleImage(string $img, ?string $customFilename = null): ?string
     {
         $img = trim($img);
         if (empty($img)) {
@@ -74,7 +104,15 @@ class UploadHelper
             }
             $decoded = base64_decode($base64Data);
             if ($decoded !== false && strlen($decoded) > 50) {
-                $fileName = uniqid('prd_') . '.' . $ext;
+                if ($customFilename) {
+                    $cleanName = preg_replace('/[^a-zA-Z0-9_.-]/', '_', $customFilename);
+                    if (!str_ends_with(strtolower($cleanName), '.' . $ext)) {
+                        $cleanName = pathinfo($cleanName, PATHINFO_FILENAME) . '.' . $ext;
+                    }
+                    $fileName = $cleanName;
+                } else {
+                    $fileName = uniqid('prd_') . '.' . $ext;
+                }
                 return self::saveImageBinary($fileName, $decoded);
             }
         }

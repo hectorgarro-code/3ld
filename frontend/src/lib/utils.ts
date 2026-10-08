@@ -31,12 +31,21 @@ export function timeAgo(date?: string | Date | null): string {
 
 export function resolveImageUrl(url?: string | null): string {
   if (!url) return ''
-  if (url.startsWith('data:') || url.startsWith('http://') || url.startsWith('https://')) {
+  if (url.startsWith('data:') || url.startsWith('blob:')) {
     return url
   }
-  const base = typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1'
-    ? 'https://3ld.com.ar'
-    : ''
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    try {
+      const parsed = new URL(url)
+      if (typeof window !== 'undefined' && (parsed.hostname === '3ld.com.ar' || parsed.hostname === 'sistema.3ld.com.ar')) {
+        return `${window.location.origin}${parsed.pathname}${parsed.search}`
+      }
+    } catch {}
+    return url
+  }
   const cleanPath = url.startsWith('/') ? url : `/${url}`
-  return `${base}${cleanPath}`
+  if (typeof window !== 'undefined') {
+    return `${window.location.origin}${cleanPath}`
+  }
+  return cleanPath
 }
