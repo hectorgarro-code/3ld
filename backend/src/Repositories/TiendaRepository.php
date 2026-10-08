@@ -72,7 +72,7 @@ class TiendaRepository
                            CASE WHEN COALESCE(p.stock_actual, 0) > 0 AND p.estado_stock = 'ready' THEN 'ready' ELSE 'custom' END AS stockStatus,
                            p.imagen_url AS image, p.imagenes, p.colores, p.piezas, p.peso_gramos AS weightGrams,
                            p.dimensiones AS size, p.alto_mm, p.ancho_mm, p.profundidad_mm, p.es_destacado,
-                           p.categoria_id,
+                           p.categoria_id, p.seo_title, p.seo_description,
                            COALESCE(c.nombre, 'Sin categoría') AS category
                     FROM productos p
                     LEFT JOIN categorias_producto c ON c.id = p.categoria_id
@@ -141,7 +141,7 @@ class TiendaRepository
                                    p.stock_actual,
                                    CASE WHEN COALESCE(p.stock_actual, 0) > 0 THEN 'ready' ELSE 'custom' END AS stockStatus,
                                    p.imagen_url AS image, p.imagenes, 50 AS weightGrams,
-                                   NULL AS size, 0 AS es_destacado,
+                                   NULL AS size, 0 AS es_destacado, p.seo_title, p.seo_description,
                                    c.nombre AS category
                             FROM productos p
                             LEFT JOIN categorias_producto c ON c.id = p.categoria_id

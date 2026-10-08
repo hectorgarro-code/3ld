@@ -63,6 +63,8 @@ class AiController
             return Response::success([
                 'title'           => $aiResult['title'] ?? $scraped['raw_title'],
                 'description'     => $aiResult['description'] ?? $scraped['raw_description'],
+                'seo_title'       => $aiResult['seo_title'] ?? mb_substr(($aiResult['title'] ?? $scraped['raw_title']) . ' | 3LD', 0, 60),
+                'seo_description' => $aiResult['seo_description'] ?? mb_substr(strip_tags($aiResult['description'] ?? $scraped['raw_description']), 0, 155),
                 'category'        => $aiResult['category'] ?? 'accesorio',
                 'subcategoria'    => $aiResult['subcategoria'] ?? (!empty($scraped['tags']) ? implode(', ', array_slice($scraped['tags'], 0, 3)) : ''),
                 'suggested_price' => $aiResult['suggested_price'] ?? 8500,
@@ -98,15 +100,40 @@ class AiController
                 $aiResult = $this->openAiService->generateSalesCopy($title, $details);
             } catch (Throwable $aiErr) {
                 $aiResult = [
-                    'title'       => $title,
-                    'description' => $details,
-                    'ai_error'    => $aiErr->getMessage(),
+                    'title'           => $title,
+                    'description'     => $details,
+                    'seo_title'       => mb_substr($title . ' | 3LD', 0, 60),
+                    'seo_description' => mb_substr(strip_tags($details), 0, 155),
+                    'ai_error'        => $aiErr->getMessage(),
                 ];
             }
 
             return Response::success($aiResult);
         } catch (Throwable $e) {
             return Response::error('Error al generar texto con IA: ' . $e->getMessage(), 500);
+        }
+    }
+
+    /**
+     * POST /api/v1/ai/generate-seo
+     * Genera título y descripción SEO optimizados para Google
+     */
+    public function generateSeo(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
+    {
+        try {
+            $data        = (array) $request->getParsedBody();
+            $title       = trim((string) ($data['title'] ?? ''));
+            $description = trim((string) ($data['description'] ?? ''));
+            $category    = trim((string) ($data['category'] ?? ''));
+
+            if (empty($title)) {
+                return Response::error('El título es requerido para generar SEO', 400);
+            }
+
+            $seo = $this->openAiService->generateProductSeo($title, $description, $category);
+            return Response::success($seo);
+        } catch (Throwable $e) {
+            return Response::error('Error al generar SEO: ' . $e->getMessage(), 500);
         }
     }
 

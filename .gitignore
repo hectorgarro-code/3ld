@@ -6,3 +6,4 @@ backend/config/config.local.php
 config.local.php
 .env
 .DS_Store
+uploads/

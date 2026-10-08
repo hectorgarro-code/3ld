@@ -52,41 +52,46 @@ export function TiendaStoriesModal({
   const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
   const isHoldingRef = useRef(false);
   const holdTimeoutRef = useRef<number | null>(null);
+  const onCloseRef = useRef(onClose);
 
-  // Barajar productos cada vez que se abre la vista
   useEffect(() => {
-    if (isOpen) {
-      const valid = products.filter((p) => Boolean(p.image));
-      // Shuffle con algoritmo Fisher-Yates
-      const copy = [...valid];
-      for (let i = copy.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [copy[i], copy[j]] = [copy[j], copy[i]];
-      }
-      setShuffledProducts(copy);
-      setCurrentIndex(0);
-      setProgress(0);
-      setIsPaused(false);
-      setShowFavoritesView(false);
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
-      // Gestión del botón "Atrás" del celular
-      window.history.pushState({ modal: 'historias' }, '', window.location.href);
-      const handlePop = (e: PopStateEvent) => {
-        if (e.state?.modal !== 'historias') {
-          onClose();
-        }
-      };
-      window.addEventListener('popstate', handlePop);
-      return () => {
-        window.removeEventListener('popstate', handlePop);
-      };
+  // Barajar productos solo al abrir la vista
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const valid = products.filter((p) => Boolean(p.image));
+    const copy = [...valid];
+    for (let i = copy.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [copy[i], copy[j]] = [copy[j], copy[i]];
     }
-  }, [isOpen, products, onClose]);
+    setShuffledProducts(copy);
+    setCurrentIndex(0);
+    setProgress(0);
+    setIsPaused(false);
+    setShowFavoritesView(false);
+
+    // Gestión del botón "Atrás" del celular
+    window.history.pushState({ modal: 'historias' }, '', window.location.href);
+    const handlePop = (e: PopStateEvent) => {
+      if (e.state?.modal !== 'historias') {
+        onCloseRef.current();
+      }
+    };
+    window.addEventListener('popstate', handlePop);
+
+    return () => {
+      window.removeEventListener('popstate', handlePop);
+      if (window.history.state?.modal === 'historias') {
+        window.history.back();
+      }
+    };
+  }, [isOpen]);
 
   const handleCloseModal = useCallback(() => {
-    if (window.history.state?.modal === 'historias') {
-      window.history.back();
-    }
     onClose();
   }, [onClose]);
 
@@ -331,9 +336,9 @@ export function TiendaStoriesModal({
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
         >
-          {/* Fondo difuminado ambiental inmersivo */}
+          {/* Fondo difuminado ambiental optimizado */}
           <div
-            className="absolute inset-0 bg-cover bg-center filter blur-3xl opacity-50 scale-150 transition-all duration-700 pointer-events-none"
+            className="absolute inset-0 bg-cover bg-center filter blur-lg opacity-35 scale-105 transition-all duration-700 pointer-events-none"
             style={{ backgroundImage: `url(${currentProduct.image})` }}
           />
 

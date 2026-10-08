@@ -10,8 +10,8 @@ interface PedidosParams {
   per_page?: number
 }
 
-export function usePedidos(params?: PedidosParams & { search?: string }) {
-  const { search, estados, cliente_ids, ...rest } = params ?? {}
+export function usePedidos(params?: PedidosParams & { search?: string; enabled?: boolean }) {
+  const { search, estados, cliente_ids, enabled = true, ...rest } = params ?? {}
   const apiParams: Record<string, any> = { ...rest }
   if (search) apiParams.q = search
   if (estados && estados.length > 0) apiParams.estados = estados.join(',')
@@ -25,6 +25,7 @@ export function usePedidos(params?: PedidosParams & { search?: string }) {
       })
       return data
     },
+    enabled,
   })
 }
 
@@ -95,8 +96,8 @@ export function useCambiarEstadoPedido() {
   })
 }
 
-export function usePedidoItems(params?: PedidosParams & { search?: string }) {
-  const { search, estados, cliente_ids, ...rest } = params ?? {}
+export function usePedidoItems(params?: PedidosParams & { search?: string; enabled?: boolean }) {
+  const { search, estados, cliente_ids, enabled = true, ...rest } = params ?? {}
   const apiParams: Record<string, any> = { ...rest }
   if (search) apiParams.q = search
   if (estados && estados.length > 0) apiParams.estados = estados.join(',')
@@ -110,6 +111,7 @@ export function usePedidoItems(params?: PedidosParams & { search?: string }) {
       })
       return data
     },
+    enabled,
   })
 }
 

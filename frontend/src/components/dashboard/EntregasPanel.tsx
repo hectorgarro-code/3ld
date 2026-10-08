@@ -24,17 +24,20 @@ export function EntregasPanel({ alertas }: Props) {
   hoy.setHours(0, 0, 0, 0)
 
   return (
-    <div className="flex flex-col rounded-2xl bg-white card-shadow overflow-hidden">
+    <div className="flex flex-col rounded-2xl bg-white card-shadow overflow-hidden h-full">
       <div className="flex items-center gap-2 border-b border-slate-100 bg-white px-5 py-4">
         <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
           <CalendarClock className="h-4 w-4 text-primary" />
         </div>
-        <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest">Entregas Vencidas y Próximas</h3>
+        <div>
+          <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest">Entregas Próximas</h3>
+          <p className="text-[11px] text-slate-400 font-medium">Pedidos con fecha comprometida</p>
+        </div>
         <span className="ml-auto rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-bold text-primary">
           {entregas_pendientes.length}
         </span>
       </div>
-      <div className="flex-1 p-3 space-y-2">
+      <div className="flex-1 p-3 space-y-2 overflow-y-auto max-h-[300px]">
         {entregas_pendientes.map((e) => {
           const fechaE = new Date(e.fecha_entrega_estimada)
           const esVencidaOHoy = fechaE <= hoy

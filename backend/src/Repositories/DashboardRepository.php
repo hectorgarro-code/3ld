@@ -54,9 +54,15 @@ class DashboardRepository
 
         $saldoPorCobrar = 0.0;
         try {
+            // Saldo por cobrar calculado a nivel de ítem (coincide con el listado de ventas pendientes de cobro)
             $stmtSaldoCobrar = $this->db->query(
-                "SELECT COALESCE(SUM(CASE WHEN saldo_pendiente > 0 THEN saldo_pendiente ELSE total END), 0) FROM pedidos 
-                 WHERE estado NOT IN ('anulado', 'cancelado', 'cobrado')"
+                "SELECT COALESCE(SUM(
+                    pi.subtotal * (1 - COALESCE(p.descuento_pct, 0) / 100)
+                ), 0)
+                FROM pedido_items pi
+                JOIN pedidos p ON p.id = pi.pedido_id
+                WHERE pi.estado NOT IN ('cobrado', 'anulado')
+                  AND p.estado NOT IN ('anulado', 'cancelado')"
             );
             $saldoPorCobrar = (float) $stmtSaldoCobrar->fetchColumn();
         } catch (\Throwable $e) {
@@ -86,7 +92,7 @@ class DashboardRepository
         $pedidosPendientes = 0;
         try {
             $stmtPendientes = $this->db->query(
-                "SELECT COUNT(*) FROM pedidos WHERE estado IN ('pendiente', 'en_produccion', 'listo')"
+                "SELECT COUNT(*) FROM pedidos WHERE estado IN ('aprobado', 'en_produccion', 'terminado')"
             );
             $pedidosPendientes = (int) $stmtPendientes->fetchColumn();
         } catch (\Throwable $e) {}
@@ -128,7 +134,7 @@ class DashboardRepository
             $stmtTop = $this->db->prepare(
                 "SELECT pr.id, pr.nombre, 
                         SUM(pi.cantidad) AS cantidad_vendida, 
-                        SUM(pi.cantidad * pi.precio_unitario) AS total_generado 
+                        SUM(pi.subtotal) AS total_generado 
                  FROM pedido_items pi 
                  JOIN pedidos p ON p.id = pi.pedido_id 
                  JOIN productos pr ON pr.id = pi.producto_id 
@@ -139,6 +145,21 @@ class DashboardRepository
             );
             $stmtTop->execute([$firstDayMonth]);
             $rawTop = $stmtTop->fetchAll(PDO::FETCH_ASSOC) ?: [];
+            if (empty($rawTop)) {
+                $stmtTopAll = $this->db->query(
+                    "SELECT pr.id, pr.nombre, 
+                            SUM(pi.cantidad) AS cantidad_vendida, 
+                            SUM(pi.subtotal) AS total_generado 
+                     FROM pedido_items pi 
+                     JOIN pedidos p ON p.id = pi.pedido_id 
+                     JOIN productos pr ON pr.id = pi.producto_id 
+                     WHERE p.estado NOT IN ('anulado', 'cancelado') 
+                     GROUP BY pr.id, pr.nombre 
+                     ORDER BY cantidad_vendida DESC 
+                     LIMIT 5"
+                );
+                $rawTop = $stmtTopAll->fetchAll(PDO::FETCH_ASSOC) ?: [];
+            }
             foreach ($rawTop as $t) {
                 $topProductos[] = [
                     'id'               => (int)$t['id'],
@@ -240,7 +261,7 @@ class DashboardRepository
                         COALESCE(fecha_entrega_estimada, DATE(created_at)) AS fecha_entrega_estimada, 
                         total 
                  FROM pedidos 
-                 WHERE estado IN ('pendiente', 'en_produccion', 'listo', 'en_preparacion') 
+                 WHERE estado IN ('aprobado', 'en_produccion', 'terminado') 
                  ORDER BY fecha_entrega_estimada ASC 
                  LIMIT 10"
             );

@@ -1,7 +1,23 @@
+# Robots.txt para 3LD - Impresión 3D y E-commerce (https://3ld.com.ar)
 User-agent: *
 Allow: /
-Disallow: /sistema/
-Disallow: /api/
-Disallow: /backend/
+Allow: /tienda
+Allow: /tienda?*
+Allow: /uploads/
+Allow: /logo.png
+Allow: /favicon.png
+Allow: /icon-192.png
 
+# Proteger rutas privadas y administrativas del sistema ERP
+Disallow: /admin
+Disallow: /login
+Disallow: /ventas
+Disallow: /pos
+Disallow: /clientes
+Disallow: /produccion
+Disallow: /compras
+Disallow: /configuracion
+Disallow: /api/
+
+# Ubicación del Sitemap XML oficial
 Sitemap: https://3ld.com.ar/sitemap.xml

@@ -34,6 +34,8 @@ const productoSchema = z.object({
   stock_minimo: z.number().min(0),
   descripcion: z.string().optional(),
   archivo_url: z.string().optional().nullable(),
+  seo_title: z.string().optional().nullable(),
+  seo_description: z.string().optional().nullable(),
   es_vendible: z.boolean().default(true),
   es_insumo: z.boolean().default(false),
   es_tienda: z.boolean().default(false),
@@ -125,6 +127,8 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
       stock_minimo: 1,
       descripcion: '',
       archivo_url: '',
+      seo_title: '',
+      seo_description: '',
       es_vendible: true,
       es_insumo: false,
       es_tienda: false,
@@ -159,6 +163,8 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
         stock_minimo: Number(producto.stock_minimo) || 0,
         descripcion: producto.descripcion || '',
         archivo_url: p.archivo_url || '',
+        seo_title: p.seo_title || '',
+        seo_description: p.seo_description || '',
         es_vendible: producto.es_vendible !== 0,
         es_insumo: producto.es_insumo === 1,
         es_tienda: Boolean(p.es_tienda),
@@ -306,10 +312,34 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
       if (res.data?.success && res.data?.data) {
         if (res.data.data.title) setValue('nombre', res.data.data.title)
         if (res.data.data.description) setValue('descripcion', res.data.data.description)
-        toast('Texto comercial generado con OpenAI Luna', 'success')
+        if (res.data.data.seo_title) setValue('seo_title', res.data.data.seo_title)
+        if (res.data.data.seo_description) setValue('seo_description', res.data.data.seo_description)
+        toast('Texto comercial y SEO generados con OpenAI', 'success')
       }
     } catch (err: any) {
       toast('Error al generar texto con IA', 'error')
+    } finally {
+      setIsGeneratingAi(false)
+    }
+  }
+
+  const handleGenerateSeo = async () => {
+    const currentName = getValues('nombre')
+    const currentDesc = getValues('descripcion')
+    if (!currentName) {
+      toast('Ingresá al menos el nombre del producto', 'error')
+      return
+    }
+    try {
+      setIsGeneratingAi(true)
+      const res = await api.post('/ai/generate-seo', { title: currentName, description: currentDesc })
+      if (res.data?.success && res.data?.data) {
+        if (res.data.data.seo_title) setValue('seo_title', res.data.data.seo_title)
+        if (res.data.data.seo_description) setValue('seo_description', res.data.data.seo_description)
+        toast('Título y descripción SEO generados con éxito', 'success')
+      }
+    } catch {
+      toast('Error al generar SEO', 'error')
     } finally {
       setIsGeneratingAi(false)
     }
@@ -1045,6 +1075,72 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
                     rows={3}
                     className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition-colors focus:border-primary focus:bg-white resize-none"
                   />
+                </div>
+
+                {/* Sección SEO para Google */}
+                <div className="md:col-span-2 bg-gradient-to-br from-indigo-50/70 via-blue-50/50 to-slate-50 p-4 rounded-2xl border border-blue-200/80 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-black uppercase tracking-wider text-blue-900 flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+                      Optimización SEO para Google & Buscadores
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleGenerateSeo}
+                      disabled={isGeneratingAi}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold bg-blue-600 text-white hover:bg-blue-700 rounded-lg shadow-2xs transition disabled:opacity-50"
+                    >
+                      {isGeneratingAi ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <Sparkles className="h-3 w-3" />
+                      )}
+                      <span>Generar SEO IA</span>
+                    </button>
+                  </div>
+
+                  {/* Previsualización Snippet Google */}
+                  <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs space-y-1">
+                    <span className="text-[11px] text-slate-500 block truncate">
+                      https://3ld.com.ar › tienda › {watch('nombre') ? encodeURIComponent((watch('nombre') || '').toLowerCase().replace(/\s+/g, '-')) : 'producto'}
+                    </span>
+                    <h4 className="text-sm font-semibold text-blue-700 hover:underline cursor-pointer truncate">
+                      {watch('seo_title') || (watch('nombre') ? `${watch('nombre')} | 3LD` : 'Título del producto en Google')}
+                    </h4>
+                    <p className="text-xs text-slate-600 line-clamp-2 leading-relaxed">
+                      {watch('seo_description') || (watch('descripcion') ? (watch('descripcion') || '').slice(0, 155) : 'Meta descripción atractiva para los resultados de búsqueda de Google...')}
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-[11px] font-bold text-slate-700">Título SEO (Google)</label>
+                        <span className={`text-[10px] font-bold ${(watch('seo_title')?.length || 0) > 60 ? 'text-amber-600' : 'text-slate-400'}`}>
+                          {watch('seo_title')?.length || 0}/60 car.
+                        </span>
+                      </div>
+                      <input
+                        {...register('seo_title')}
+                        placeholder="Ej: Cortante Galletita Nerf en 3D | 3LD"
+                        className="w-full p-2.5 bg-white border border-blue-200 rounded-xl text-xs font-bold text-slate-900 focus:ring-2 focus:ring-blue-500 outline-none"
+                      />
+                    </div>
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-[11px] font-bold text-slate-700">Meta Descripción SEO</label>
+                        <span className={`text-[10px] font-bold ${(watch('seo_description')?.length || 0) > 155 ? 'text-amber-600' : 'text-slate-400'}`}>
+                          {watch('seo_description')?.length || 0}/155 car.
+                        </span>
+                      </div>
+                      <textarea
+                        {...register('seo_description')}
+                        rows={2}
+                        placeholder="Meta descripción que convence al usuario de hacer clic en Google..."
+                        className="w-full p-2 bg-white border border-blue-200 rounded-xl text-xs font-medium text-slate-800 focus:ring-2 focus:ring-blue-500 outline-none resize-none"
+                      />
+                    </div>
+                  </div>
                 </div>
 
                 <div className="md:col-span-2 bg-blue-50/50 p-3.5 rounded-2xl border border-blue-100">

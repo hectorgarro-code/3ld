@@ -34,7 +34,7 @@ import api from '@/lib/api';
 import { optimizeImagesForPrint } from '@/lib/imageOptimization';
 import { calcularTarifaCorreoArgentino } from '@/lib/correoArgentino';
 import { SocialShareModal } from '@/components/productos/SocialShareModal';
-import { TiendaStoriesModal } from '@/components/tienda/TiendaStoriesModal';
+const TiendaStoriesModal = React.lazy(() => import('@/components/tienda/TiendaStoriesModal').then(m => ({ default: m.TiendaStoriesModal })));
 import {
   trackPageView,
   trackViewProduct,
@@ -72,6 +72,8 @@ export interface StoreProduct {
   weightGrams?: number;
   size?: string;
   es_destacado?: boolean | number;
+  seo_title?: string;
+  seo_description?: string;
 }
 
 export const isProductInStock = (p?: { stockStatus?: string; stock_actual?: number | string } | null): boolean => {
@@ -686,6 +688,78 @@ export default function TiendaPage() {
       if (existing) existing.remove();
     };
   }, [products]);
+
+  // Actualización dinámica de SEO (Title, Meta Description, OpenGraph, JSON-LD) al ver un producto
+  useEffect(() => {
+    const defaultTitle = '3LD | Cortantes de Repostería, Mates y Diseños en Impresión 3D';
+    const defaultDesc = 'Tienda oficial de 3LD. Diseños exclusivos en impresión 3D: cortantes para galletitas, repostería, mates térmicos, herramientas para cerámica y regalos originales. Envíos a todo el país.';
+    const defaultImage = 'https://3ld.com.ar/logo.png';
+
+    if (activeProductModal) {
+      const prodTitle = activeProductModal.seo_title || `${activeProductModal.title} | 3LD`;
+      const prodDesc = activeProductModal.seo_description || activeProductModal.description || defaultDesc;
+      document.title = prodTitle;
+
+      const metaDesc = document.querySelector('meta[name="description"]');
+      if (metaDesc) metaDesc.setAttribute('content', prodDesc);
+
+      const ogTitle = document.querySelector('meta[property="og:title"]');
+      if (ogTitle) ogTitle.setAttribute('content', prodTitle);
+
+      const ogDesc = document.querySelector('meta[property="og:description"]');
+      if (ogDesc) ogDesc.setAttribute('content', prodDesc);
+
+      const ogImage = document.querySelector('meta[property="og:image"]');
+      if (ogImage && activeProductModal.image) {
+        ogImage.setAttribute('content', activeProductModal.image.startsWith('http') ? activeProductModal.image : `https://3ld.com.ar${activeProductModal.image}`);
+      }
+
+      const scriptId = 'jsonld-single-product';
+      let script = document.getElementById(scriptId) as HTMLScriptElement | null;
+      if (!script) {
+        script = document.createElement('script');
+        script.id = scriptId;
+        script.type = 'application/ld+json';
+        document.head.appendChild(script);
+      }
+      script.textContent = JSON.stringify({
+        '@context': 'https://schema.org/',
+        '@type': 'Product',
+        name: activeProductModal.title,
+        image: activeProductModal.images && activeProductModal.images.length > 0 ? activeProductModal.images : [activeProductModal.image],
+        description: prodDesc,
+        sku: `3LD-${activeProductModal.id}`,
+        brand: {
+          '@type': 'Brand',
+          name: '3LD'
+        },
+        offers: {
+          '@type': 'Offer',
+          url: `https://3ld.com.ar/tienda?producto=${activeProductModal.id}`,
+          priceCurrency: 'ARS',
+          price: activeProductModal.price,
+          availability: isProductInStock(activeProductModal) ? 'https://schema.org/InStock' : 'https://schema.org/PreOrder',
+          seller: {
+            '@type': 'Organization',
+            name: '3LD Impresión 3D'
+          }
+        }
+      });
+    } else {
+      document.title = defaultTitle;
+      const metaDesc = document.querySelector('meta[name="description"]');
+      if (metaDesc) metaDesc.setAttribute('content', defaultDesc);
+      const ogTitle = document.querySelector('meta[property="og:title"]');
+      if (ogTitle) ogTitle.setAttribute('content', defaultTitle);
+      const ogDesc = document.querySelector('meta[property="og:description"]');
+      if (ogDesc) ogDesc.setAttribute('content', defaultDesc);
+      const ogImage = document.querySelector('meta[property="og:image"]');
+      if (ogImage) ogImage.setAttribute('content', defaultImage);
+
+      const singleScript = document.getElementById('jsonld-single-product');
+      if (singleScript) singleScript.remove();
+    }
+  }, [activeProductModal]);
 
   const handleShareCatalog = () => {
     const url = new URL(window.location.href);
@@ -2890,20 +2964,24 @@ export default function TiendaPage() {
         product={socialShareProduct}
       />
 
-      <TiendaStoriesModal
-        isOpen={isStoriesOpen}
-        onClose={() => setIsStoriesOpen(false)}
-        products={products}
-        onOpenProduct={(prod) => {
-          setIsStoriesOpen(false);
-          openProductModal(prod);
-        }}
-        onAddToCart={(prod) => {
-          addToCart(prod);
-        }}
-        favorites={favorites}
-        onToggleFavorite={toggleFavorite}
-      />
+      {isStoriesOpen && (
+        <React.Suspense fallback={null}>
+          <TiendaStoriesModal
+            isOpen={isStoriesOpen}
+            onClose={() => setIsStoriesOpen(false)}
+            products={products}
+            onOpenProduct={(prod) => {
+              setIsStoriesOpen(false);
+              openProductModal(prod);
+            }}
+            onAddToCart={(prod) => {
+              addToCart(prod);
+            }}
+            favorites={favorites}
+            onToggleFavorite={toggleFavorite}
+          />
+        </React.Suspense>
+      )}
     </div>
   );
 }

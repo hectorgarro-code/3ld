@@ -52,6 +52,8 @@ export interface Producto {
   profundidad_mm?: number
   dimensiones?: string
   archivo_url?: string
+  seo_title?: string
+  seo_description?: string
   created_at: string
   updated_at: string
 }

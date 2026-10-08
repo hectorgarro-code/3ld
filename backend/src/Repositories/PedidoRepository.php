@@ -52,6 +52,7 @@ class PedidoRepository
             'en_produccion' => 2,
             'terminado' => 3,
             'entregado' => 4,
+            'cobrado' => 5,
         ];
 
         $activeItems = array_filter($items, function($e) { return $e !== 'anulado'; });

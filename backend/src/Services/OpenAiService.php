@@ -48,14 +48,18 @@ INSTRUCCIONES OBLIGATORIAS:
 5. Si una medida no está disponible, no la inventes.
 6. TÍTULO: Debe tener entre 55 y 70 caracteres, optimizado para SEO, con las palabras clave con mayor intención de compra, natural y atractivo, sin exceso de mayúsculas ni emojis.
 7. DESCRIPCIÓN: Debe tener entre 500 y 1200 caracteres. Empezá con un gancho que despierte interés, explicá qué es, para quién sirve y qué beneficios aporta, convertí las características técnicas en beneficios para el comprador, incorporá naturalmente las palabras clave SEO y terminá con un llamado a la acción para comprar.
-8. Elegí la categoría más adecuada entre: cortantes, ceramica, didacticos, moldes, figuras, personalizados, accesorio.
-9. Sugiere categorías secundarias o etiquetas relevantes separadas por coma en el campo 'subcategoria' (ej. 'Decoración, San Valentín, Llaveros').
-10. Sugiere un precio estimado de venta razonable en pesos ($).
+8. TÍTULO SEO (Google): Máximo 60 caracteres. Intención de búsqueda con palabras clave principales + ' | 3LD'.
+9. DESCRIPCIÓN SEO (Meta Google): Entre 135 y 155 caracteres atractiva para CTR en resultados de búsqueda.
+10. Elegí la categoría más adecuada entre: cortantes, ceramica, didacticos, moldes, figuras, personalizados, accesorio.
+11. Sugiere categorías secundarias o etiquetas relevantes separadas por coma en el campo 'subcategoria' (ej. 'Decoración, San Valentín, Llaveros').
+12. Sugiere un precio estimado de venta razonable en pesos ($).
 
 Entregá ÚNICAMENTE un objeto JSON sintácticamente válido:
 {
   \"title\": \"Título comercial optimizado entre 55 y 70 caracteres\",
   \"description\": \"Descripción vendedora entre 500 y 1200 caracteres enfocado en el producto físico ya impreso\",
+  \"seo_title\": \"Título SEO para Google (máx 60 caracteres)\",
+  \"seo_description\": \"Meta descripción atractiva para Google (135 a 155 caracteres)\",
   \"category\": \"categoría_elegida\",
   \"subcategoria\": \"etiqueta1, etiqueta2\",
   \"suggested_price\": 9500
@@ -68,13 +72,23 @@ Entregá ÚNICAMENTE un objeto JSON sintácticamente válido:
         $data = json_decode($cleanJson, true);
 
         if (!is_array($data) || !isset($data['title'])) {
+            $fallbackTitle = mb_substr($rawTitle, 0, 70);
             return [
-                'title'           => mb_substr($rawTitle, 0, 70),
+                'title'           => $fallbackTitle,
                 'description'     => $rawDescription,
+                'seo_title'       => mb_substr($fallbackTitle . ' | 3LD', 0, 60),
+                'seo_description' => mb_substr(strip_tags($rawDescription), 0, 155),
                 'category'        => 'accesorio',
                 'subcategoria'    => !empty($options['tags']) ? implode(', ', array_slice($options['tags'], 0, 3)) : '',
                 'suggested_price' => 8500,
             ];
+        }
+
+        if (empty($data['seo_title'])) {
+            $data['seo_title'] = mb_substr(($data['title'] ?? $rawTitle) . ' | 3LD', 0, 60);
+        }
+        if (empty($data['seo_description'])) {
+            $data['seo_description'] = mb_substr(strip_tags($data['description'] ?? $rawDescription), 0, 155);
         }
 
         return $data;
@@ -96,11 +110,15 @@ INSTRUCCIONES:
 1. Jamás menciones STL, descargas, archivos digitales, MakerWorld o impresión casera.
 2. TÍTULO: Entre 55 y 70 caracteres. Optimizado para SEO y conversión.
 3. DESCRIPCIÓN: Entre 500 y 1200 caracteres. Gancho inicial, explicá qué es y sus beneficios para el comprador final, llamado a la acción para comprar.
+4. TÍTULO SEO (Google): Máximo 60 caracteres con intención de compra transaccional + ' | 3LD'.
+5. DESCRIPCIÓN SEO (Google): Entre 135 y 155 caracteres atractiva para CTR en buscadores.
 
 Responde ÚNICAMENTE en JSON sintácticamente válido:
 {
   \"title\": \"Título comercial SEO (55 a 70 caracteres)\",
-  \"description\": \"Descripción de venta (500 a 1200 caracteres)\"
+  \"description\": \"Descripción de venta (500 a 1200 caracteres)\",
+  \"seo_title\": \"Título SEO Google (máx 60 caracteres)\",
+  \"seo_description\": \"Meta descripción Google (135 a 155 caracteres)\"
 }";
 
         $jsonResponse = $this->callOpenAi($prompt);
@@ -109,12 +127,75 @@ Responde ÚNICAMENTE en JSON sintácticamente válido:
 
         if (!is_array($data) || !isset($data['title'])) {
             return [
-                'title'       => $title,
-                'description' => $details,
+                'title'           => $title,
+                'description'     => $details,
+                'seo_title'       => mb_substr($title . ' | 3LD', 0, 60),
+                'seo_description' => mb_substr(strip_tags($details), 0, 155),
             ];
         }
 
+        if (empty($data['seo_title'])) {
+            $data['seo_title'] = mb_substr($data['title'] . ' | 3LD', 0, 60);
+        }
+        if (empty($data['seo_description'])) {
+            $data['seo_description'] = mb_substr(strip_tags($data['description']), 0, 155);
+        }
+
         return $data;
+    }
+
+    /**
+     * Genera específicamente el SEO Title y Meta Description para Google de un producto existente
+     */
+    public function generateProductSeo(string $title, string $description, ?string $category = null): array
+    {
+        $prompt = "Actuá como un experto en SEO técnico y redacción e-commerce para la tienda 3LD (artículos en impresión 3D: cortantes de repostería, sellos y herramientas para cerámica, juguetes didácticos, macetas, organizadores y regalos personalizados en Argentina).
+
+PRODUCTO:
+- Título actual: {$title}
+- Categoría: " . ($category ?: 'General') . "
+- Descripción: " . mb_substr($description, 0, 600) . "
+
+INSTRUCCIONES SEO ESTRICTAS:
+1. SEO TITLE: Debe tener exactamente entre 45 y 60 caracteres. Incluir la palabra clave principal de búsqueda, beneficio o material y terminar con '| 3LD'.
+2. SEO DESCRIPTION: Debe tener exactamente entre 135 y 155 caracteres. Redactada para maximizar el CTR en Google: qué es, calidad del diseño, envíos a todo el país y llamado a comprar.
+3. No uses mayúsculas sostenidas ni emojis.
+4. Generá solo JSON:
+{
+  \"seo_title\": \"Título SEO optimizado\",
+  \"seo_description\": \"Meta descripción atractiva entre 135 y 155 caracteres.\"
+}";
+
+        try {
+            $jsonResponse = $this->callOpenAi($prompt);
+            $cleanJson = preg_replace('/^```(?:json)?\s*|\s*```$/i', '', trim($jsonResponse));
+            $data = json_decode($cleanJson, true);
+
+            if (is_array($data) && !empty($data['seo_title']) && !empty($data['seo_description'])) {
+                return [
+                    'seo_title'       => mb_substr(trim($data['seo_title']), 0, 70),
+                    'seo_description' => mb_substr(trim($data['seo_description']), 0, 160),
+                ];
+            }
+        } catch (\Throwable $e) {
+            // Fallback inteligente sin IA si la llamada falla
+        }
+
+        // Generador heurístico de alto impacto
+        $cleanName = trim($title);
+        $seoTitle = mb_substr($cleanName, 0, 48) . ' | 3LD';
+        $descPlain = trim(preg_replace('/\s+/', ' ', strip_tags($description)));
+        if (mb_strlen($descPlain) > 20) {
+            $seoDesc = mb_substr($descPlain, 0, 125) . '. Envíos a todo el país en 3LD.';
+        } else {
+            $seoDesc = "Comprá " . $cleanName . " en 3LD. Diseños exclusivos impresos en 3D con máxima calidad y terminación. Envíos rápidos a todo el país.";
+        }
+        $seoDesc = mb_substr($seoDesc, 0, 155);
+
+        return [
+            'seo_title'       => $seoTitle,
+            'seo_description' => $seoDesc,
+        ];
     }
 
     /**

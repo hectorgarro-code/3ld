@@ -70,21 +70,29 @@ export function PedidoCard({ pedido }: { pedido: Pedido }) {
           </div>
 
           <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
-            <select
-              value={pedido.estado}
-              onChange={handleEstadoChange}
-              disabled={cambiarEstado.isPending}
-              className={cn(
-                'cursor-pointer appearance-none rounded-full px-2.5 py-1 text-center text-xs font-bold outline-none transition-colors hover:ring-1 hover:ring-slate-300',
-                estadoColors[pedido.estado]
-              )}
-            >
-              {Object.entries(estadoLabels).map(([val, label]) => (
-                <option key={val} value={val} className="bg-white text-slate-800">
-                  {label}
-                </option>
-              ))}
-            </select>
+            <div className="print:hidden">
+              <select
+                value={pedido.estado}
+                onChange={handleEstadoChange}
+                disabled={cambiarEstado.isPending}
+                className={cn(
+                  'cursor-pointer appearance-none rounded-full px-2.5 py-1 text-center text-xs font-bold outline-none transition-colors hover:ring-1 hover:ring-slate-300',
+                  estadoColors[pedido.estado]
+                )}
+              >
+                {Object.entries(estadoLabels).map(([val, label]) => (
+                  <option key={val} value={val} className="bg-white text-slate-800">
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <span className={cn(
+              "hidden print:inline-block px-2 py-0.5 rounded text-[10px] font-bold border",
+              estadoColors[pedido.estado]
+            )}>
+              {estadoLabels[pedido.estado] || pedido.estado}
+            </span>
 
             <button
               type="button"
@@ -93,7 +101,7 @@ export function PedidoCard({ pedido }: { pedido: Pedido }) {
                 e.stopPropagation()
                 setShowConfirmDelete(true)
               }}
-              className="p-2 text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 rounded-xl border border-red-200 transition-all shadow-2xs active:scale-90"
+              className="p-2 text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 rounded-xl border border-red-200 transition-all shadow-2xs active:scale-90 print:hidden"
             >
               <Trash2 className="h-4 w-4" />
             </button>

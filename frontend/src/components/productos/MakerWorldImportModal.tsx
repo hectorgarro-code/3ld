@@ -48,6 +48,8 @@ export function MakerWorldImportModal({ isOpen, onClose, onSuccess }: Props) {
   const [selectedImages, setSelectedImages] = useState<string[]>([])
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
+  const [seoTitle, setSeoTitle] = useState('')
+  const [seoDescription, setSeoDescription] = useState('')
   const [categoriaId, setCategoriaId] = useState<number | undefined>(() => {
     const saved = localStorage.getItem('last_categoria_id')
     return saved ? parseInt(saved, 10) : undefined
@@ -106,6 +108,8 @@ export function MakerWorldImportModal({ isOpen, onClose, onSuccess }: Props) {
         setImportedData(d)
         setTitle(d.title || '')
         setDescription(d.description || '')
+        setSeoTitle(d.seo_title || (d.title ? `${d.title} | 3LD` : ''))
+        setSeoDescription(d.seo_description || (d.description ? d.description.slice(0, 155) : ''))
         
         const h = parseFloat(d.horas_impresion || 0)
         const g = parseInt(d.peso_gramos || 0)
@@ -162,7 +166,9 @@ export function MakerWorldImportModal({ isOpen, onClose, onSuccess }: Props) {
       if (res.data?.success && res.data?.data) {
         setTitle(res.data.data.title || title)
         setDescription(res.data.data.description || description)
-        toast('Texto comercial regenerado con OpenAI', 'success')
+        if (res.data.data.seo_title) setSeoTitle(res.data.data.seo_title)
+        if (res.data.data.seo_description) setSeoDescription(res.data.data.seo_description)
+        toast('Texto comercial y SEO regenerados con OpenAI', 'success')
       }
     } catch (err: any) {
       toast('Error al regenerar texto', 'error')
@@ -208,6 +214,8 @@ export function MakerWorldImportModal({ isOpen, onClose, onSuccess }: Props) {
         es_insumo: 0,
         es_tienda: esTienda ? 1 : 0,
         archivo_url: archivoUrl.trim() || undefined,
+        seo_title: seoTitle.trim() || undefined,
+        seo_description: seoDescription.trim() || undefined,
       } as any)
 
       toast(`¡Producto "${title}" guardado con éxito!`, 'success')
@@ -404,6 +412,64 @@ export function MakerWorldImportModal({ isOpen, onClose, onSuccess }: Props) {
                     onChange={(e) => setDescription(e.target.value)}
                     className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-800 focus:bg-white focus:ring-2 focus:ring-cyan-500 resize-none"
                   />
+                </div>
+
+                {/* Optimización SEO para Google */}
+                <div className="p-4 bg-gradient-to-br from-indigo-50/70 via-blue-50/50 to-slate-50 rounded-2xl border border-blue-200/80 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-black uppercase tracking-wider text-blue-900 flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+                      Optimización SEO para Google & Buscadores
+                    </span>
+                    <span className="text-[10px] font-bold text-blue-600 bg-blue-100/80 px-2 py-0.5 rounded-full">
+                      Indexación Automática
+                    </span>
+                  </div>
+
+                  {/* Previsualización estilo snippet Google */}
+                  <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs space-y-1">
+                    <span className="text-[11px] text-slate-500 block truncate">https://3ld.com.ar › tienda › {title ? encodeURIComponent(title.toLowerCase().replace(/\s+/g, '-')) : 'producto'}</span>
+                    <h4 className="text-sm font-semibold text-blue-700 hover:underline cursor-pointer truncate">
+                      {seoTitle || (title ? `${title} | 3LD` : 'Título del producto en Google')}
+                    </h4>
+                    <p className="text-xs text-slate-600 line-clamp-2 leading-relaxed">
+                      {seoDescription || (description ? description.slice(0, 155) : 'Meta descripción atractiva para los resultados de búsqueda de Google...')}
+                    </p>
+                  </div>
+
+                  <div className="space-y-2.5 pt-1">
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-[11px] font-bold text-slate-700">Título SEO (Google)</label>
+                        <span className={`text-[10px] font-bold ${seoTitle.length > 60 ? 'text-amber-600' : 'text-slate-400'}`}>
+                          {seoTitle.length}/60 car.
+                        </span>
+                      </div>
+                      <input
+                        type="text"
+                        value={seoTitle}
+                        onChange={(e) => setSeoTitle(e.target.value)}
+                        placeholder="Ej: Cortante Galletita Nerf en 3D | 3LD"
+                        className="w-full p-2 bg-white border border-blue-200 rounded-xl text-xs font-bold text-slate-900 focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-[11px] font-bold text-slate-700">Meta Descripción SEO</label>
+                        <span className={`text-[10px] font-bold ${seoDescription.length > 155 ? 'text-amber-600' : 'text-slate-400'}`}>
+                          {seoDescription.length}/155 car.
+                        </span>
+                      </div>
+                      <textarea
+                        rows={2}
+                        value={seoDescription}
+                        onChange={(e) => setSeoDescription(e.target.value)}
+                        placeholder="Descripción persuasiva que aparecerá en los resultados de búsqueda de Google..."
+                        className="w-full p-2 bg-white border border-blue-200 rounded-xl text-xs font-medium text-slate-800 focus:ring-2 focus:ring-blue-500 resize-none"
+                      />
+                    </div>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

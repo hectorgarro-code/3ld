@@ -580,6 +580,9 @@ $app->group('/api/v1', function (RouteCollectorProxy $api) use ($config, $auth, 
         $g->post('/generate-text', function ($req, $res) use ($container) {
             return $container->get(AiController::class)->generateText($req, $res);
         });
+        $g->post('/generate-seo', function ($req, $res) use ($container) {
+            return $container->get(AiController::class)->generateSeo($req, $res);
+        });
     })->add($auth);
 
     // Media / Biblioteca Multimedia
@@ -642,6 +645,70 @@ $app->get('/api/v1/ai/proxy-image', function ($req, $res) use ($container) {
     return $container->get(AiController::class)->proxyImage($req, $res);
 });
 
+// Dynamic Sitemap XML
+$app->get('/sitemap.xml', function ($req, $res) use ($container) {
+    $db = $container->get(\PDO::class);
+    $xml = '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
+    $xml .= '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">' . "\n";
+    
+    // Home Tienda
+    $xml .= "  <url>\n";
+    $xml .= "    <loc>https://3ld.com.ar/</loc>\n";
+    $xml .= "    <changefreq>daily</changefreq>\n";
+    $xml .= "    <priority>1.0</priority>\n";
+    $xml .= "  </url>\n";
+    $xml .= "  <url>\n";
+    $xml .= "    <loc>https://3ld.com.ar/tienda</loc>\n";
+    $xml .= "    <changefreq>daily</changefreq>\n";
+    $xml .= "    <priority>0.9</priority>\n";
+    $xml .= "  </url>\n";
+
+    try {
+        // Categorías
+        $stmtCats = $db->query("SELECT nombre FROM categorias_producto WHERE activo = 1");
+        while ($cat = $stmtCats->fetch(\PDO::FETCH_ASSOC)) {
+            $catUrl = 'https://3ld.com.ar/tienda?categoria=' . urlencode($cat['nombre']);
+            $xml .= "  <url>\n";
+            $xml .= "    <loc>" . htmlspecialchars($catUrl) . "</loc>\n";
+            $xml .= "    <changefreq>weekly</changefreq>\n";
+            $xml .= "    <priority>0.8</priority>\n";
+            $xml .= "  </url>\n";
+        }
+
+        // Artículos y Productos
+        $stmtProds = $db->query("SELECT id, nombre, descripcion, imagen_url, updated_at FROM productos WHERE activo = 1 AND (es_tienda = 1 OR es_vendible = 1) ORDER BY id DESC");
+        while ($prod = $stmtProds->fetch(\PDO::FETCH_ASSOC)) {
+            $prodUrl = 'https://3ld.com.ar/tienda?producto=' . $prod['id'];
+            $lastMod = !empty($prod['updated_at']) ? date('Y-m-d', strtotime($prod['updated_at'])) : date('Y-m-d');
+            $xml .= "  <url>\n";
+            $xml .= "    <loc>" . htmlspecialchars($prodUrl) . "</loc>\n";
+            $xml .= "    <lastmod>{$lastMod}</lastmod>\n";
+            $xml .= "    <changefreq>weekly</changefreq>\n";
+            $xml .= "    <priority>0.85</priority>\n";
+            if (!empty($prod['imagen_url'])) {
+                $imgUrl = str_starts_with($prod['imagen_url'], 'http') ? $prod['imagen_url'] : 'https://3ld.com.ar' . (str_starts_with($prod['imagen_url'], '/') ? '' : '/') . $prod['imagen_url'];
+                $xml .= "    <image:image>\n";
+                $xml .= "      <image:loc>" . htmlspecialchars($imgUrl) . "</image:loc>\n";
+                $xml .= "      <image:title>" . htmlspecialchars($prod['nombre']) . "</image:title>\n";
+                $xml .= "    </image:image>\n";
+            }
+            $xml .= "  </url>\n";
+        }
+    } catch (\Throwable $e) {
+        // Fallback básico
+    }
+
+    $xml .= '</urlset>';
+
+    $res->getBody()->write($xml);
+    return $res->withHeader('Content-Type', 'application/xml; charset=utf-8')
+               ->withHeader('Cache-Control', 'public, max-age=3600');
+});
+$app->get('/api/v1/sitemap.xml', function ($req, $res) use ($container) {
+    // Redirigir o llamar la misma función
+    return $res->withHeader('Location', '/sitemap.xml')->withStatus(301);
+});
+
 // ── Health check (no auth) ───────────────────────────────────────────────────
 $app->get('/api/v1/health', function ($req, $res) {
     $res->getBody()->write(json_encode([
@@ -654,7 +721,6 @@ $app->get('/api/v1/health', function ($req, $res) {
 });
 
 try {
-    UploadHelper::syncAllExistingFiles();
     $app->run();
 } catch (\Throwable $e) {
     http_response_code(500);

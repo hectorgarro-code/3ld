@@ -211,8 +211,8 @@ class ProductoRepository
                 "INSERT INTO productos
                     (nombre, variante, sku, descripcion, tipo, categoria_id, precio_venta, precio_costo, precio_mayorista,
                      stock_actual, stock_minimo, unidad_medida, imagen_url, imagenes, archivo_url,
-                     es_vendible, es_insumo, es_tienda, subcategoria, precio_oferta, peso_gramos, horas_impresion, alto_mm, ancho_mm, profundidad_mm, dimensiones, estado_stock, es_destacado, piezas, activo, created_at, updated_at)
-                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())"
+                     es_vendible, es_insumo, es_tienda, subcategoria, precio_oferta, peso_gramos, horas_impresion, alto_mm, ancho_mm, profundidad_mm, dimensiones, estado_stock, es_destacado, piezas, seo_title, seo_description, activo, created_at, updated_at)
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())"
             );
 
             $initStock = (int) ($data['stock_actual'] ?? 0);
@@ -251,6 +251,8 @@ class ProductoRepository
                 $initEstadoStock,
                 isset($data['es_destacado']) ? (int)$data['es_destacado'] : 0,
                 $piezasJson,
+                $data['seo_title']     ?? null,
+                $data['seo_description'] ?? null,
             ]);
         } catch (\PDOException $e) {
             $stmt = $this->db->prepare(
@@ -339,6 +341,8 @@ class ProductoRepository
             'archivo_url'   => 'string',
             'colores'       => 'json',
             'piezas'        => 'json',
+            'seo_title'     => 'string',
+            'seo_description' => 'string',
         ];
 
         // Registrar ajuste en historial si se modificó el stock_actual

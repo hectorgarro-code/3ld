@@ -5,9 +5,14 @@ import { RouterProvider } from 'react-router-dom'
 import { router } from '@/router'
 import './index.css'
 
-// Auto-recarga limpia ante nuevos despliegues si un chunk de código o estilo cambia de hash
+// Auto-recarga limpia ante nuevos despliegues si un chunk de código o estilo cambia de hash (con salvaguarda contra bucles)
 window.addEventListener('vite:preloadError', () => {
-  window.location.reload()
+  const lastReload = sessionStorage.getItem('3ld_last_preload_reload')
+  const now = Date.now()
+  if (!lastReload || now - Number(lastReload) > 15000) {
+    sessionStorage.setItem('3ld_last_preload_reload', String(now))
+    window.location.reload()
+  }
 })
 
 const queryClient = new QueryClient({

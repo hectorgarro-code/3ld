@@ -103,54 +103,54 @@ export function ProductoTableView({ items }: { items: PedidoItemFlattened[] }) {
   const total = sortedItems.reduce((acc, curr) => acc + Number(curr.subtotal) * (1 - (curr.pedido_descuento_pct || 0) / 100), 0)
 
   return (
-    <div className="w-full overflow-x-auto rounded-xl border border-slate-100 bg-white card-shadow pb-8">
-      <table className="w-full whitespace-nowrap text-left text-sm text-slate-400">
-        <thead className="border-b border-slate-100 bg-slate-50/50 text-xs text-slate-500">
+    <div className="w-full overflow-x-auto print:overflow-visible rounded-xl border border-slate-100 bg-white card-shadow pb-8 print:border-none print:shadow-none print:pb-0 print:rounded-none">
+      <table className="w-full whitespace-nowrap print:whitespace-normal text-left text-sm print:text-[11px] text-slate-400 print:text-slate-800 table-auto print:table-fixed">
+        <thead className="border-b border-slate-100 bg-slate-50/50 text-xs text-slate-500 print:bg-slate-100 print:text-slate-900">
           <tr>
-            <th className="cursor-pointer px-4 py-3 hover:text-slate-800" onClick={() => handleSort('articulo')}>
-              <div className="flex items-center gap-1.5 font-normal">
-                <span className="font-serif italic text-slate-400 text-[13px]">Aa</span> Artículo {sortKey === 'articulo' && <ArrowUpDown className="h-3 w-3" />}
+            <th className="cursor-pointer px-4 py-3 hover:text-slate-800 print:px-2 print:py-1.5 print:w-[28%]" onClick={() => handleSort('articulo')}>
+              <div className="flex items-center gap-1.5 font-normal print:font-bold">
+                <span className="font-serif italic text-slate-400 text-[13px] print:hidden">Aa</span> Artículo {sortKey === 'articulo' && <ArrowUpDown className="h-3 w-3 print:hidden" />}
               </div>
             </th>
-            <th className="cursor-pointer px-4 py-3 hover:text-slate-800" onClick={() => handleSort('nota')}>
-              <div className="flex items-center gap-1.5 font-normal">
-                <span className="text-[13px] opacity-70">📝</span> Nota {sortKey === 'nota' && <ArrowUpDown className="h-3 w-3" />}
+            <th className="cursor-pointer px-4 py-3 hover:text-slate-800 print:px-2 print:py-1.5 print:w-[18%]" onClick={() => handleSort('nota')}>
+              <div className="flex items-center gap-1.5 font-normal print:font-bold">
+                <span className="text-[13px] opacity-70 print:hidden">📝</span> Nota {sortKey === 'nota' && <ArrowUpDown className="h-3 w-3 print:hidden" />}
               </div>
             </th>
-            <th className="cursor-pointer px-4 py-3 hover:text-slate-800" onClick={() => handleSort('cliente')}>
-              <div className="flex items-center gap-1.5 font-normal">
-                <span className="text-[13px] opacity-70">👤</span> Cliente {sortKey === 'cliente' && <ArrowUpDown className="h-3 w-3" />}
+            <th className="cursor-pointer px-4 py-3 hover:text-slate-800 print:px-2 print:py-1.5 print:w-[14%]" onClick={() => handleSort('cliente')}>
+              <div className="flex items-center gap-1.5 font-normal print:font-bold">
+                <span className="text-[13px] opacity-70 print:hidden">👤</span> Cliente {sortKey === 'cliente' && <ArrowUpDown className="h-3 w-3 print:hidden" />}
               </div>
             </th>
-            <th className="cursor-pointer px-4 py-3 hover:text-slate-800" onClick={() => handleSort('monto')}>
-              <div className="flex items-center gap-1.5 font-normal">
-                <span className="text-[13px] opacity-70">💵</span> Monto {sortKey === 'monto' && <ArrowUpDown className="h-3 w-3" />}
+            <th className="cursor-pointer px-4 py-3 hover:text-slate-800 print:px-2 print:py-1.5 print:w-[12%]" onClick={() => handleSort('monto')}>
+              <div className="flex items-center gap-1.5 font-normal print:font-bold">
+                <span className="text-[13px] opacity-70 print:hidden">💵</span> Monto {sortKey === 'monto' && <ArrowUpDown className="h-3 w-3 print:hidden" />}
               </div>
             </th>
-            <th className="cursor-pointer px-4 py-3 hover:text-slate-800" onClick={() => handleSort('fecha')}>
-              <div className="flex items-center gap-1.5 font-normal">
-                <span className="text-[13px] opacity-70">📅</span> Fecha {sortKey === 'fecha' && <ArrowUpDown className="h-3 w-3" />}
+            <th className="cursor-pointer px-4 py-3 hover:text-slate-800 print:px-2 print:py-1.5 print:w-[9%]" onClick={() => handleSort('fecha')}>
+              <div className="flex items-center gap-1.5 font-normal print:font-bold">
+                <span className="text-[13px] opacity-70 print:hidden">📅</span> Fecha {sortKey === 'fecha' && <ArrowUpDown className="h-3 w-3 print:hidden" />}
               </div>
             </th>
-            <th className="cursor-pointer px-4 py-3 hover:text-slate-800" onClick={() => handleSort('fecha_est')}>
-              <div className="flex items-center gap-1.5 font-normal">
-                <span className="text-[13px] opacity-70">📅</span> Fecha Est. {sortKey === 'fecha_est' && <ArrowUpDown className="h-3 w-3" />}
+            <th className="cursor-pointer px-4 py-3 hover:text-slate-800 print:px-2 print:py-1.5 print:w-[9%]" onClick={() => handleSort('fecha_est')}>
+              <div className="flex items-center gap-1.5 font-normal print:font-bold">
+                <span className="text-[13px] opacity-70 print:hidden">📅</span> Fecha Est. {sortKey === 'fecha_est' && <ArrowUpDown className="h-3 w-3 print:hidden" />}
               </div>
             </th>
-            <th className="cursor-pointer px-4 py-3 hover:text-slate-800" onClick={() => handleSort('estado')}>
-              <div className="flex items-center gap-1.5 font-normal">
-                <span className="text-[13px] opacity-70">📊</span> Estado {sortKey === 'estado' && <ArrowUpDown className="h-3 w-3" />}
+            <th className="cursor-pointer px-4 py-3 hover:text-slate-800 print:px-2 print:py-1.5 print:w-[10%]" onClick={() => handleSort('estado')}>
+              <div className="flex items-center gap-1.5 font-normal print:font-bold">
+                <span className="text-[13px] opacity-70 print:hidden">📊</span> Estado {sortKey === 'estado' && <ArrowUpDown className="h-3 w-3 print:hidden" />}
               </div>
             </th>
-            <th className="px-4 py-3 text-right">
+            <th className="px-4 py-3 text-right print:hidden">
               <span className="text-[13px] opacity-70">⚙️</span> Acciones
             </th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-surface-elevated">
+        <tbody className="divide-y divide-surface-elevated print:divide-slate-200">
           {sortedItems.map(item => (
-            <tr key={item.id} className="cursor-pointer transition-colors hover:bg-slate-50/50" onClick={() => navigate(`/pedidos/${item.pedido_id}`)}>
-              <td className="px-4 py-3 font-medium text-slate-800">
+            <tr key={item.id} className="cursor-pointer transition-colors hover:bg-slate-50/50 print:break-inside-avoid print:border-b print:border-slate-200" onClick={() => navigate(`/pedidos/${item.pedido_id}`)}>
+              <td className="px-4 py-3 print:px-2 print:py-1.5 font-medium text-slate-800 break-words">
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <span>
                     {item.cantidad > 1 ? `${item.cantidad}x ` : ''}
@@ -162,7 +162,7 @@ export function ProductoTableView({ items }: { items: PedidoItemFlattened[] }) {
                       target="_blank"
                       rel="noreferrer"
                       onClick={(e) => e.stopPropagation()}
-                      className="inline-flex items-center gap-0.5 rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-bold text-blue-700 hover:bg-blue-200 transition-colors"
+                      className="inline-flex items-center gap-0.5 rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-bold text-blue-700 hover:bg-blue-200 transition-colors print:hidden"
                       title="Descargar STL / Archivo"
                     >
                       <ExternalLink className="h-2.5 w-2.5" />
@@ -171,55 +171,63 @@ export function ProductoTableView({ items }: { items: PedidoItemFlattened[] }) {
                   )}
                 </div>
               </td>
-              <td className="px-4 py-3 text-xs text-slate-500 italic">
+              <td className="px-4 py-3 print:px-2 print:py-1.5 text-xs print:text-[10px] text-slate-500 italic break-words">
                 {item.notas || '-'}
               </td>
-              <td className="px-4 py-3">
-                <span className="rounded bg-brand-purple/20 px-1.5 py-0.5 text-xs font-medium text-brand-purple">
+              <td className="px-4 py-3 print:px-2 print:py-1.5 break-words">
+                <span className="rounded bg-brand-purple/20 px-1.5 py-0.5 text-xs font-medium text-brand-purple print:text-slate-800 print:bg-slate-100 print:border print:border-slate-200 print:text-[10px]">
                   {item.cliente_nombre}
                 </span>
               </td>
-              <td className="px-4 py-3 text-slate-800">
+              <td className="px-4 py-3 print:px-2 print:py-1.5 text-slate-800 font-mono">
                 <div className="flex flex-col">
                   <span className={cn(item.pedido_descuento_pct && item.pedido_descuento_pct > 0 ? "text-primary font-bold" : "")}>
                     {formatARS(Number(item.subtotal) * (1 - (item.pedido_descuento_pct || 0) / 100))}
                   </span>
                   {item.pedido_descuento_pct && item.pedido_descuento_pct > 0 ? (
-                    <span className="text-[10px] text-brand-purple line-through opacity-70">
+                    <span className="text-[10px] text-brand-purple line-through opacity-70 print:hidden">
                       {formatARS(item.subtotal)}
                     </span>
                   ) : null}
                 </div>
               </td>
-              <td className="px-4 py-3 text-slate-400">{item.pedido_fecha ? formatDate(item.pedido_fecha) : '-'}</td>
-              <td className="px-4 py-3 text-slate-400">{item.fecha_entrega_estimada ? formatDate(item.fecha_entrega_estimada) : '-'}</td>
-              <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
-                <select
-                  value={item.estado || 'presupuesto'}
-                  onChange={async (e) => {
-                    e.stopPropagation()
-                    const nuevoEstado = e.target.value as PedidoEstado
-                    try {
-                      await cambiarEstado.mutateAsync({ id: item.id, estado: nuevoEstado })
-                      toast(`Estado actualizado`, 'success')
-                    } catch {
-                      toast('Error al actualizar estado', 'error')
-                    }
-                  }}
-                  disabled={cambiarEstado.isPending}
-                  className={cn(
-                    'cursor-pointer appearance-none rounded-full px-2.5 py-1 text-left text-xs font-semibold outline-none transition-colors hover:ring-1 hover:ring-white/20',
-                    estadoColors[item.estado || 'presupuesto']
-                  )}
-                >
-                  {Object.entries(estadoLabels).map(([val, label]) => (
-                    <option key={val} value={val} className="bg-slate-50/50 text-slate-800">
-                      {label}
-                    </option>
-                  ))}
-                </select>
+              <td className="px-4 py-3 print:px-2 print:py-1.5 text-slate-400 print:text-slate-700 print:text-[10px]">{item.pedido_fecha ? formatDate(item.pedido_fecha) : '-'}</td>
+              <td className="px-4 py-3 print:px-2 print:py-1.5 text-slate-400 print:text-slate-700 print:text-[10px]">{item.fecha_entrega_estimada ? formatDate(item.fecha_entrega_estimada) : '-'}</td>
+              <td className="px-4 py-3 print:px-2 print:py-1.5" onClick={e => e.stopPropagation()}>
+                <div className="print:hidden">
+                  <select
+                    value={item.estado || 'presupuesto'}
+                    onChange={async (e) => {
+                      e.stopPropagation()
+                      const nuevoEstado = e.target.value as PedidoEstado
+                      try {
+                        await cambiarEstado.mutateAsync({ id: item.id, estado: nuevoEstado })
+                        toast(`Estado actualizado`, 'success')
+                      } catch {
+                        toast('Error al actualizar estado', 'error')
+                      }
+                    }}
+                    disabled={cambiarEstado.isPending}
+                    className={cn(
+                      'cursor-pointer appearance-none rounded-full px-2.5 py-1 text-left text-xs font-semibold outline-none transition-colors hover:ring-1 hover:ring-white/20',
+                      estadoColors[item.estado || 'presupuesto']
+                    )}
+                  >
+                    {Object.entries(estadoLabels).map(([val, label]) => (
+                      <option key={val} value={val} className="bg-slate-50/50 text-slate-800">
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <span className={cn(
+                  "hidden print:inline-block px-1.5 py-0.5 rounded text-[10px] font-bold border",
+                  estadoColors[item.estado || 'presupuesto']
+                )}>
+                  {estadoLabels[item.estado || 'presupuesto'] || item.estado}
+                </span>
               </td>
-              <td className="px-4 py-3 text-right" onClick={e => e.stopPropagation()}>
+              <td className="px-4 py-3 text-right print:hidden" onClick={e => e.stopPropagation()}>
                 <div className="flex items-center justify-end gap-1.5">
                   <button
                     type="button"
@@ -252,11 +260,12 @@ export function ProductoTableView({ items }: { items: PedidoItemFlattened[] }) {
             </tr>
           ))}
         </tbody>
-        <tfoot className="border-t border-slate-100 bg-slate-50/20">
+        <tfoot className="border-t border-slate-100 bg-slate-50/20 print:bg-slate-100 print:border-slate-300">
           <tr>
-            <td colSpan={3} className="px-4 py-3 text-right text-sm font-medium text-slate-500">Total</td>
-            <td className="px-4 py-3 font-mono font-bold text-primary">{formatARS(total)}</td>
-            <td colSpan={4}></td>
+            <td colSpan={3} className="px-4 py-3 print:px-2 print:py-1.5 text-right text-sm print:text-xs font-bold text-slate-700">Total</td>
+            <td className="px-4 py-3 print:px-2 print:py-1.5 font-mono font-bold text-primary print:text-slate-900 print:text-xs">{formatARS(total)}</td>
+            <td colSpan={4} className="print:hidden"></td>
+            <td colSpan={3} className="hidden print:table-cell"></td>
           </tr>
         </tfoot>
       </table>

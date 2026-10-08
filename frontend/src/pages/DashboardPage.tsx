@@ -222,31 +222,32 @@ export default function DashboardPage() {
             </div>
           )}
         </div>
+      </div>
 
-        {/* Top Productos (1/3 width) */}
-        <div className="lg:col-span-1">
+      {/* Fila Inferior: 3 Columnas Proporcionales (Top Vendidos, Alertas de Stock, Entregas Próximas) */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        {/* Columna 1: Top Productos */}
+        <div className="h-full">
           {kpisLoading ? (
-            <Skeleton className="h-[320px] w-full" />
+            <Skeleton className="h-[360px] w-full rounded-2xl" />
           ) : (
             <TopProductosPanel productos={kpis?.top_productos ?? []} />
           )}
         </div>
-      </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {/* Alerts / Stock */}
-        <div className="space-y-3">
+        {/* Columna 2: Alertas de Stock */}
+        <div className="h-full">
           {alertasLoading ? (
-            <Skeleton className="h-[300px] w-full" />
+            <Skeleton className="h-[360px] w-full rounded-2xl" />
           ) : alertas ? (
             <StockPanel alertas={alertas} />
           ) : null}
         </div>
 
-        {/* Entregas */}
-        <div className="space-y-3">
+        {/* Columna 3: Entregas */}
+        <div className="h-full">
           {alertasLoading ? (
-            <Skeleton className="h-[300px] w-full" />
+            <Skeleton className="h-[360px] w-full rounded-2xl" />
           ) : alertas ? (
             <EntregasPanel alertas={alertas} />
           ) : null}

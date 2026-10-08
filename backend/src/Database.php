@@ -51,6 +51,11 @@ class Database
 
     private static function ensureSchema(PDO $db): void
     {
+        $flagFile = sys_get_temp_dir() . '/sistema3ld_schema_v3.flag';
+        if (file_exists($flagFile) && (time() - filemtime($flagFile) < 86400)) {
+            return;
+        }
+
         try {
             $db->exec("ALTER TABLE productos ADD COLUMN archivo_url VARCHAR(500) NULL");
         } catch (\Throwable $e) {
@@ -259,6 +264,32 @@ class Database
         } catch (\Throwable $e) {
             // Se ignora si ya existe
         }
+        try {
+            $db->exec("ALTER TABLE productos ADD COLUMN seo_title VARCHAR(255) NULL");
+        } catch (\Throwable $e) {
+            // Se ignora si ya existe
+        }
+        try {
+            $db->exec("ALTER TABLE productos ADD COLUMN seo_description TEXT NULL");
+        } catch (\Throwable $e) {
+            // Se ignora si ya existe
+        }
+
+        // Índices de optimización de rendimiento
+        try {
+            $db->exec("CREATE INDEX idx_pedido_items_estado ON pedido_items (estado)");
+        } catch (\Throwable $e) {}
+        try {
+            $db->exec("CREATE INDEX idx_pedidos_created_at ON pedidos (created_at)");
+        } catch (\Throwable $e) {}
+        try {
+            $db->exec("CREATE INDEX idx_clientes_activo ON clientes (activo)");
+        } catch (\Throwable $e) {}
+        try {
+            $db->exec("CREATE INDEX idx_clientes_nombre ON clientes (nombre)");
+        } catch (\Throwable $e) {}
+
+        @touch($flagFile);
     }
 
     /**

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { usePedidos, usePedidoItems } from '@/hooks/usePedidos'
 import { useClientes } from '@/hooks/useClientes'
 import { useFilterStore } from '@/store/filterStore'
@@ -22,6 +22,14 @@ const ESTADOS: { value: PedidoEstado; label: string; color: string }[] = [
 export default function VentasPage() {
   const [vista, setVista] = useState<'producto' | 'pedido'>('producto')
   const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search)
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [search])
 
   const { ventasEstados, ventasClientes, setVentasEstados, setVentasClientes } = useFilterStore()
   const { data: clientesData } = useClientes()
@@ -29,19 +37,68 @@ export default function VentasPage() {
   const pedidosQuery = usePedidos({
     estados: ventasEstados,
     cliente_ids: ventasClientes,
-    search: search || undefined,
+    search: debouncedSearch || undefined,
+    enabled: vista === 'pedido',
   })
 
   const itemsQuery = usePedidoItems({
     estados: ventasEstados,
     cliente_ids: ventasClientes,
-    search: search || undefined,
+    search: debouncedSearch || undefined,
+    enabled: vista === 'producto',
   })
 
   const isLoading = vista === 'pedido' ? pedidosQuery.isLoading : itemsQuery.isLoading
 
   return (
-    <div className="relative space-y-4 pb-4">
+    <div className="relative space-y-4 pb-4 print:space-y-2 print:pb-0 print:w-full">
+      {/* Estilos específicos de impresión en A4 Horizontal */}
+      <style>{`
+        @media print {
+          @page {
+            size: A4 landscape;
+            margin: 8mm;
+          }
+          body {
+            background: white !important;
+            color: black !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          .print-hidden, header, nav, aside, footer {
+            display: none !important;
+          }
+          main {
+            padding: 0 !important;
+            margin: 0 !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            overflow: visible !important;
+          }
+          .card-shadow {
+            box-shadow: none !important;
+            border: none !important;
+          }
+        }
+      `}</style>
+
+      {/* Encabezado visible únicamente al imprimir con detalle de filtros */}
+      <div className="hidden print:flex justify-between items-end border-b-2 border-slate-900 pb-2 mb-2 text-slate-900">
+        <div>
+          <h1 className="text-lg font-black uppercase tracking-wide">3LD · Listado de Ventas / Pedidos</h1>
+          <p className="text-[11px] text-slate-600 font-medium">
+            Vista: {vista === 'producto' ? 'Por Producto' : 'Por Pedido'}
+            {ventasEstados.length > 0 && ` | Estados: ${ventasEstados.map(e => ESTADOS.find(x => x.value === e)?.label).filter(Boolean).join(', ')}`}
+            {ventasClientes.length > 0 && ` | Clientes: ${ventasClientes.map(cid => clientesData?.data.find(c => c.id === cid)?.nombre).filter(Boolean).join(', ')}`}
+            {search && ` | Búsqueda: "${search}"`}
+          </p>
+        </div>
+        <div className="text-right text-[10px] text-slate-500 font-mono">
+          <p>Fecha: {new Date().toLocaleDateString('es-AR')} {new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}</p>
+          <p>Total ítems: {vista === 'producto' ? (itemsQuery.data?.data?.length || 0) : (pedidosQuery.data?.data?.length || 0)}</p>
+        </div>
+      </div>
+
       <div className="flex flex-col sm:flex-row gap-4 print-hidden justify-between items-start sm:items-center">
         {/* View Toggle */}
         <div className="flex gap-2 rounded-xl bg-white card-shadow p-1 w-full sm:w-64">
