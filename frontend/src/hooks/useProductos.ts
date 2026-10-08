@@ -108,7 +108,11 @@ export function useCreateProducto() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['productos'] })
+      queryClient.invalidateQueries({ queryKey: ['tienda-productos-publicos'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      try {
+        localStorage.removeItem('3ld_cached_products')
+      } catch {}
     },
   })
 }
@@ -125,6 +129,11 @@ export function useUpdateProducto() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['productos'] })
+      queryClient.invalidateQueries({ queryKey: ['tienda-productos-publicos'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      try {
+        localStorage.removeItem('3ld_cached_products')
+      } catch {}
     },
   })
 }
@@ -137,7 +146,11 @@ export function useDeleteProducto() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['productos'] })
+      queryClient.invalidateQueries({ queryKey: ['tienda-productos-publicos'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      try {
+        localStorage.removeItem('3ld_cached_products')
+      } catch {}
     },
   })
 }

@@ -14,6 +14,10 @@ import {
   Trash2,
   Plus,
   Upload,
+  ChevronUp,
+  ChevronDown,
+  ArrowUp,
+  ArrowDown,
 } from 'lucide-react'
 import api from '@/lib/api'
 import type { ProductoPieza } from '@/types'
@@ -71,6 +75,15 @@ export function MakerWorldImportModal({ isOpen, onClose, onSuccess }: Props) {
   const [piezas, setPiezas] = useState<ProductoPieza[]>([])
   const [saving, setSaving] = useState(false)
   const [isCostoModalOpen, setIsCostoModalOpen] = useState(false)
+
+  const movePieza = (index: number, direction: 'up' | 'down') => {
+    const targetIndex = direction === 'up' ? index - 1 : index + 1
+    if (targetIndex < 0 || targetIndex >= piezas.length) return
+    const copy = [...piezas]
+    const [item] = copy.splice(index, 1)
+    copy.splice(targetIndex, 0, item)
+    setPiezas(copy)
+  }
 
   const { data: categorias } = useCategorias()
   const createMutation = useCreateProducto()
@@ -661,6 +674,31 @@ export function MakerWorldImportModal({ isOpen, onClose, onSuccess }: Props) {
                       {piezas.map((pieza, idx) => (
                         <div key={pieza.id || idx} className="p-3 bg-white rounded-xl border border-indigo-100 shadow-2xs space-y-2">
                           <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <span className="text-[11px] font-black text-indigo-700 bg-indigo-100 px-2 py-1 rounded-lg">
+                                #{idx + 1}
+                              </span>
+                              <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200">
+                                <button
+                                  type="button"
+                                  onClick={() => movePieza(idx, 'up')}
+                                  disabled={idx === 0}
+                                  className="p-1 hover:bg-white text-slate-600 hover:text-indigo-600 disabled:opacity-20 rounded transition cursor-pointer disabled:cursor-not-allowed"
+                                  title="Subir de posición"
+                                >
+                                  <ArrowUp className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => movePieza(idx, 'down')}
+                                  disabled={idx === piezas.length - 1}
+                                  className="p-1 hover:bg-white text-slate-600 hover:text-indigo-600 disabled:opacity-20 rounded transition cursor-pointer disabled:cursor-not-allowed"
+                                  title="Bajar de posición"
+                                >
+                                  <ArrowDown className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
                             {pieza.imagen_url && (
                               <img src={pieza.imagen_url} alt={pieza.nombre} className="w-9 h-9 object-cover rounded-lg border border-slate-200 shrink-0" />
                             )}

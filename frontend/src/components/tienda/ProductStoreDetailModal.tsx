@@ -103,9 +103,12 @@ export function normalizeToStoreProduct(raw: any): UnifiedStoreProduct | null {
 
   // Piezas
   let piezas = raw.piezas
-  if (typeof piezas === 'string' && piezas.startsWith('[')) {
+  if (typeof piezas === 'string' && piezas.trim()) {
     try {
       piezas = JSON.parse(piezas)
+      if (typeof piezas === 'string') {
+        piezas = JSON.parse(piezas)
+      }
     } catch {}
   }
 
@@ -412,8 +415,8 @@ export function ProductStoreDetailModal({
             {product.piezas && product.piezas.length > 0 && (
               <div className="mt-4 bg-indigo-50/70 p-3.5 rounded-2xl border border-indigo-100/90 space-y-2.5">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-black text-indigo-950 flex items-center gap-1.5 uppercase tracking-wide">
-                    🧩 Seleccionar Piezas del Set
+                  <label className="text-xs font-black text-indigo-950 flex items-center gap-1.5 tracking-wide">
+                    🧩 Seleccione piezas
                   </label>
                   <div className="flex items-center gap-2">
                     <button

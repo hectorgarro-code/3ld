@@ -215,7 +215,10 @@ export default function TiendaPage() {
       } catch {}
       return undefined;
     },
-    staleTime: 1000 * 60 * 5,
+    initialDataUpdatedAt: 0,
+    staleTime: 1000 * 10, // 10s para frescura inmediata
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
   });
 
   const { data: rawCategories = [] } = useQuery({
@@ -338,6 +341,15 @@ export default function TiendaPage() {
       setModalSelectedPiezas({});
     }
   }, [activeProductModal]);
+
+  useEffect(() => {
+    if (activeProductModal && products.length > 0) {
+      const refreshed = products.find((p) => String(p.id) === String(activeProductModal.id));
+      if (refreshed && JSON.stringify(refreshed.piezas) !== JSON.stringify(activeProductModal.piezas)) {
+        setActiveProductModal(refreshed);
+      }
+    }
+  }, [products]);
 
   const calculatedModalPrice = useMemo(() => {
     if (!activeProductModal) return 0;
