@@ -39,6 +39,7 @@ export interface UnifiedStoreProduct {
     medidas?: string
     filamento_g?: number
   }[]
+  precios_cantidad?: { cantidad: number; precio: number }[]
   raw?: any
 }
 
@@ -133,6 +134,9 @@ export function normalizeToStoreProduct(raw: any): UnifiedStoreProduct | null {
     stock_actual: raw.stock_actual ?? raw.stock ?? 0,
     estado_stock: raw.estado_stock || raw.stockStatus,
     piezas: Array.isArray(piezas) ? piezas : undefined,
+    precios_cantidad: Array.isArray(raw.precios_cantidad)
+      ? raw.precios_cantidad
+      : (typeof raw.precios_cantidad === 'string' ? JSON.parse(raw.precios_cantidad || '[]') : []),
     archivo_url: raw.archivo_url,
     raw,
   }
@@ -367,6 +371,25 @@ export function ProductStoreDetailModal({
               <p className="text-xs text-slate-600 mt-2 leading-relaxed whitespace-pre-line">
                 {product.description}
               </p>
+            )}
+
+            {/* Escalas de Precio por Cantidad */}
+            {product.precios_cantidad && product.precios_cantidad.length > 0 && (
+              <div className="mt-4 p-3 bg-teal-50/80 border border-teal-200/80 rounded-2xl">
+                <span className="text-[11px] font-black uppercase text-teal-900 tracking-wider block mb-1.5">
+                  📦 Precios por Cantidad (Mayorista / Volumen):
+                </span>
+                <div className="flex flex-wrap gap-1.5">
+                  {product.precios_cantidad.map((esc: any, idx: number) => (
+                    <span
+                      key={idx}
+                      className="bg-white border border-teal-300 text-teal-900 text-xs font-bold px-2.5 py-1 rounded-xl shadow-xs"
+                    >
+                      A partir de <strong>{esc.cantidad} un.</strong>: ${Number(esc.precio).toLocaleString('es-AR')} c/u
+                    </span>
+                  ))}
+                </div>
+              </div>
             )}
 
             {/* Opciones de Colores */}

@@ -214,6 +214,7 @@ export default function PosPage() {
     const effectivePrice = calcularPrecioProductoCliente({
       producto: p,
       cliente: currentSelectedClient,
+      cantidad: 1,
       precioBaseInicial: baseListPrice,
       todasLasPiezasSeleccionadas: true,
     })
@@ -222,8 +223,8 @@ export default function PosPage() {
     setQuickCosto(baseCosto)
   }
 
-  // Recalcular precio de piezas dinámicamente en el modal rápido
-  const updateModalPriceForPiezas = (newMap: Record<string, boolean>) => {
+  // Recalcular precio de piezas y volumen dinámicamente en el modal rápido
+  const updateModalPriceForPiezas = (newMap: Record<string, boolean>, qtyOverride?: number) => {
     if (!selectedProductForAdd) return
     let sumPieces = 0
     let sumCosto = 0
@@ -242,10 +243,12 @@ export default function PosPage() {
       sumCosto = Number(selectedProductForAdd.precio_costo) || 0
     }
 
+    const currentQty = qtyOverride !== undefined ? qtyOverride : quickQty
     const allSelected = parsedModalPiezas.length === 0 || (selectedCount === parsedModalPiezas.length && selectedCount > 0)
     const effective = calcularPrecioProductoCliente({
       producto: selectedProductForAdd,
       cliente: currentSelectedClient,
+      cantidad: currentQty,
       precioBaseInicial: sumPieces,
       todasLasPiezasSeleccionadas: allSelected,
     })
@@ -287,8 +290,23 @@ export default function PosPage() {
 
     if (existingIndex >= 0) {
       const updated = [...cart]
-      updated[existingIndex].cantidad += quickQty
-      updated[existingIndex].precio_unit = quickPrice
+      const totalQty = updated[existingIndex].cantidad + quickQty
+      const allSelected =
+        !updated[existingIndex].selected_piezas ||
+        Object.keys(updated[existingIndex].selected_piezas || {}).length === 0 ||
+        (Array.isArray((selectedProductForAdd as any).piezas) &&
+          (selectedProductForAdd as any).piezas.every((pi: any) => updated[existingIndex].selected_piezas?.[pi.id || pi.nombre]))
+
+      const recalculatedPrice = calcularPrecioProductoCliente({
+        producto: selectedProductForAdd,
+        cliente: currentSelectedClient,
+        cantidad: totalQty,
+        precioBaseInicial: updated[existingIndex].precio_base || baseListPrice,
+        todasLasPiezasSeleccionadas: allSelected,
+      })
+
+      updated[existingIndex].cantidad = totalQty
+      updated[existingIndex].precio_unit = recalculatedPrice
       updated[existingIndex].costo_unitario = quickCosto
       updated[existingIndex].precio_base = baseListPrice
       setCart(updated)
@@ -335,6 +353,7 @@ export default function PosPage() {
       const recalculated = calcularPrecioProductoCliente({
         producto: prod,
         cliente: newClient,
+        cantidad: item.cantidad,
         precioBaseInicial: baseList,
         todasLasPiezasSeleccionadas: allSelected,
       })
@@ -364,7 +383,34 @@ export default function PosPage() {
       setCart((prev) => prev.filter((_, i) => i !== index))
       return
     }
-    setCart((prev) => prev.map((item, i) => (i === index ? { ...item, cantidad: newQty } : item)))
+    setCart((prev) =>
+      prev.map((item, i) => {
+        if (i !== index) return item
+        const prod = productosData?.data?.find((p) => p.id === item.producto_id)
+        if (!prod) return { ...item, cantidad: newQty }
+
+        const baseList = item.precio_base || Number(prod.precio_venta) || item.precio_unit
+        const allSelected =
+          !item.selected_piezas ||
+          Object.keys(item.selected_piezas).length === 0 ||
+          (Array.isArray((prod as any).piezas) &&
+            (prod as any).piezas.every((pi: any) => item.selected_piezas?.[pi.id || pi.nombre]))
+
+        const recalculated = calcularPrecioProductoCliente({
+          producto: prod,
+          cliente: currentSelectedClient,
+          cantidad: newQty,
+          precioBaseInicial: baseList,
+          todasLasPiezasSeleccionadas: allSelected,
+        })
+
+        return {
+          ...item,
+          cantidad: newQty,
+          precio_unit: recalculated,
+        }
+      })
+    )
   }
 
   const removeCartItem = (index: number) => {
@@ -1318,7 +1364,11 @@ export default function PosPage() {
                     type="number"
                     min="1"
                     value={quickQty}
-                    onChange={(e) => setQuickQty(parseInt(e.target.value) || 1)}
+                    onChange={(e) => {
+                      const newQty = parseInt(e.target.value) || 1
+                      setQuickQty(newQty)
+                      updateModalPriceForPiezas(posSelectedPiezas, newQty)
+                    }}
                     className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 text-xs"
                   />
                 </div>
@@ -1344,6 +1394,31 @@ export default function PosPage() {
                   />
                 </div>
               </div>
+
+              {selectedProductForAdd.precios_cantidad && selectedProductForAdd.precios_cantidad.length > 0 && (
+                <div className="bg-teal-50/80 border border-teal-200/80 rounded-xl p-2.5">
+                  <span className="text-[10px] font-black uppercase text-teal-800 tracking-wider block mb-1">
+                    📦 Escalas por cantidad disponibles:
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {selectedProductForAdd.precios_cantidad.map((esc: any, idx: number) => {
+                      const isActive = quickQty >= Number(esc.cantidad)
+                      return (
+                        <span
+                          key={idx}
+                          className={`text-[11px] font-bold px-2 py-0.5 rounded-lg border transition ${
+                            isActive
+                              ? 'bg-teal-600 text-white border-teal-700 shadow-xs'
+                              : 'bg-white text-teal-900 border-teal-200'
+                          }`}
+                        >
+                          ≥ {esc.cantidad} un: ${Number(esc.precio).toLocaleString('es-AR')} {isActive && '✓'}
+                        </span>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="flex items-center justify-end gap-2 pt-5 mt-4 border-t border-slate-100">

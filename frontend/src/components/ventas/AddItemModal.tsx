@@ -30,15 +30,17 @@ export function AddItemModal({ pedidoId, clienteId, onClose, onSuccess }: AddIte
   const [costoUnit, setCostoUnit] = useState<string>('')
   const [descuentoPct, setDescuentoPct] = useState<number>(0)
 
-  const handleSelectProducto = (idStr: string) => {
+  const handleSelectProducto = (idStr: string, qtyOverride?: number) => {
     const id = parseInt(idStr, 10)
     setProductoId(id || undefined)
     const prod = productosData?.data.find((p) => p.id === id)
     if (prod) {
       setDescripcion(prod.nombre)
+      const currentQ = qtyOverride !== undefined ? qtyOverride : cantidad
       const price = calcularPrecioProductoCliente({
         producto: prod,
         cliente: client,
+        cantidad: currentQ,
       })
       setPrecioUnit(price)
       setCostoUnit(prod.precio_costo != null ? String(prod.precio_costo) : '')
@@ -204,7 +206,21 @@ export function AddItemModal({ pedidoId, clienteId, onClose, onSuccess }: AddIte
                 step="any"
                 required
                 value={cantidad}
-                onChange={(e) => setCantidad(parseFloat(e.target.value) || 0)}
+                onChange={(e) => {
+                  const newQ = parseFloat(e.target.value) || 0
+                  setCantidad(newQ)
+                  if (productoId) {
+                    const prod = productosData?.data.find((p) => p.id === productoId)
+                    if (prod) {
+                      const p = calcularPrecioProductoCliente({
+                        producto: prod,
+                        cliente: client,
+                        cantidad: newQ,
+                      })
+                      setPrecioUnit(p)
+                    }
+                  }
+                }}
                 className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-800 focus:border-primary focus:outline-none"
               />
             </div>
@@ -224,6 +240,37 @@ export function AddItemModal({ pedidoId, clienteId, onClose, onSuccess }: AddIte
               />
             </div>
           </div>
+
+          {/* Escalas de volumen si el producto seleccionado tiene */}
+          {(() => {
+            if (!productoId) return null
+            const prod = productosData?.data.find((p) => p.id === productoId)
+            if (!prod?.precios_cantidad || prod.precios_cantidad.length === 0) return null
+            return (
+              <div className="bg-teal-50 border border-teal-200 rounded-xl p-2.5 space-y-1">
+                <span className="text-[10px] font-black uppercase text-teal-800 tracking-wider block">
+                  📦 Escalas por volumen disponibles:
+                </span>
+                <div className="flex flex-wrap gap-1.5">
+                  {prod.precios_cantidad.map((esc: any, idx: number) => {
+                    const active = cantidad >= Number(esc.cantidad)
+                    return (
+                      <span
+                        key={idx}
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${
+                          active
+                            ? 'bg-teal-600 text-white border-teal-700'
+                            : 'bg-white text-teal-900 border-teal-200'
+                        }`}
+                      >
+                        ≥ {esc.cantidad} un: ${Number(esc.precio).toLocaleString('es-AR')} {active && '✓'}
+                      </span>
+                    )
+                  })}
+                </div>
+              </div>
+            )
+          })()}
 
           <div className="grid grid-cols-2 gap-3">
             <div>

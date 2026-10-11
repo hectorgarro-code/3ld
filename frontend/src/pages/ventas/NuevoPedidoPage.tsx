@@ -83,12 +83,14 @@ export default function NuevoPedidoPage() {
   const selectedClienteId = Number(watch('cliente_id'))
   const selectedCliente = clientesData?.data?.find((c) => c.id === selectedClienteId)
 
-  const handleProductoChange = (index: number, productoId: number) => {
+  const handleProductoChange = (index: number, productoId: number, qtyOverride?: number) => {
     const found = productosData?.data.find((p) => p.id === productoId)
     if (found) {
+      const qty = qtyOverride !== undefined ? qtyOverride : (Number(watch(`items.${index}.cantidad`)) || 1)
       const price = calcularPrecioProductoCliente({
         producto: found,
         cliente: selectedCliente,
+        cantidad: qty,
       })
       setValue(`items.${index}.precio_unit`, price)
     }
@@ -247,6 +249,12 @@ export default function NuevoPedidoPage() {
                           type="number"
                           min={1}
                           {...register(`items.${i}.cantidad`)}
+                          onChange={(e) => {
+                            register(`items.${i}.cantidad`).onChange(e)
+                            const q = parseInt(e.target.value, 10) || 1
+                            const pId = Number(watch(`items.${i}.producto_id`))
+                            if (pId) handleProductoChange(i, pId, q)
+                          }}
                           className="w-full rounded-lg border border-surface-card bg-slate-50/50 px-3 py-2 text-xs text-slate-800 outline-none focus:border-primary"
                         />
                       </div>
@@ -261,6 +269,34 @@ export default function NuevoPedidoPage() {
                         />
                       </div>
                     </div>
+
+                    {/* Escalas de volumen del producto */}
+                    {(() => {
+                      const pId = Number(watch(`items.${i}.producto_id`))
+                      const prod = productosData?.data.find((p) => p.id === pId)
+                      const currentQty = Number(watch(`items.${i}.cantidad`)) || 1
+                      if (!prod?.precios_cantidad || prod.precios_cantidad.length === 0) return null
+                      return (
+                        <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                          <span className="text-[10px] font-bold text-teal-800">Escalas:</span>
+                          {prod.precios_cantidad.map((esc: any, idx: number) => {
+                            const active = currentQty >= Number(esc.cantidad)
+                            return (
+                              <span
+                                key={idx}
+                                className={`text-[10px] font-semibold px-2 py-0.5 rounded-md border ${
+                                  active
+                                    ? 'bg-teal-600 text-white border-teal-700'
+                                    : 'bg-white text-teal-800 border-teal-200'
+                                }`}
+                              >
+                                ≥ {esc.cantidad} un: ${Number(esc.precio).toLocaleString('es-AR')} {active && '✓'}
+                              </span>
+                            )
+                          })}
+                        </div>
+                      )
+                    })()}
                     <div>
                       <input
                         type="text"

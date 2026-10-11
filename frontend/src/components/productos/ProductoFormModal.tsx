@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils'
 import { StockHistory } from './StockHistory'
 import { CostoImpresionModal } from './CostoImpresionModal'
 import { MediaLibraryModal } from '@/components/media/MediaLibraryModal'
+import { PreciosCantidadManager } from './PreciosCantidadManager'
 
 const productoSchema = z.object({
   nombre: z.string().min(1, 'El nombre es requerido'),
@@ -68,6 +69,7 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
   const [imagesBase64, setImagesBase64] = useState<string[]>([])
   const [selectedColors, setSelectedColors] = useState<string[]>([])
   const [piezas, setPiezas] = useState<ProductoPieza[]>([])
+  const [preciosCantidad, setPreciosCantidad] = useState<{ cantidad: number; precio: number }[]>([])
   const [isCompressing, setIsCompressing] = useState(false)
   const [isGeneratingAi, setIsGeneratingAi] = useState(false)
   const [receta, setReceta] = useState<{insumo_id: number, cantidad: number, insumo_nombre?: string, precio_costo?: number, unidad_medida?: string}[]>([])
@@ -207,9 +209,21 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
         } catch (e) {}
       }
       setPiezas(existingPiezas)
+
+      let existingPreciosCantidad: { cantidad: number; precio: number }[] = []
+      if (Array.isArray(p.precios_cantidad)) {
+        existingPreciosCantidad = p.precios_cantidad
+      } else if (typeof p.precios_cantidad === 'string' && p.precios_cantidad.trim()) {
+        try {
+          const parsed = JSON.parse(p.precios_cantidad)
+          if (Array.isArray(parsed)) existingPreciosCantidad = parsed
+        } catch (e) {}
+      }
+      setPreciosCantidad(existingPreciosCantidad)
     } else if (isOpen && !producto) {
       setSelectedColors([])
       setPiezas([])
+      setPreciosCantidad([])
       const savedCatId = localStorage.getItem('last_categoria_id')
       const savedSubcat = localStorage.getItem('last_subcategoria')
       reset({
@@ -367,6 +381,9 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
         ...data,
         colores: selectedColors,
         piezas: piezas.filter((p) => p.nombre.trim() !== ''),
+        precios_cantidad: preciosCantidad
+          .filter((pc) => Number(pc.cantidad) > 0 && Number(pc.precio) >= 0)
+          .sort((a, b) => Number(a.cantidad) - Number(b.cantidad)),
         categoria_id: data.categoria_id || undefined,
         variante: data.variante || undefined,
         archivo_url: data.archivo_url?.trim() || null,
@@ -964,6 +981,15 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
                       setValue('precio_venta', Math.round(cost * 2))
                     }}
                     className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition-colors focus:border-primary focus:bg-white"
+                  />
+                </div>
+
+                {/* Sección de Precios por Cantidad / Escalas por Volumen */}
+                <div className="md:col-span-2">
+                  <PreciosCantidadManager
+                    value={preciosCantidad}
+                    onChange={setPreciosCantidad}
+                    precioVentaActual={Number(watch('precio_venta')) || 0}
                   />
                 </div>
 

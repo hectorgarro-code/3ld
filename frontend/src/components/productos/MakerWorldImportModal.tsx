@@ -25,6 +25,7 @@ import { compressImage } from '@/lib/imageUtils'
 import { useCreateProducto, useCategorias } from '@/hooks/useProductos'
 import { toast } from '@/store/toastStore'
 import { CostoImpresionModal } from './CostoImpresionModal'
+import { PreciosCantidadManager } from './PreciosCantidadManager'
 
 interface Props {
   isOpen: boolean
@@ -73,6 +74,7 @@ export function MakerWorldImportModal({ isOpen, onClose, onSuccess }: Props) {
   const [esTienda, setEsTienda] = useState<boolean>(true)
   const [archivoUrl, setArchivoUrl] = useState<string>('')
   const [piezas, setPiezas] = useState<ProductoPieza[]>([])
+  const [preciosCantidad, setPreciosCantidad] = useState<{ cantidad: number; precio: number }[]>([])
   const [saving, setSaving] = useState(false)
   const [isCostoModalOpen, setIsCostoModalOpen] = useState(false)
 
@@ -100,6 +102,7 @@ export function MakerWorldImportModal({ isOpen, onClose, onSuccess }: Props) {
       }
     } else {
       setPiezas([])
+      setPreciosCantidad([])
     }
   }, [isOpen])
 
@@ -220,6 +223,9 @@ export function MakerWorldImportModal({ isOpen, onClose, onSuccess }: Props) {
         categoria_id: categoriaId,
         subcategoria: subcategoria.trim() || undefined,
         piezas: piezas.filter((p) => p.nombre.trim() !== ''),
+        precios_cantidad: preciosCantidad
+          .filter((p) => Number(p.cantidad) > 0 && Number(p.precio) >= 0)
+          .sort((a, b) => Number(a.cantidad) - Number(b.cantidad)),
         imagen_url: selectedImages[0] || undefined,
         imagenes: selectedImages,
         tipo: 'impresion_3d',
@@ -527,6 +533,13 @@ export function MakerWorldImportModal({ isOpen, onClose, onSuccess }: Props) {
                     />
                   </div>
                 </div>
+
+                {/* Precios por Cantidad / Estructuras Guardadas */}
+                <PreciosCantidadManager
+                  value={preciosCantidad}
+                  onChange={setPreciosCantidad}
+                  precioVentaActual={precioVenta}
+                />
 
                 {/* Sección de Especificaciones Técnicas 3D */}
                 <div className="bg-amber-50/50 p-4 rounded-2xl border border-amber-200/80 space-y-3">

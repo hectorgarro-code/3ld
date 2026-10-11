@@ -205,7 +205,17 @@ function ProductoCard({
       )}
 
       <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-2">
-        <p className="text-base font-black text-primary">{formatARS(producto.precio_venta)}</p>
+        <div>
+          <p className="text-base font-black text-primary">{formatARS(producto.precio_venta)}</p>
+          {producto.precios_cantidad && producto.precios_cantidad.length > 0 && (
+            <span
+              className="inline-block mt-0.5 text-[10px] font-black text-teal-700 bg-teal-50 border border-teal-200 px-1.5 py-0.2 rounded"
+              title={producto.precios_cantidad.map((e) => `≥ ${e.cantidad} un: ${formatARS(e.precio)}`).join(' | ')}
+            >
+              📦 {producto.precios_cantidad.length} escala{producto.precios_cantidad.length > 1 ? 's' : ''} (desde {producto.precios_cantidad[0].cantidad} un)
+            </span>
+          )}
+        </div>
         <div className="flex items-center gap-1.5">
           <button
             onClick={() => handleStockChange(-1)}

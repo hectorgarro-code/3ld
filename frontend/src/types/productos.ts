@@ -20,6 +20,11 @@ export interface ProductoPieza {
   imagen_url?: string
 }
 
+export interface ProductoPrecioCantidad {
+  cantidad: number
+  precio: number
+}
+
 export interface Producto {
   id: number
   nombre: string
@@ -39,6 +44,7 @@ export interface Producto {
   imagenes?: string[]
   colores?: string[] | any
   piezas?: ProductoPieza[]
+  precios_cantidad?: ProductoPrecioCantidad[]
   activo: number // 1 o 0
   es_vendible: number
   es_insumo: number

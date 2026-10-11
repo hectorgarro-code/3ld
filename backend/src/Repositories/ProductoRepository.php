@@ -51,7 +51,7 @@ class ProductoRepository
         try {
             $sql = "SELECT p.id, p.nombre, p.variante, p.sku, p.descripcion, p.tipo,
                            p.precio_venta, p.precio_costo, p.precio_mayorista, p.precio_oferta, p.stock_actual, p.stock_minimo,
-                           p.unidad_medida, p.imagen_url, p.imagenes, p.archivo_url, p.colores, p.piezas, p.activo,
+                           p.unidad_medida, p.imagen_url, p.imagenes, p.archivo_url, p.colores, p.piezas, p.precios_cantidad, p.activo,
                            p.es_vendible, p.es_insumo, p.es_tienda, p.es_destacado, p.subcategoria,
                            p.horas_impresion, p.peso_gramos,
                            p.alto_mm, p.ancho_mm, p.profundidad_mm, p.dimensiones,
@@ -126,6 +126,13 @@ class ProductoRepository
             } else {
                 $p['piezas'] = [];
             }
+
+            if (!empty($p['precios_cantidad'])) {
+                $decPC = is_string($p['precios_cantidad']) ? json_decode($p['precios_cantidad'], true) : $p['precios_cantidad'];
+                $p['precios_cantidad'] = is_array($decPC) ? array_values($decPC) : [];
+            } else {
+                $p['precios_cantidad'] = [];
+            }
         }
 
         return [
@@ -181,6 +188,13 @@ class ProductoRepository
             $producto['piezas'] = [];
         }
 
+        if (!empty($producto['precios_cantidad'])) {
+            $decPC = is_string($producto['precios_cantidad']) ? json_decode($producto['precios_cantidad'], true) : $producto['precios_cantidad'];
+            $producto['precios_cantidad'] = is_array($decPC) ? array_values($decPC) : [];
+        } else {
+            $producto['precios_cantidad'] = [];
+        }
+
         return $producto;
     }
 
@@ -206,13 +220,27 @@ class ProductoRepository
             }
         }
 
+        $preciosCantidadJson = null;
+        if (isset($data['precios_cantidad'])) {
+            $pc = is_array($data['precios_cantidad']) ? $data['precios_cantidad'] : json_decode((string)$data['precios_cantidad'], true);
+            if (is_array($pc)) {
+                $validPc = array_values(array_filter($pc, function ($item) {
+                    return is_array($item) && isset($item['cantidad']) && isset($item['precio']) && (float)$item['cantidad'] > 0 && (float)$item['precio'] >= 0;
+                }));
+                usort($validPc, function ($a, $b) {
+                    return ((float)$a['cantidad']) <=> ((float)$b['cantidad']);
+                });
+                $preciosCantidadJson = json_encode($validPc);
+            }
+        }
+
         try {
             $stmt = $this->db->prepare(
                 "INSERT INTO productos
                     (nombre, variante, sku, descripcion, tipo, categoria_id, precio_venta, precio_costo, precio_mayorista,
                      stock_actual, stock_minimo, unidad_medida, imagen_url, imagenes, archivo_url,
-                     es_vendible, es_insumo, es_tienda, subcategoria, precio_oferta, peso_gramos, horas_impresion, alto_mm, ancho_mm, profundidad_mm, dimensiones, estado_stock, es_destacado, piezas, seo_title, seo_description, activo, created_at, updated_at)
-                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())"
+                     es_vendible, es_insumo, es_tienda, subcategoria, precio_oferta, peso_gramos, horas_impresion, alto_mm, ancho_mm, profundidad_mm, dimensiones, estado_stock, es_destacado, piezas, precios_cantidad, seo_title, seo_description, activo, created_at, updated_at)
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())"
             );
 
             $initStock = (int) ($data['stock_actual'] ?? 0);
@@ -251,6 +279,7 @@ class ProductoRepository
                 $initEstadoStock,
                 isset($data['es_destacado']) ? (int)$data['es_destacado'] : 0,
                 $piezasJson,
+                $preciosCantidadJson,
                 $data['seo_title']     ?? null,
                 $data['seo_description'] ?? null,
             ]);
@@ -341,6 +370,7 @@ class ProductoRepository
             'archivo_url'   => 'string',
             'colores'       => 'json',
             'piezas'        => 'json',
+            'precios_cantidad' => 'json',
             'seo_title'     => 'string',
             'seo_description' => 'string',
         ];
@@ -375,6 +405,19 @@ class ProductoRepository
                 } else {
                     if ($col === 'imagenes') {
                         $binds[] = is_array($val) ? json_encode(array_values(array_slice($val, 0, 5))) : (empty($val) ? null : (string)$val);
+                    } elseif ($col === 'precios_cantidad') {
+                        $pc = is_array($val) ? $val : json_decode((string)$val, true);
+                        if (is_array($pc)) {
+                            $validPc = array_values(array_filter($pc, function ($item) {
+                                return is_array($item) && isset($item['cantidad']) && isset($item['precio']) && (float)$item['cantidad'] > 0 && (float)$item['precio'] >= 0;
+                            }));
+                            usort($validPc, function ($a, $b) {
+                                return ((float)$a['cantidad']) <=> ((float)$b['cantidad']);
+                            });
+                            $binds[] = json_encode($validPc);
+                        } else {
+                            $binds[] = null;
+                        }
                     } else {
                         $binds[] = match ($type) {
                             'int'   => (int) $val,
