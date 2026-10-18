@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import { resolveImageUrl } from '@/lib/utils'
 import { SocialShareModal } from '@/components/productos/SocialShareModal'
+import { CustomerShareModal } from '@/components/tienda/CustomerShareModal'
 
 export interface UnifiedStoreProduct {
   id: string | number
@@ -599,12 +600,20 @@ export function ProductStoreDetailModal({
         </div>
       </div>
 
-      {/* Modal integrado de compartir en redes si se abre internamente */}
-      <SocialShareModal
-        isOpen={isShareModalOpen}
-        onClose={() => setIsShareModalOpen(false)}
-        product={product.raw || product}
-      />
+      {/* Modal integrado de compartir: Redes/Marketplace para admin, o Enlace directo para clientes */}
+      {isAdminView ? (
+        <SocialShareModal
+          isOpen={isShareModalOpen}
+          onClose={() => setIsShareModalOpen(false)}
+          product={product ? (product.raw || product) : null}
+        />
+      ) : (
+        <CustomerShareModal
+          isOpen={isShareModalOpen}
+          onClose={() => setIsShareModalOpen(false)}
+          product={product ? (product.raw || product) : null}
+        />
+      )}
     </>
   )
 }

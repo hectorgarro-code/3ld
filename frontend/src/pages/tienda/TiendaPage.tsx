@@ -33,7 +33,7 @@ import { useCartStore, type CartItem } from '@/store/cartStore';
 import api from '@/lib/api';
 import { optimizeImagesForPrint } from '@/lib/imageOptimization';
 import { calcularTarifaCorreoArgentino } from '@/lib/correoArgentino';
-import { SocialShareModal } from '@/components/productos/SocialShareModal';
+import { CustomerShareModal } from '@/components/tienda/CustomerShareModal';
 import { ProductStoreDetailModal } from '@/components/tienda/ProductStoreDetailModal';
 const TiendaStoriesModal = React.lazy(() => import('@/components/tienda/TiendaStoriesModal').then(m => ({ default: m.TiendaStoriesModal })));
 import {
@@ -2748,7 +2748,7 @@ export default function TiendaPage() {
         </div>
       </div>
 
-      <SocialShareModal
+      <CustomerShareModal
         isOpen={!!socialShareProduct}
         onClose={() => setSocialShareProduct(null)}
         product={socialShareProduct}
