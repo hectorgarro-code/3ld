@@ -792,11 +792,31 @@ export default function TiendaPage() {
     const catName = currentCategoryData?.name || selectedCategory;
     const shareTitle = selectedCategory !== 'all' ? `Catálogo 3LD - ${catName}` : 'Catálogo de Productos 3LD';
 
-    if (navigator.share) {
+    if (typeof navigator !== 'undefined' && navigator.share) {
       navigator.share({ title: shareTitle, url: shareUrl }).catch(() => {});
     } else {
-      navigator.clipboard.writeText(shareUrl);
-      showToast('¡Enlace del catálogo copiado al portapapeles!', 'success');
+      let copied = false;
+      if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(shareUrl).then(() => {
+          showToast('¡Enlace del catálogo copiado al portapapeles!', 'success');
+        }).catch(() => {});
+        copied = true;
+      }
+      if (!copied) {
+        try {
+          const ta = document.createElement('textarea');
+          ta.value = shareUrl;
+          ta.style.position = 'fixed';
+          ta.style.left = '-999999px';
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand('copy');
+          document.body.removeChild(ta);
+          showToast('¡Enlace del catálogo copiado al portapapeles!', 'success');
+        } catch {
+          showToast('Enlace: ' + shareUrl, 'info');
+        }
+      }
     }
   };
 

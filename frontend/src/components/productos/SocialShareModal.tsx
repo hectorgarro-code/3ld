@@ -33,15 +33,16 @@ interface SocialShareModalProps {
     id: number | string
     nombre?: string
     title?: string
-    precio_venta?: number
-    price?: number
+    precio_venta?: number | string
+    price?: number | string
     descripcion?: string
     description?: string
     imagen_url?: string
     image?: string
-    imagenes?: string[]
+    imagenes?: string[] | string | any
     categoria_nombre?: string
     category?: string
+    categoria?: any
     variante?: string
   } | null
 }
@@ -50,20 +51,42 @@ export function SocialShareModal({ isOpen, onClose, product }: SocialShareModalP
   const [copied, setCopied] = useState(false)
   const [isGeneratingStory, setIsGeneratingStory] = useState(false)
   const [storyImageUrl, setStoryImageUrl] = useState<string | null>(null)
-  const canvasRef = useRef<HTMLCanvasElement | null>(null)
 
-  if (!isOpen || !product) return null
+  const title = String(product?.nombre || product?.title || 'Producto 3LD')
+  const rawPrice = product?.precio_venta ?? product?.price ?? 0
+  const numPrice = typeof rawPrice === 'number' ? rawPrice : (parseFloat(String(rawPrice)) || 0)
+  const rawDesc = String(product?.descripcion || product?.description || 'Pieza 3D confeccionada con PLA de alta resistencia.')
+  
+  const categoryStr = typeof product?.categoria_nombre === 'string' && product.categoria_nombre.trim()
+    ? product.categoria_nombre
+    : typeof product?.category === 'string' && product.category.trim()
+      ? product.category
+      : (product?.categoria && typeof product.categoria === 'object' && typeof (product.categoria as any).nombre === 'string')
+        ? (product.categoria as any).nombre
+        : 'General'
 
-  const title = product.nombre || product.title || 'Producto 3LD'
-  const price = product.precio_venta ?? product.price ?? 0
-  const rawDesc = product.descripcion || product.description || 'Pieza 3D confeccionada con PLA de alta resistencia.'
-  const category = product.categoria_nombre || product.category || 'General'
-  const mainImage = product.imagen_url || product.image || (product.imagenes && product.imagenes[0]) || ''
+  let mainImage = ''
+  if (typeof product?.imagen_url === 'string' && product.imagen_url.trim()) {
+    mainImage = product.imagen_url
+  } else if (typeof product?.image === 'string' && product.image.trim()) {
+    mainImage = product.image
+  } else if (Array.isArray(product?.imagenes) && product.imagenes.length > 0 && typeof product.imagenes[0] === 'string') {
+    mainImage = product.imagenes[0]
+  } else if (typeof product?.imagenes === 'string' && String(product.imagenes).trim().startsWith('[')) {
+    try {
+      const parsed = JSON.parse(String(product.imagenes))
+      if (Array.isArray(parsed) && parsed.length > 0 && typeof parsed[0] === 'string') {
+        mainImage = parsed[0]
+      }
+    } catch {}
+  }
+
+  const categoryTag = categoryStr.replace(/[^\w\d]/gi, '') || 'General'
 
   // Formato preparado para Facebook Marketplace
-  const marketplaceText = `${title}${product.variante ? ` (${product.variante})` : ''}
+  const marketplaceText = `${title}${product?.variante ? ` (${product.variante})` : ''}
 
-💰 PRECIO: $${price.toLocaleString('es-AR')}
+💰 PRECIO: $${numPrice.toLocaleString('es-AR')}
 📍 RETIRO: Salta 3169, San Bernardo del Tuyú (Partido de La Costa)
 🚚 ENVÍOS: Envíos por Andreani a todo el país o cadetería local.
 
@@ -74,27 +97,56 @@ ${rawDesc}
 💬 Consultas por mensajes o WhatsApp: +54 9 2257 55-9540
 🌐 Ver catálogo completo: https://3ld.com.ar/tienda
 
-#3LD #Impresion3D #SanBernardo #LaCosta #${category.replace(/\s+/g, '')}`
+#3LD #Impresion3D #SanBernardo #LaCosta #${categoryTag}`
 
-  const handleCopyMarketplaceText = () => {
-    navigator.clipboard.writeText(marketplaceText)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2500)
-    toast('¡Texto copiado al portapapeles!', 'success')
+  const copyToClipboard = async (text: string) => {
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text)
+        return true
+      }
+    } catch {}
+    try {
+      const textArea = document.createElement('textarea')
+      textArea.value = text
+      textArea.style.position = 'fixed'
+      textArea.style.left = '-999999px'
+      textArea.style.top = '-999999px'
+      document.body.appendChild(textArea)
+      textArea.focus()
+      textArea.select()
+      const successful = document.execCommand('copy')
+      document.body.removeChild(textArea)
+      return successful
+    } catch {
+      return false
+    }
+  }
+
+  const handleCopyMarketplaceText = async () => {
+    const ok = await copyToClipboard(marketplaceText)
+    if (ok) {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2500)
+      toast('¡Texto copiado al portapapeles!', 'success')
+    } else {
+      toast('Copia el texto manualmente desde el recuadro', 'info')
+    }
   }
 
   const handleOpenMarketplace = () => {
     handleCopyMarketplaceText()
-    // Si hay imagen, intentar descargarla
     if (mainImage) {
-      const imgUrl = resolveImageUrl(mainImage)
-      const a = document.createElement('a')
-      a.href = imgUrl
-      a.download = `${title.toLowerCase().replace(/\s+/g, '-')}-3ld.jpg`
-      a.target = '_blank'
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
+      try {
+        const imgUrl = resolveImageUrl(mainImage)
+        const a = document.createElement('a')
+        a.href = imgUrl
+        a.download = `${title.toLowerCase().replace(/\s+/g, '-')}-3ld.jpg`
+        a.target = '_blank'
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+      } catch {}
     }
 
     toast('Redirigiendo a Facebook Marketplace...', 'info')
@@ -105,162 +157,198 @@ ${rawDesc}
 
   // Generar placa 9:16 para Instagram Story en Canvas
   useEffect(() => {
-    if (!product || !mainImage) return
+    if (!isOpen || !product || !mainImage) {
+      setIsGeneratingStory(false)
+      return
+    }
 
     setIsGeneratingStory(true)
+    let isCancelled = false
+
     const canvas = document.createElement('canvas')
     canvas.width = 1080
     canvas.height = 1920
     const ctx = canvas.getContext('2d')
 
-    if (!ctx) return
+    if (!ctx) {
+      setIsGeneratingStory(false)
+      return
+    }
 
     const img = new Image()
     img.crossOrigin = 'anonymous'
     img.src = resolveImageUrl(mainImage)
 
     img.onload = () => {
-      // 1. Fondo gradiente oscuro elegante
-      const grad = ctx.createLinearGradient(0, 0, 0, 1920)
-      grad.addColorStop(0, '#0f172a') // Slate-900
-      grad.addColorStop(0.5, '#1e1b4b') // Indigo-950
-      grad.addColorStop(1, '#020617') // Slate-950
-      ctx.fillStyle = grad
-      ctx.fillRect(0, 0, 1080, 1920)
+      if (isCancelled) return
+      try {
+        // 1. Fondo gradiente oscuro elegante
+        const grad = ctx.createLinearGradient(0, 0, 0, 1920)
+        grad.addColorStop(0, '#0f172a') // Slate-900
+        grad.addColorStop(0.5, '#1e1b4b') // Indigo-950
+        grad.addColorStop(1, '#020617') // Slate-950
+        ctx.fillStyle = grad
+        ctx.fillRect(0, 0, 1080, 1920)
 
-      // 2. Círculos decorativos brillantes de fondo
-      ctx.fillStyle = 'rgba(6, 182, 212, 0.15)' // Cyan glow
-      ctx.beginPath()
-      ctx.arc(200, 300, 350, 0, Math.PI * 2)
-      ctx.fill()
+        // 2. Círculos decorativos brillantes de fondo
+        ctx.fillStyle = 'rgba(6, 182, 212, 0.15)' // Cyan glow
+        ctx.beginPath()
+        ctx.arc(200, 300, 350, 0, Math.PI * 2)
+        ctx.fill()
 
-      ctx.fillStyle = 'rgba(107, 102, 200, 0.15)' // Purple glow
-      ctx.beginPath()
-      ctx.arc(900, 1600, 400, 0, Math.PI * 2)
-      ctx.fill()
+        ctx.fillStyle = 'rgba(107, 102, 200, 0.15)' // Purple glow
+        ctx.beginPath()
+        ctx.arc(900, 1600, 400, 0, Math.PI * 2)
+        ctx.fill()
 
-      // 3. Header Logo 3LD
-      ctx.fillStyle = '#ffffff'
-      ctx.font = '900 64px sans-serif'
-      ctx.textAlign = 'center'
-      ctx.fillText('3LD IMPRESIÓN 3D', 540, 160)
+        // 3. Header Logo 3LD
+        ctx.fillStyle = '#ffffff'
+        ctx.font = '900 64px sans-serif'
+        ctx.textAlign = 'center'
+        ctx.fillText('3LD IMPRESIÓN 3D', 540, 160)
 
-      ctx.fillStyle = '#06b6d4' // Cyan 3LD
-      ctx.font = '700 32px sans-serif'
-      ctx.fillText('TALLER DE FABRICACIÓN & DISEÑO', 540, 215)
+        ctx.fillStyle = '#06b6d4' // Cyan 3LD
+        ctx.font = '700 32px sans-serif'
+        ctx.fillText('TALLER DE FABRICACIÓN & DISEÑO', 540, 215)
 
-      // 4. Contenedor de la foto principal (Tarjeta redondeada)
-      const cardX = 90
-      const cardY = 280
-      const cardW = 900
-      const cardH = 900
-      const radius = 40
+        // 4. Contenedor de la foto principal (Tarjeta redondeada)
+        const cardX = 90
+        const cardY = 280
+        const cardW = 900
+        const cardH = 900
+        const radius = 40
 
-      ctx.save()
-      ctx.beginPath()
-      ctx.moveTo(cardX + radius, cardY)
-      ctx.lineTo(cardX + cardW - radius, cardY)
-      ctx.quadraticCurveTo(cardX + cardW, cardY, cardX + cardW, cardY + radius)
-      ctx.lineTo(cardX + cardW, cardY + cardH - radius)
-      ctx.quadraticCurveTo(cardX + cardW, cardY + cardH, cardX + cardW - radius, cardY + cardH)
-      ctx.lineTo(cardX + radius, cardY + cardH)
-      ctx.quadraticCurveTo(cardX, cardY + cardH, cardX, cardY + cardH - radius)
-      ctx.lineTo(cardX, cardY + radius)
-      ctx.quadraticCurveTo(cardX, cardY, cardX + radius, cardY)
-      ctx.closePath()
-      ctx.clip()
+        ctx.save()
+        ctx.beginPath()
+        ctx.moveTo(cardX + radius, cardY)
+        ctx.lineTo(cardX + cardW - radius, cardY)
+        ctx.quadraticCurveTo(cardX + cardW, cardY, cardX + cardW, cardY + radius)
+        ctx.lineTo(cardX + cardW, cardY + cardH - radius)
+        ctx.quadraticCurveTo(cardX + cardW, cardY + cardH, cardX + cardW - radius, cardY + cardH)
+        ctx.lineTo(cardX + radius, cardY + cardH)
+        ctx.quadraticCurveTo(cardX, cardY + cardH, cardX, cardY + cardH - radius)
+        ctx.lineTo(cardX, cardY + radius)
+        ctx.quadraticCurveTo(cardX, cardY, cardX + radius, cardY)
+        ctx.closePath()
+        ctx.clip()
 
-      // Dibujar imagen escalada proporcionalmente
-      const imgRatio = img.width / img.height
-      const cardRatio = cardW / cardH
-      let drawW = cardW
-      let drawH = cardH
-      let drawX = cardX
-      let drawY = cardY
+        // Dibujar imagen escalada proporcionalmente
+        const imgRatio = (img.width || 1) / (img.height || 1)
+        const cardRatio = cardW / cardH
+        let drawW = cardW
+        let drawH = cardH
+        let drawX = cardX
+        let drawY = cardY
 
-      if (imgRatio > cardRatio) {
-        drawW = cardH * imgRatio
-        drawX = cardX - (drawW - cardW) / 2
-      } else {
-        drawH = cardW / imgRatio
-        drawY = cardY - (drawH - cardH) / 2
-      }
-
-      ctx.drawImage(img, drawX, drawY, drawW, drawH)
-      ctx.restore()
-
-      // Borde brillante en tarjeta
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)'
-      ctx.lineWidth = 6
-      ctx.strokeRect(cardX, cardY, cardW, cardH)
-
-      // 5. Título del Producto
-      ctx.fillStyle = '#ffffff'
-      ctx.font = '900 56px sans-serif'
-      ctx.textAlign = 'center'
-      
-      // Wrapear texto si es muy largo
-      const maxTitleW = 900
-      const words = title.split(' ')
-      let line = ''
-      let currentY = 1260
-
-      for (let n = 0; n < words.length; n++) {
-        const testLine = line + words[n] + ' '
-        const metrics = ctx.measureText(testLine)
-        if (metrics.width > maxTitleW && n > 0) {
-          ctx.fillText(line, 540, currentY)
-          line = words[n] + ' '
-          currentY += 68
+        if (imgRatio > cardRatio) {
+          drawW = cardH * imgRatio
+          drawX = cardX - (drawW - cardW) / 2
         } else {
-          line = testLine
+          drawH = cardW / imgRatio
+          drawY = cardY - (drawH - cardH) / 2
         }
+
+        ctx.drawImage(img, drawX, drawY, drawW, drawH)
+        ctx.restore()
+
+        // Borde brillante en tarjeta
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)'
+        ctx.lineWidth = 6
+        ctx.strokeRect(cardX, cardY, cardW, cardH)
+
+        // 5. Título del Producto
+        ctx.fillStyle = '#ffffff'
+        ctx.font = '900 56px sans-serif'
+        ctx.textAlign = 'center'
+        
+        // Wrapear texto si es muy largo
+        const maxTitleW = 900
+        const words = title.split(' ')
+        let line = ''
+        let currentY = 1260
+
+        for (let n = 0; n < words.length; n++) {
+          const testLine = line + words[n] + ' '
+          const metrics = ctx.measureText(testLine)
+          if (metrics.width > maxTitleW && n > 0) {
+            ctx.fillText(line, 540, currentY)
+            line = words[n] + ' '
+            currentY += 68
+          } else {
+            line = testLine
+          }
+        }
+        ctx.fillText(line, 540, currentY)
+
+        // 6. Insignia de Precio Destacado
+        const priceY = currentY + 110
+        ctx.fillStyle = '#06b6d4'
+        ctx.beginPath()
+        const px = 540 - 240, py = priceY - 65, pw = 480, ph = 100, pr = 50
+        if (typeof (ctx as any).roundRect === 'function') {
+          (ctx as any).roundRect(px, py, pw, ph, pr)
+        } else {
+          ctx.moveTo(px + pr, py)
+          ctx.lineTo(px + pw - pr, py)
+          ctx.quadraticCurveTo(px + pw, py, px + pw, py + pr)
+          ctx.lineTo(px + pw, py + ph - pr)
+          ctx.quadraticCurveTo(px + pw, py + ph, px + pw - pr, py + ph)
+          ctx.lineTo(px + pr, py + ph)
+          ctx.quadraticCurveTo(px, py + ph, px, py + ph - pr)
+          ctx.lineTo(px, py + pr)
+          ctx.quadraticCurveTo(px, py, px + pr, py)
+          ctx.closePath()
+        }
+        ctx.fill()
+
+        ctx.fillStyle = '#ffffff'
+        ctx.font = '900 52px sans-serif'
+        ctx.fillText(`$${numPrice.toLocaleString('es-AR')}`, 540, priceY + 5)
+
+        // 7. Footer / Contacto / WhatsApp
+        ctx.fillStyle = '#94a3b8'
+        ctx.font = '700 34px sans-serif'
+        ctx.fillText('📍 Salta 3169, San Bernardo', 540, 1720)
+
+        ctx.fillStyle = '#10b981' // Emerald WhatsApp
+        ctx.font = '900 36px sans-serif'
+        ctx.fillText('💬 WhatsApp: +54 9 2257 55-9540', 540, 1785)
+
+        ctx.fillStyle = '#cbd5e1'
+        ctx.font = '700 28px sans-serif'
+        ctx.fillText('www.3ld.com.ar', 540, 1840)
+
+        const urlData = canvas.toDataURL('image/png')
+        setStoryImageUrl(urlData)
+      } catch (err) {
+        console.warn('Canvas story generation warning:', err)
+      } finally {
+        setIsGeneratingStory(false)
       }
-      ctx.fillText(line, 540, currentY)
-
-      // 6. Insignia de Precio Destacado
-      const priceY = currentY + 110
-      ctx.fillStyle = '#06b6d4'
-      ctx.beginPath()
-      ctx.roundRect(540 - 240, priceY - 65, 480, 100, 50)
-      ctx.fill()
-
-      ctx.fillStyle = '#ffffff'
-      ctx.font = '900 52px sans-serif'
-      ctx.fillText(`$${price.toLocaleString('es-AR')}`, 540, priceY + 5)
-
-      // 7. Footer / Contacto / WhatsApp
-      ctx.fillStyle = '#94a3b8'
-      ctx.font = '700 34px sans-serif'
-      ctx.fillText('📍 Salta 3169, San Bernardo', 540, 1720)
-
-      ctx.fillStyle = '#10b981' // Emerald WhatsApp
-      ctx.font = '900 36px sans-serif'
-      ctx.fillText('💬 WhatsApp: +54 9 2257 55-9540', 540, 1785)
-
-      ctx.fillStyle = '#cbd5e1'
-      ctx.font = '700 28px sans-serif'
-      ctx.fillText('www.3ld.com.ar', 540, 1840)
-
-      const urlData = canvas.toDataURL('image/png')
-      setStoryImageUrl(urlData)
-      setIsGeneratingStory(false)
     }
 
     img.onerror = () => {
       setIsGeneratingStory(false)
     }
-  }, [product, mainImage])
+
+    return () => {
+      isCancelled = true
+    }
+  }, [isOpen, product, mainImage])
 
   const handleDownloadStory = () => {
     if (!storyImageUrl) return
-    const a = document.createElement('a')
-    a.href = storyImageUrl
-    a.download = `historia-instagram-${title.toLowerCase().replace(/\s+/g, '-')}.png`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    toast('¡Imagen 9:16 para Historia descargada!', 'success')
+    try {
+      const a = document.createElement('a')
+      a.href = storyImageUrl
+      a.download = `historia-instagram-${title.toLowerCase().replace(/\s+/g, '-')}.png`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      toast('¡Imagen 9:16 para Historia descargada!', 'success')
+    } catch {
+      toast('No se pudo descargar automáticamente la imagen', 'error')
+    }
   }
 
   const handleShareStoryNative = async () => {
@@ -269,20 +357,24 @@ ${rawDesc}
       const blob = await (await fetch(storyImageUrl)).blob()
       const file = new File([blob], 'historia-3ld.png', { type: 'image/png' })
 
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      if (typeof navigator !== 'undefined' && navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({
           files: [file],
           title: title,
-          text: `Disponible en 3LD Impresión 3D: ${title} - $${price.toLocaleString('es-AR')}`,
+          text: `Disponible en 3LD Impresión 3D: ${title} - $${numPrice.toLocaleString('es-AR')}`,
         })
         toast('¡Compartiendo en redes!', 'success')
       } else {
         handleDownloadStory()
       }
-    } catch {
-      handleDownloadStory()
+    } catch (err: any) {
+      if (err?.name !== 'AbortError') {
+        handleDownloadStory()
+      }
     }
   }
+
+  if (!isOpen || !product) return null
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-150">

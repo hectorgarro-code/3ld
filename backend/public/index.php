@@ -731,11 +731,16 @@ try {
 } catch (\Throwable $e) {
     http_response_code(500);
     header('Content-Type: application/json; charset=UTF-8');
-    echo json_encode([
+    error_log('[API Error] ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
+    $isDebug = !empty($config['app']['debug']);
+    $payload = [
         'success' => false,
-        'error'   => $e->getMessage(),
-        'file'    => $e->getFile(),
-        'line'    => $e->getLine(),
-    ]);
+        'error'   => $isDebug ? $e->getMessage() : 'Error interno del servidor',
+    ];
+    if ($isDebug) {
+        $payload['file'] = $e->getFile();
+        $payload['line'] = $e->getLine();
+    }
+    echo json_encode($payload);
     exit;
 }

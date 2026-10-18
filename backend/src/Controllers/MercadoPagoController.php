@@ -232,13 +232,53 @@ class MercadoPagoController
                 $clienteId = (int)$this->db->lastInsertId();
             }
 
-            // 2. Calcular totales y crear pedido
+            // 2. Validar y recalcular precios desde la base de datos para prevenir manipulación del cliente
+            $stmtProdCheck = $this->db->prepare("SELECT id, nombre, precio_venta, activo FROM productos WHERE id = ? LIMIT 1");
+            $validatedItems = [];
             $subtotal = 0.0;
+
             foreach ($items as $it) {
                 $qty = max(1, (int)($it['quantity'] ?? $it['qty'] ?? 1));
-                $price = max(0, (float)($it['unit_price'] ?? $it['price'] ?? 0));
+                $prodId = !empty($it['id']) && is_numeric($it['id']) ? (int)$it['id'] : null;
+                $title = trim((string)($it['title'] ?? 'Producto Impresión 3D'));
+                $price = 0.0;
+
+                if ($prodId) {
+                    $stmtProdCheck->execute([$prodId]);
+                    $prodDb = $stmtProdCheck->fetch(PDO::FETCH_ASSOC);
+                    if ($prodDb && (float)$prodDb['precio_venta'] > 0) {
+                        $price = (float)$prodDb['precio_venta'];
+                        if (empty($title) || $title === 'Producto Impresión 3D') {
+                            $title = (string)$prodDb['nombre'];
+                        }
+                    }
+                }
+
+                // Fallback seguro si es un ítem cotizado / ad-hoc no registrado en el catálogo
+                if ($price <= 0) {
+                    $price = max(0, (float)($it['unit_price'] ?? $it['price'] ?? 0));
+                }
+
+                if ($price <= 0) {
+                    continue;
+                }
+
+                $validatedItems[] = [
+                    'id'          => $prodId ? (string)$prodId : (string)($it['id'] ?? 'item'),
+                    'prod_id'     => $prodId,
+                    'title'       => $title,
+                    'color'       => $it['color'] ?? null,
+                    'quantity'    => $qty,
+                    'unit_price'  => $price,
+                    'image'       => $it['image'] ?? null,
+                ];
                 $subtotal += ($qty * $price);
             }
+
+            if (empty($validatedItems) || $subtotal <= 0) {
+                return Response::error('No se encontraron artículos con precios válidos para procesar.', 400);
+            }
+
             $total = $subtotal + $costoEnvio;
 
             // Generar número de pedido único
@@ -252,19 +292,18 @@ class MercadoPagoController
             $stmtPed->execute([$numeroPedido, $clienteId, $subtotal, $total, $total, trim($notasPedido)]);
             $pedidoId = (int)$this->db->lastInsertId();
 
-            // Insertar items de pedido
+            // Insertar items de pedido con precios verificados
             $stmtItem = $this->db->prepare(
                 "INSERT INTO pedido_items (pedido_id, producto_id, descripcion, cantidad, precio_unit, subtotal, notas, estado, created_at)
                  VALUES (?, ?, ?, ?, ?, ?, ?, 'presupuesto', NOW())"
             );
-            foreach ($items as $it) {
-                $qty = max(1, (float)($it['quantity'] ?? $it['qty'] ?? 1));
-                $price = max(0, (float)($it['unit_price'] ?? $it['price'] ?? 0));
-                $itSub = $qty * $price;
-                $prodId = !empty($it['id']) && is_numeric($it['id']) ? (int)$it['id'] : null;
-                $desc = ($it['title'] ?? 'Producto Impresión 3D') . (!empty($it['color']) ? " (Color: {$it['color']})" : '');
+            foreach ($validatedItems as $vIt) {
+                $itQty = (float)$vIt['quantity'];
+                $itPrice = (float)$vIt['unit_price'];
+                $itSub = $itQty * $itPrice;
+                $desc = $vIt['title'] . (!empty($vIt['color']) ? " (Color: {$vIt['color']})" : '');
 
-                $stmtItem->execute([$pedidoId, $prodId, substr($desc, 0, 300), $qty, $price, $itSub, $it['color'] ?? null]);
+                $stmtItem->execute([$pedidoId, $vIt['prod_id'], substr($desc, 0, 300), $itQty, $itPrice, $itSub, $vIt['color'] ?? null]);
             }
 
             if ($costoEnvio > 0) {
@@ -279,20 +318,20 @@ class MercadoPagoController
                 ]);
             }
 
-            // 3. Armar preferencia de Mercado Pago
+            // 3. Armar preferencia de Mercado Pago con precios verificados
             $mpItems = [];
-            foreach ($items as $it) {
-                $title = trim((string)($it['title'] ?? 'Producto Impresión 3D'));
-                if (!empty($it['color'])) {
-                    $title .= " [{$it['color']}]";
+            foreach ($validatedItems as $vIt) {
+                $title = trim($vIt['title']);
+                if (!empty($vIt['color'])) {
+                    $title .= " [{$vIt['color']}]";
                 }
                 $mpItems[] = [
-                    'id'          => (string)($it['id'] ?? 'item'),
+                    'id'          => $vIt['id'],
                     'title'       => substr($title, 0, 250),
-                    'quantity'    => max(1, (int)($it['quantity'] ?? $it['qty'] ?? 1)),
+                    'quantity'    => $vIt['quantity'],
                     'currency_id' => 'ARS',
-                    'unit_price'  => (float)($it['unit_price'] ?? $it['price'] ?? 0),
-                    'picture_url' => !empty($it['image']) ? (string)$it['image'] : null,
+                    'unit_price'  => $vIt['unit_price'],
+                    'picture_url' => !empty($vIt['image']) ? (string)$vIt['image'] : null,
                 ];
             }
 

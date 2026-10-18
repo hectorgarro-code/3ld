@@ -96,15 +96,33 @@ class MediaController
                 $file = $uploadedFiles['file'];
                 if ($file->getError() === UPLOAD_ERR_OK) {
                     $contents = (string)$file->getStream();
-                    $ext = strtolower(pathinfo($file->getClientFilename(), PATHINFO_EXTENSION)) ?: 'jpg';
-                    $allowedExts = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
-                    if (!in_array($ext, $allowedExts, true)) {
+                    if (strlen($contents) < 12) {
                         $res->getBody()->write(json_encode([
                             'success' => false,
-                            'message' => 'Tipo de archivo no permitido. Solo se admiten imágenes JPG, PNG, WEBP o GIF'
+                            'message' => 'El archivo está vacío o dañado'
                         ]));
                         return $res->withStatus(400)->withHeader('Content-Type', 'application/json');
                     }
+
+                    // Validación estricta por contenido binario real (MIME type)
+                    $finfo = new \finfo(FILEINFO_MIME_TYPE);
+                    $mime = $finfo->buffer($contents) ?: '';
+                    $allowedMimes = [
+                        'image/jpeg' => 'jpg',
+                        'image/png'  => 'png',
+                        'image/webp' => 'webp',
+                        'image/gif'  => 'gif',
+                    ];
+
+                    if (!isset($allowedMimes[$mime])) {
+                        $res->getBody()->write(json_encode([
+                            'success' => false,
+                            'message' => 'Contenido de archivo no permitido. Solo se admiten imágenes JPG, PNG, WEBP o GIF reales'
+                        ]));
+                        return $res->withStatus(400)->withHeader('Content-Type', 'application/json');
+                    }
+
+                    $ext = $allowedMimes[$mime];
                     $filename = ($customName ? preg_replace('/[^a-zA-Z0-9_-]/', '_', $customName) : uniqid('media_')) . '.' . $ext;
                     $url = UploadHelper::saveImageBinary($filename, $contents);
                     

@@ -200,16 +200,30 @@ export function TiendaStoriesModal({
   const handleShareCurrent = async () => {
     if (!currentProduct) return;
     const url = `${window.location.origin}/tienda?producto=${currentProduct.id}`;
-    if (navigator.share) {
+    const pPrice = Number(currentProduct.price) || 0;
+    if (typeof navigator !== 'undefined' && navigator.share) {
       try {
         await navigator.share({
-          title: currentProduct.title,
-          text: `Mirá esta pieza en 3LD: ${currentProduct.title} - $${currentProduct.price.toLocaleString('es-AR')}`,
+          title: currentProduct.title || 'Producto 3LD',
+          text: `Mirá esta pieza en 3LD: ${currentProduct.title || 'Producto'} - $${pPrice.toLocaleString('es-AR')}`,
           url
         });
       } catch {}
     } else {
-      navigator.clipboard.writeText(url);
+      if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(url).catch(() => {});
+      } else {
+        try {
+          const ta = document.createElement('textarea');
+          ta.value = url;
+          ta.style.position = 'fixed';
+          ta.style.left = '-999999px';
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand('copy');
+          document.body.removeChild(ta);
+        } catch {}
+      }
     }
   };
 

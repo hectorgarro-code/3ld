@@ -31,6 +31,16 @@ try {
     }
     $config = require $configPath;
 
+    // Restringir acceso solo a ejecución local o CLI en modo debug
+    $remoteIp = $_SERVER['REMOTE_ADDR'] ?? '';
+    $isLocal = in_array($remoteIp, ['127.0.0.1', '::1', 'localhost'], true) || PHP_SAPI === 'cli';
+    $isDebug = !empty($config['app']['debug']);
+
+    if (!$isLocal || !$isDebug) {
+        http_response_code(403);
+        die('Acceso restringido: El diagnóstico de base de datos solo está disponible en entorno de desarrollo local con modo debug activo.');
+    }
+
     // 2. Intentar conexión a la base de datos
     try {
         $db = (new \App\Database($config))->getConnection();

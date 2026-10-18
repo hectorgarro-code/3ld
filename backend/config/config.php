@@ -9,11 +9,11 @@ $config = [
         'charset' => 'utf8mb4',
     ],
     'jwt' => [
-        'secret'     => 'sistema3ld_jwt_secret_cambia_en_produccion_2024',
+        'secret'     => getenv('JWT_SECRET') ?: 'sistema3ld_jwt_secret_cambia_en_produccion_2024',
         'expiration' => 86400, // 24 horas en segundos
     ],
     'openai' => [
-        'api_key' => getenv('OPENAI_API_KEY') ?: ('sk-proj-' . '4ULdSgu6KNEhUmHgzJSRlD-iDBYZM7rmQPZX2axTvbn4gHW0SW5o2-BoSdRXl-OxmCg4IPIsQYT3BlbkFJz0w-OesKUPy9B742mYJf1VivRCpZ9EldUQtaQkNe-Gsb3zDXfqPqDcktwais28MJcob8uCt1kA'),
+        'api_key' => getenv('OPENAI_API_KEY') ?: '',
         'model'   => 'gpt-4o-mini',
     ],
     'app' => [
