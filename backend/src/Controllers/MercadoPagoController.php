@@ -8,16 +8,19 @@ use App\Helpers\Response;
 use PDO;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use App\Services\MetaCapiService;
 use Throwable;
 
 class MercadoPagoController
 {
     private PDO $db;
     private string $configFile;
+    private ?MetaCapiService $metaCapiService;
 
-    public function __construct(PDO $db)
+    public function __construct(PDO $db, ?MetaCapiService $metaCapiService = null)
     {
         $this->db = $db;
+        $this->metaCapiService = $metaCapiService;
         $this->configFile = __DIR__ . '/../../config/mercadopago.json';
     }
 
@@ -653,7 +656,7 @@ class MercadoPagoController
                                     $stmtH->execute([$pedidoId, $nuevoEstado, "Pago confirmado automáticamente por Mercado Pago (ID {$paymentId})"]);
                                 } catch (\Throwable $e) {}
 
-                                // Enviar email de confirmación de pago aprobado
+                                // Enviar email de confirmación y evento server-side CAPI al confirmar pago
                                 if ($status === 'approved') {
                                     try {
                                         $stmtPedData = $this->db->prepare(
@@ -674,6 +677,42 @@ class MercadoPagoController
                                                 'estado_pago'      => 'Acreditado',
                                                 'items'            => [],
                                             ]);
+                                        }
+
+                                        // Meta Conversions API (CAPI) Server-Side Tracking
+                                        if ($pData && $this->metaCapiService && $this->metaCapiService->isConfigured()) {
+                                            try {
+                                                $stmtItems = $this->db->prepare(
+                                                    "SELECT pi.producto_id, pi.descripcion, pi.cantidad, pi.precio_unit, pi.subtotal
+                                                     FROM pedido_items pi
+                                                     WHERE pi.pedido_id = ?"
+                                                );
+                                                $stmtItems->execute([$pedidoId]);
+                                                $rawItems = $stmtItems->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+                                                // Filtrar ítem de costo de envío si existe
+                                                $prodsOnly = array_filter($rawItems, function($it) {
+                                                    return !str_starts_with($it['descripcion'] ?? '', 'Costo de Envío:');
+                                                });
+
+                                                $clientIp = $request->getServerParams()['REMOTE_ADDR'] ?? null;
+                                                $userAgent = $request->getHeaderLine('User-Agent') ?: null;
+
+                                                $this->metaCapiService->sendPurchaseEvent(
+                                                    [
+                                                        'numero_pedido' => $pData['numero_pedido'],
+                                                        'total'         => (float)$pData['total'],
+                                                    ],
+                                                    array_values($prodsOnly),
+                                                    [
+                                                        'email'    => $pData['email'] ?? null,
+                                                        'telefono' => $pData['telefono'] ?? null,
+                                                        'nombre'   => $pData['nombre'] ?? null,
+                                                    ],
+                                                    $clientIp,
+                                                    $userAgent
+                                                );
+                                            } catch (\Throwable $e) {}
                                         }
                                     } catch (\Throwable $e) {}
                                 }

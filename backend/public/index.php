@@ -29,6 +29,7 @@ use App\Controllers\MediaController;
 use App\Controllers\MercadoPagoController;
 use App\Controllers\MetaCatalogController;
 use App\Services\OpenAiService;
+use App\Services\MetaCapiService;
 use App\Services\MakerWorldScraper;
 use App\Helpers\UploadHelper;
 use App\Repositories\TiendaRepository;
@@ -103,8 +104,11 @@ $containerBuilder->addDefinitions([
     AnalyticsController::class => function ($c) {
         return new AnalyticsController($c->get(AnalyticsRepository::class));
     },
+    MetaCapiService::class => function ($c) {
+        return new MetaCapiService($c->get('config'));
+    },
     MercadoPagoController::class => function ($c) {
-        return new MercadoPagoController($c->get(PDO::class));
+        return new MercadoPagoController($c->get(PDO::class), $c->get(MetaCapiService::class));
     },
     AuthController::class => function ($c) {
         return new AuthController($c->get('config'));
