@@ -3,7 +3,12 @@ import ReactDOM from 'react-dom/client'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { RouterProvider } from 'react-router-dom'
 import { router } from '@/router'
+import { metaPixel } from '@/lib/metaPixel'
 import './index.css'
+
+// Inicialización de Meta Pixel oficial para 3LD (Pixel ID: 612576675192830)
+metaPixel.init()
+metaPixel.pageView()
 
 // Auto-recarga limpia ante nuevos despliegues si un chunk de código o estilo cambia de hash (con salvaguarda contra bucles)
 window.addEventListener('vite:preloadError', () => {

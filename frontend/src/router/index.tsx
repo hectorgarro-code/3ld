@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react'
 import { createBrowserRouter, Navigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
+import { metaPixel } from '@/lib/metaPixel'
 const AppShell = lazy(() => import('@/components/layout/AppShell'))
 
 // Loading fallback
@@ -320,3 +321,10 @@ export const router = createBrowserRouter([
     element: <Navigate to="/" replace />,
   },
 ])
+
+// Seguimiento automático de navegación interna SPA en Meta Pixel
+router.subscribe((state) => {
+  if (typeof window !== 'undefined' && state?.location) {
+    metaPixel.pageView(window.location.origin + state.location.pathname + (state.location.search || ''));
+  }
+});

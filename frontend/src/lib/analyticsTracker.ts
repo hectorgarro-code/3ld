@@ -9,6 +9,8 @@
  * 3. Exclusión estricta de personal del sistema: Usuarios con sesión administrativa o en modo edición/preview NO son registrados.
  */
 
+import { metaPixel } from '@/lib/metaPixel';
+
 const VISITOR_KEY = '3ld_analytics_vid';
 const SESSION_KEY = '3ld_analytics_session_data';
 
@@ -103,7 +105,9 @@ export function isSystemOrStaffUser(): boolean {
     if (localStorage.getItem('3ld_analytics_opt_out') === 'true') {
       return true;
     }
-  } catch {}
+  } catch {
+    return false;
+  }
   return false;
 }
 
@@ -121,7 +125,7 @@ interface TrackOptions {
   producto_id?: string | number;
   producto_nombre?: string;
   url?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 // Cola en memoria para evitar llamadas redundantes repetidas dentro de 2.5 segundos
@@ -179,7 +183,7 @@ export function trackEvent(options: TrackOptions): void {
   };
 
   if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
-    (window as any).requestIdleCallback(dispatch, { timeout: 1500 });
+    (window as unknown as { requestIdleCallback: (cb: () => void, opts: { timeout: number }) => void }).requestIdleCallback(dispatch, { timeout: 1500 });
   } else {
     setTimeout(dispatch, 80);
   }
@@ -190,14 +194,16 @@ export function trackPageView(path?: string): void {
     tipo: 'pageview',
     url: path ? `${window.location.origin}${path}` : window.location.href,
   });
+  metaPixel.pageView(path ? `${window.location.origin}${path}` : undefined);
 }
 
-export function trackViewProduct(product: { id: string | number; title?: string; nombre?: string }): void {
+export function trackViewProduct(product: { id: string | number; title?: string; nombre?: string; price?: number; oldPrice?: number | null }): void {
   trackEvent({
     tipo: 'ver_producto',
     producto_id: product.id,
     producto_nombre: product.title || product.nombre,
   });
+  metaPixel.viewContent(product);
 }
 
 export function trackViewStory(product: { id: string | number; title?: string; nombre?: string }): void {
@@ -208,13 +214,14 @@ export function trackViewStory(product: { id: string | number; title?: string; n
   });
 }
 
-export function trackAddToCart(product: { id: string | number; title?: string; nombre?: string }, qty = 1): void {
+export function trackAddToCart(product: { id: string | number; title?: string; nombre?: string; price?: number }, qty = 1): void {
   trackEvent({
     tipo: 'agregar_carrito',
     producto_id: product.id,
     producto_nombre: product.title || product.nombre,
     metadata: { cantidad: qty },
   });
+  metaPixel.addToCart(product, qty);
 }
 
 export function trackWhatsAppClick(context?: string, product?: { id: string | number; title?: string }): void {

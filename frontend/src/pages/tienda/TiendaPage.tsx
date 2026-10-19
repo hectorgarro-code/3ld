@@ -43,6 +43,7 @@ import {
   trackWhatsAppClick,
   trackQuoteClick,
 } from '@/lib/analyticsTracker';
+import { metaPixel } from '@/lib/metaPixel';
 
 export type { CartItem };
 
@@ -433,6 +434,7 @@ export default function TiendaPage() {
       const res = await api.get(`/tienda/pedido/${pedidoNum}`);
       if (res.data?.success && res.data?.data) {
         setReceiptOrder(res.data.data);
+        metaPixel.purchase(res.data.data);
       } else {
         showToast('No se pudo cargar el detalle del comprobante', 'error');
       }
@@ -570,6 +572,10 @@ export default function TiendaPage() {
       });
 
       if (res.data?.success && res.data?.data?.init_point) {
+        metaPixel.initiateCheckout(
+          cart,
+          cartSubtotal + (deliveryMethod === 'shipping' ? (shippingQuote?.price || 0) : 0)
+        );
         window.location.href = res.data.data.init_point;
       } else {
         showToast(res.data?.message || 'Error al iniciar pago en Mercado Pago', 'error');
@@ -1126,6 +1132,10 @@ export default function TiendaPage() {
 
   const handleWhatsAppCheckout = () => {
     if (cart.length === 0) return;
+    metaPixel.initiateCheckout(
+      cart,
+      cartSubtotal + (deliveryMethod === 'shipping' ? (shippingQuote?.price || 0) : 0)
+    );
     const phone = '5492257559540';
     let text = `¡Hola 3LD! 👋 Quiero encargar el siguiente pedido desde la tienda:\n\n`;
 
