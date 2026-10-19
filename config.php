@@ -17,6 +17,12 @@ $config = [
         'access_token'    => getenv('META_CAPI_ACCESS_TOKEN') ?: '',
         'test_event_code' => getenv('META_CAPI_TEST_EVENT_CODE') ?: null,
     ],
+    'mercadopago' => [
+        'activo'       => true,
+        'access_token' => getenv('MERCADOPAGO_ACCESS_TOKEN') ?: 'APP_USR-2387555144218667-092807-477633907a0b9502d3ce44fc6f09a303-10693395',
+        'public_key'   => getenv('MERCADOPAGO_PUBLIC_KEY') ?: '',
+        'sandbox'      => false,
+    ],
     'app' => [
         'debug' => true, // false en producción
         'env'   => 'development',

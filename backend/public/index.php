@@ -108,7 +108,7 @@ $containerBuilder->addDefinitions([
         return new MetaCapiService($c->get('config'));
     },
     MercadoPagoController::class => function ($c) {
-        return new MercadoPagoController($c->get(PDO::class), $c->get(MetaCapiService::class));
+        return new MercadoPagoController($c->get(PDO::class), $c->get(MetaCapiService::class), $c->get('config'));
     },
     AuthController::class => function ($c) {
         return new AuthController($c->get('config'));

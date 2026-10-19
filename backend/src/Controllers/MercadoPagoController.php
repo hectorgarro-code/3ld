@@ -16,11 +16,13 @@ class MercadoPagoController
     private PDO $db;
     private string $configFile;
     private ?MetaCapiService $metaCapiService;
+    private array $config;
 
-    public function __construct(PDO $db, ?MetaCapiService $metaCapiService = null)
+    public function __construct(PDO $db, ?MetaCapiService $metaCapiService = null, array $config = [])
     {
         $this->db = $db;
         $this->metaCapiService = $metaCapiService;
+        $this->config = !empty($config) ? $config : (file_exists(__DIR__ . '/../../config/config.php') ? (require __DIR__ . '/../../config/config.php') : []);
         $this->configFile = __DIR__ . '/../../config/mercadopago.json';
     }
 
@@ -28,10 +30,22 @@ class MercadoPagoController
     {
         if (file_exists($this->configFile)) {
             $data = json_decode((string)file_get_contents($this->configFile), true);
-            if (is_array($data)) {
+            if (is_array($data) && !empty($data['access_token'])) {
                 return $data;
             }
         }
+
+        // Fallback a configuración general/local (config.php / config.local.php)
+        $mp = $this->config['mercadopago'] ?? [];
+        if (!empty($mp['access_token'])) {
+            return [
+                'activo'       => !empty($mp['activo']),
+                'access_token' => (string)$mp['access_token'],
+                'public_key'   => (string)($mp['public_key'] ?? ''),
+                'sandbox'      => !empty($mp['sandbox']),
+            ];
+        }
+
         return [
             'activo'        => false,
             'access_token'  => '',
