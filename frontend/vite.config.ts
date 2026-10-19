@@ -10,6 +10,9 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      workbox: {
+        navigateFallbackDenylist: [/^\/api/, /^\/uploads/, /\.xml$/, /\.csv$/],
+      },
       manifest: {
         name: 'Sistema 3LD',
         short_name: '3LD',
