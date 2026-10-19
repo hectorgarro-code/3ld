@@ -27,6 +27,7 @@ use App\Controllers\AnalyticsController;
 use App\Controllers\AiController;
 use App\Controllers\MediaController;
 use App\Controllers\MercadoPagoController;
+use App\Controllers\MetaCatalogController;
 use App\Services\OpenAiService;
 use App\Services\MakerWorldScraper;
 use App\Helpers\UploadHelper;
@@ -134,6 +135,9 @@ $containerBuilder->addDefinitions([
     },
     MediaController::class => function ($c) {
         return new MediaController($c->get(PDO::class));
+    },
+    MetaCatalogController::class => function ($c) {
+        return new MetaCatalogController($c->get(PDO::class));
     },
 ]);
 $container = $containerBuilder->build();
@@ -713,6 +717,23 @@ $app->get('/sitemap.xml', function ($req, $res) use ($container) {
 $app->get('/api/v1/sitemap.xml', function ($req, $res) use ($container) {
     // Redirigir o llamar la misma función
     return $res->withHeader('Location', '/sitemap.xml')->withStatus(301);
+});
+
+// ── Meta Catalog Feeds (Facebook, Instagram & WhatsApp) ──────────────────────
+$app->get('/api/v1/meta/catalog.xml', function ($req, $res) use ($container) {
+    return $container->get(MetaCatalogController::class)->getXml($req, $res);
+});
+$app->get('/meta-catalog.xml', function ($req, $res) use ($container) {
+    return $container->get(MetaCatalogController::class)->getXml($req, $res);
+});
+$app->get('/api/v1/meta/catalog.csv', function ($req, $res) use ($container) {
+    return $container->get(MetaCatalogController::class)->getCsv($req, $res);
+});
+$app->get('/meta-catalog.csv', function ($req, $res) use ($container) {
+    return $container->get(MetaCatalogController::class)->getCsv($req, $res);
+});
+$app->get('/api/v1/meta/status', function ($req, $res) use ($container) {
+    return $container->get(MetaCatalogController::class)->getStatus($req, $res);
 });
 
 // ── Health check (no auth) ───────────────────────────────────────────────────

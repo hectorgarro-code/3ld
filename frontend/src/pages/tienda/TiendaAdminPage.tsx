@@ -24,10 +24,12 @@ import {
   Printer,
   ChevronDown,
   Activity,
+  Share2,
 } from 'lucide-react'
 import api from '@/lib/api'
 import { ProductoFormModal } from '@/components/productos/ProductoFormModal'
 import { ProductStoreDetailModal } from '@/components/tienda/ProductStoreDetailModal'
+import { MetaSyncModal } from '@/components/tienda/MetaSyncModal'
 import { optimizeImagesForPrint } from '@/lib/imageOptimization'
 
 export interface AdminProduct {
@@ -77,6 +79,7 @@ export default function TiendaAdminPage() {
   const [previewProduct, setPreviewProduct] = useState<AdminProduct | null>(null)
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState<{ text: string; type: 'success' | 'error' } | null>(null)
+  const [metaSyncModalOpen, setMetaSyncModalOpen] = useState(false)
 
   // Bulk Action Modals
   const [bulkModal, setBulkModal] = useState<'category' | 'prices' | 'offers' | 'stock' | null>(null)
@@ -482,6 +485,14 @@ export default function TiendaAdminPage() {
               </div>
             )}
           </div>
+          <button
+            onClick={() => setMetaSyncModalOpen(true)}
+            className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-emerald-600 via-teal-600 to-indigo-600 hover:from-emerald-500 hover:to-indigo-500 text-white text-xs font-extrabold rounded-xl shadow-md transition"
+            title="Sincronizar catálogo con WhatsApp Business, Instagram Shopping y Facebook Shop"
+          >
+            <Share2 className="h-4 w-4" />
+            <span>Sincronizar Meta (WA / IG / FB)</span>
+          </button>
           <Link
             to="/visitas"
             className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-extrabold rounded-xl shadow-md transition"
@@ -1354,6 +1365,18 @@ export default function TiendaAdminPage() {
         product={previewProduct}
         isAdminView={true}
         onEdit={(p) => setEditingProduct(p)}
+      />
+
+      {/* Meta Catalog Sync Modal (WhatsApp, FB, IG) */}
+      <MetaSyncModal
+        isOpen={metaSyncModalOpen}
+        onClose={() => setMetaSyncModalOpen(false)}
+        totalProducts={products.filter((p) => isPublished(p)).length}
+        readyProducts={
+          products.filter(
+            (p) => isPublished(p) && Number(p.precio_venta) > 0 && Boolean(p.imagen_url)
+          ).length
+        }
       />
       </div>
 
