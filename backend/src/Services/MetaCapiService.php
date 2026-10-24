@@ -8,12 +8,15 @@ class MetaCapiService
 {
     private array $config;
     private string $pixelId;
+    private string $apiVersion;
     private string $accessToken;
     private ?string $testEventCode;
 
     public function __construct(array $config)
     {
         $this->config = $config;
+        $version = (string)($config['meta']['api_version'] ?? 'v26.0');
+        $this->apiVersion = preg_match('/^v[0-9]+\.[0-9]+$/', $version) ? $version : 'v26.0';
         $this->pixelId = (string)($config['meta']['pixel_id'] ?? '612576675192830');
         $this->accessToken = (string)($config['meta']['access_token'] ?? '');
         $this->testEventCode = !empty($config['meta']['test_event_code']) ? (string)$config['meta']['test_event_code'] : null;
@@ -171,7 +174,7 @@ class MetaCapiService
             $requestBody['test_event_code'] = $this->testEventCode;
         }
 
-        $url = "https://graph.facebook.com/v19.0/{$this->pixelId}/events?access_token=" . urlencode($this->accessToken);
+        $url = "https://graph.facebook.com/{$this->apiVersion}/{$this->pixelId}/events?access_token=" . urlencode($this->accessToken);
 
         $ch = curl_init($url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
