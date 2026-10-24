@@ -11,7 +11,7 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       workbox: {
-        navigateFallbackDenylist: [/^\/api/, /^\/uploads/, /\.xml$/, /\.csv$/],
+        navigateFallbackDenylist: [/^\/api/, /^\/uploads/, /\.xml$/, /\.csv$/, /\/envios-devoluciones\.html$/],
       },
       manifest: {
         name: 'Sistema 3LD',
