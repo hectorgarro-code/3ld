@@ -15,6 +15,7 @@ import {
 import { resolveImageUrl } from '@/lib/utils'
 import { SocialShareModal } from '@/components/productos/SocialShareModal'
 import { CustomerShareModal } from '@/components/tienda/CustomerShareModal'
+import { DeliveryEstimate } from '@/components/tienda/DeliveryEstimate'
 
 export interface UnifiedStoreProduct {
   id: string | number
@@ -376,6 +377,8 @@ export function ProductStoreDetailModal({
                 {product.description}
               </p>
             )}
+
+            <DeliveryEstimate requiresManufacturing={!inStock} />
 
             {/* Escalas de Precio por Cantidad */}
             {product.precios_cantidad && product.precios_cantidad.length > 0 && (

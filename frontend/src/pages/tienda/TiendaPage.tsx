@@ -35,6 +35,7 @@ import { optimizeImagesForPrint } from '@/lib/imageOptimization';
 import { calcularTarifaCorreoArgentino } from '@/lib/correoArgentino';
 import { CustomerShareModal } from '@/components/tienda/CustomerShareModal';
 import { ProductStoreDetailModal } from '@/components/tienda/ProductStoreDetailModal';
+import { DeliveryEstimate } from '@/components/tienda/DeliveryEstimate';
 const TiendaStoriesModal = React.lazy(() => import('@/components/tienda/TiendaStoriesModal').then(m => ({ default: m.TiendaStoriesModal })));
 import {
   trackPageView,
@@ -1942,6 +1943,10 @@ export default function TiendaPage() {
             {/* Shipping & Delivery Method + Total Footer */}
             {cart.length > 0 && (
               <div className="p-4 border-t border-slate-200 bg-slate-50 space-y-3">
+                <DeliveryEstimate
+                  requiresManufacturing={cart.some(item => !isProductInStock(products.find(p => String(p.id) === String(item.id))))}
+                  method={deliveryMethod}
+                />
                 {/* Selector Forma de Entrega */}
                 <div className="space-y-2">
                   <label className="text-[11px] font-black uppercase tracking-wider text-slate-500 block">
@@ -2260,6 +2265,11 @@ export default function TiendaPage() {
                   className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-900 focus:ring-2 focus:ring-sky-500 outline-none resize-none"
                 />
               </div>
+
+              <DeliveryEstimate
+                requiresManufacturing={cart.some(item => !isProductInStock(products.find(p => String(p.id) === String(item.id))))}
+                method={deliveryMethod}
+              />
 
               <div className="p-3 bg-sky-50 rounded-2xl border border-sky-100 flex items-center justify-between text-xs">
                 <span className="font-bold text-sky-900">Total a Pagar en Mercado Pago:</span>
