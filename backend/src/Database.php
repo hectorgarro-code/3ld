@@ -38,6 +38,11 @@ class Database
             try {
                 self::$instance = new PDO($dsn, $user, $pass, $options);
                 self::ensureSchema(self::$instance);
+                // Cada instalación importa sus archivos antiguos al registro compartido, sin borrarlos.
+                if (glob(__DIR__ . '/../var/return-requests/*.php')) {
+                    try { (new \App\Services\ReturnLedger(self::$instance))->importLegacy(new \App\Services\ReturnRequests()); }
+                    catch (\Throwable $e) { error_log('3LD: migración de devoluciones pendiente; se conservan archivos originales.'); }
+                }
             } catch (PDOException $e) {
                 throw new PDOException(
                     'Error al conectar con la base de datos: ' . $e->getMessage(),

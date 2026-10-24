@@ -571,7 +571,9 @@ $app->group('/api/v1', function (RouteCollectorProxy $api) use ($config, $auth, 
 
     // Tienda Admin
     $api->group('/tienda', function (RouteCollectorProxy $g) use ($container) {
-        $g->get('/arrepentimientos', function ($req, $res) { return (new \App\Controllers\ReturnController())->index($req, $res); });
+        $g->get('/arrepentimientos', function ($req, $res) use ($container) { return (new \App\Controllers\ReturnController($container->get(PDO::class)))->index($req, $res); });
+        $g->post('/arrepentimientos', function ($req, $res) use ($container) { return (new \App\Controllers\ReturnController($container->get(PDO::class)))->register($req, $res); });
+        $g->post('/arrepentimientos/{id}/movimientos', function ($req, $res, $args) use ($container) { return (new \App\Controllers\ReturnController($container->get(PDO::class)))->movement($req, $res, $args); });
         $g->post('/productos/bulk-update', function ($req, $res) use ($container) {
             return $container->get(TiendaController::class)->bulkUpdate($req, $res);
         });

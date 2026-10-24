@@ -43,6 +43,7 @@ export const navGroups: NavGroup[] = [
     items: [
       { to: '/pos', label: 'Venta POS', icon: <CreditCard className="h-5 w-5 shrink-0" /> },
       { to: '/pedidos', label: 'Pedidos', icon: <Package className="h-5 w-5 shrink-0" /> },
+      { to: '/devoluciones', label: 'Cambios y reintegros', icon: <CreditCard className="h-5 w-5 shrink-0" /> },
       { to: '/clientes', label: 'Clientes', icon: <Users className="h-5 w-5 shrink-0" /> },
       { to: '/productos', label: 'Productos', icon: <ShoppingBag className="h-5 w-5 shrink-0" /> },
       { to: '/tienda-admin', label: 'Gestión Tienda', icon: <Store className="h-5 w-5 shrink-0" /> },
