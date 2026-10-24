@@ -23,4 +23,8 @@ verify($quote->calculate([['id'=>1,'quantity'=>5]],$ship)['shipping']['cost']===
 rejected(fn()=>$quote->calculate([['id'=>1,'quantity'=>1]],array_replace($ship,['postal_code'=>'1425'])),'No admite envío por correo no coordinado');
 rejected(fn()=>$quote->calculate([['id'=>1,'quantity'=>1]],array_replace($ship,['postal_code'=>'7100'])),'No considera todo código 71xx como zona local');
 rejected(fn()=>$quote->calculate([['id'=>1,'quantity'=>1]],array_replace($ship,['postal_code'=>'xxxx'])),'Código postal inválido');
+verify($quote->calculate([['id'=>1,'quantity'=>1]],array_replace($ship,['postal_code'=>'7104']))['shipping']['cost']===2500,'Incluye Costa del Este');
+rejected(fn()=>$quote->calculate([['id'=>1,'quantity'=>1]],array_replace($ship,['postal_code'=>'7167'])),'Excluye CP de Costa Esmeralda');
+rejected(fn()=>$quote->calculate([['id'=>1,'quantity'=>1]],array_replace($ship,['direccion'=>'COSTA ESMERALDA, lote de prueba'])),'Excluye Costa Esmeralda aunque se ingrese un CP local');
+rejected(fn()=>$quote->calculate([['id'=>1,'quantity'=>1]],array_replace($ship,['postal_code'=>'7110'])),'No admite códigos intermedios fuera de la lista de cobertura');
 echo "Cotizaciones verificadas sin red, clientes ni pedidos reales.\n";

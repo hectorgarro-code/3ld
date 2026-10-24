@@ -1099,9 +1099,9 @@ export default function TiendaPage() {
     }
 
     const cpNum = parseInt(cp) || 0;
-    if (cpNum < 7105 || cpNum > 7113) {
+    if (!['7104','7105','7106','7107','7108','7109','7111','7112','7113'].includes(cp)) {
       setShippingQuote(null);
-      showToast('Consultá por WhatsApp la entrega dentro de 45 km de Mar de Ajó. Por ahora no cotizamos correo fuera de la zona.', 'info');
+      showToast('Entregamos en localidades de La Costa, excepto Costa Esmeralda. Para otra zona, consultanos por WhatsApp antes de pagar.', 'info');
       return;
     }
     const isLocalCost = cp.startsWith('71') || (cpNum >= 7100 && cpNum <= 7119);
@@ -1151,7 +1151,7 @@ export default function TiendaPage() {
     e?.preventDefault();
     const cp = postalCode.trim();
     if (!cp || cp.length < 4) {
-      showToast('Ingresá un código postal válido (ej: 7111 o 1425)', 'info');
+      showToast('Ingresá un código postal local válido (ej: 7111 o 7109)', 'info');
       return;
     }
 

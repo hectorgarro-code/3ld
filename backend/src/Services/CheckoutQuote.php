@@ -77,7 +77,8 @@ final class CheckoutQuote
             if (!preg_match('/^[0-9]{4}$/D',$cp)) throw new InvalidArgumentException('Ingresá un código postal argentino de cuatro dígitos.');
             if (empty(trim((string)($shipping['direccion'] ?? '')))) throw new InvalidArgumentException('Completá la dirección de entrega.');
             $cpNumber = (int)$cp;
-            if ((int)$cp < 7105 || (int)$cp > 7113) throw new InvalidArgumentException('Por el momento entregamos en Mar de Ajó y zona hasta 45 km. Para ese código postal consultá al WhatsApp 2257559540 antes de pagar, o elegí retiro.');
+            if (!in_array($cp, ['7104','7105','7106','7107','7108','7109','7111','7112','7113'], true)) throw new InvalidArgumentException('Entregamos en localidades de La Costa, excepto Costa Esmeralda. Para ese código postal consultá al WhatsApp 2257559540 antes de pagar, o elegí retiro.');
+            if (preg_match('/costa[\s\p{Z}-]*esmeralda/iu', (string)$shipping['direccion'])) throw new InvalidArgumentException('Costa Esmeralda está fuera de nuestra cobertura de entrega. Podés elegir retiro en el taller.');
             if (str_starts_with($cp,'71')) {
                 $cost = $subtotal >= 30000 ? 0 : 2500; $service = 'Envío Local La Costa / San Bernardo';
             } else {

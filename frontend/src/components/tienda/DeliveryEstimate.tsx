@@ -22,7 +22,7 @@ export function DeliveryEstimate({ requiresManufacturing = true, method = 'shipp
       </p>
       <p className="mt-1 leading-relaxed">
         Si confirmás el pedido hoy. {requiresManufacturing ? 'Incluye 4 días de fabricación, de lunes a viernes. ' : 'Para la disponibilidad en stock indicada. '}
-        {method === 'shipping' ? 'Válida dentro de los 45 km de Mar de Ajó, con entrega coordinada martes o jueves. ' : 'Te avisamos cuando esté listo para coordinar el retiro. '}
+        {method === 'shipping' ? 'Válida en nuestra zona de La Costa, excepto Costa Esmeralda, con entrega coordinada martes o jueves. ' : 'Te avisamos cuando esté listo para coordinar el retiro. '}
         Fecha tentativa: feriados, cantidades especiales y disponibilidad pueden modificarla. La confirmamos con vos.
       </p>
     </div>
