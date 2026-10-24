@@ -150,6 +150,12 @@ class PedidoRepository
         $sql = "SELECT p.id, p.numero_pedido, p.estado, p.subtotal, p.descuento_pct,
                        p.impuesto_pct, p.total, p.fecha_entrega_estimada,
                        p.fecha_entrega_real, p.notas, p.created_at, p.updated_at,
+                       (SELECT COALESCE(SUM(pi.cantidad * COALESCE(pi.costo_unitario, pr.precio_costo, 0)), 0)
+                        FROM pedido_items pi LEFT JOIN productos pr ON pr.id = pi.producto_id
+                        WHERE pi.pedido_id = p.id AND pi.estado <> 'anulado') AS costo_total,
+                       (SELECT COUNT(*) FROM pedido_items pi LEFT JOIN productos pr ON pr.id = pi.producto_id
+                        WHERE pi.pedido_id = p.id AND pi.estado <> 'anulado'
+                          AND pi.costo_unitario IS NULL AND pr.precio_costo IS NULL) AS items_sin_costo,
                        c.id AS cliente_id, c.nombre AS cliente_nombre,
                        c.email AS cliente_email, c.telefono AS cliente_telefono
                 FROM pedidos p
@@ -161,6 +167,13 @@ class PedidoRepository
         $stmt = $this->db->prepare($sql);
         $stmt->execute($binds);
         $pedidos = $stmt->fetchAll();
+        foreach ($pedidos as &$pedido) {
+            $pedido['costo_total'] = round((float)$pedido['costo_total'], 2);
+            $pedido['margen_bruto'] = round((float)$pedido['total'] - $pedido['costo_total'], 2);
+            $pedido['margen'] = (float)$pedido['total'] > 0
+                ? round($pedido['margen_bruto'] / (float)$pedido['total'] * 100, 2) : 0.0;
+        }
+        unset($pedido);
 
         return ['data' => $pedidos, 'total' => $total];
     }
@@ -181,7 +194,8 @@ class PedidoRepository
 
         $stmtItems = $this->db->prepare(
             "SELECT pi.*, pr.nombre AS producto_nombre, pr.sku AS producto_sku,
-                    pr.unidad_medida, COALESCE(NULLIF(pi.archivo_url, ''), pr.archivo_url) AS archivo_url
+                    pr.unidad_medida, pr.precio_costo AS producto_precio_costo,
+                    COALESCE(NULLIF(pi.archivo_url, ''), pr.archivo_url) AS archivo_url
              FROM pedido_items pi
              LEFT JOIN productos pr ON pr.id = pi.producto_id
              WHERE pi.pedido_id = ?
@@ -189,6 +203,43 @@ class PedidoRepository
         );
         $stmtItems->execute([$id]);
         $pedido['items'] = $stmtItems->fetchAll();
+
+        $costoTotal = 0.0;
+        $itemsSinCosto = 0;
+
+        foreach ($pedido['items'] as $item) {
+            if (($item['estado'] ?? '') === 'anulado') {
+                continue;
+            }
+
+            $cantidad = isset($item['cantidad']) ? (float)$item['cantidad'] : 1.0;
+
+            $costoUnitario = null;
+            if ($item['costo_unitario'] !== null) {
+                // Respetar costo histórico explícito (incluyendo costo cero 0.00)
+                $costoUnitario = (float)$item['costo_unitario'];
+            } elseif (array_key_exists('producto_precio_costo', $item) && $item['producto_precio_costo'] !== null) {
+                // Fallback al precio_costo del producto SOLO si el costo histórico es NULL
+                $costoUnitario = (float)$item['producto_precio_costo'];
+            }
+
+            if ($costoUnitario !== null) {
+                $costoTotal += $cantidad * $costoUnitario;
+            } else {
+                // Indicar cuántos ítems no tienen costo definido, sin inventarlo
+                $itemsSinCosto++;
+            }
+        }
+
+        $costoTotal = round($costoTotal, 2);
+        $totalPedido = (float)($pedido['total'] ?? 0);
+        $margenBruto = round($totalPedido - $costoTotal, 2);
+        $margen = $totalPedido > 0 ? round(($margenBruto / $totalPedido) * 100, 2) : 0.0;
+
+        $pedido['costo_total'] = $costoTotal;
+        $pedido['margen_bruto'] = $margenBruto;
+        $pedido['margen'] = $margen;
+        $pedido['items_sin_costo'] = $itemsSinCosto;
 
         $stmtHist = $this->db->prepare(
             "SELECT h.*, u.nombre AS usuario_nombre

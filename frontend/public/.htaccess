@@ -43,6 +43,8 @@
   # Proteger archivos y directorios ocultos (excepto .well-known para certificados SSL)
   RewriteRule (^|/)\.(?!well-known) - [F]
 
+  RewriteRule ^backend/(var|tests)/ - [F,L]
+
   # Redirigir llamadas API a backend/public/index.php
   RewriteRule ^api/(.*)$ backend/public/index.php [QSA,L]
 

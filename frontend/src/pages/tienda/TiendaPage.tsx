@@ -44,6 +44,7 @@ import {
   trackQuoteClick,
 } from '@/lib/analyticsTracker';
 import { metaPixel } from '@/lib/metaPixel';
+import { ecommerceTracking } from '@/lib/ecommerceTracking';
 
 export type { CartItem };
 
@@ -288,7 +289,7 @@ export default function TiendaPage() {
     return INITIAL_CATEGORIES;
   }, [rawCategories, products]);
 
-  const { cart, addToCart: storeAddToCart, updateCartQty, removeCartItem, clearCart } = useCartStore();
+  const { cart, addToCart: storeAddToCart, updateCartQty, removeCartItem, clearCart, applyQuote } = useCartStore();
 
   // Navigation & Filtering
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -428,13 +429,36 @@ export default function TiendaPage() {
   const [receiptOrder, setReceiptOrder] = useState<any | null>(null);
   const [isLoadingReceipt, setIsLoadingReceipt] = useState(false);
 
+  const showToast = (msg: string, type = 'info') => {
+    setToastMessage({ text: msg, type });
+    setTimeout(() => setToastMessage(null), 3500);
+  };
+
   const handleOpenReceipt = async (pedidoNum: string) => {
     setIsLoadingReceipt(true);
     try {
-      const res = await api.get(`/tienda/pedido/${pedidoNum}`);
+      let receiptToken = '';
+      try { receiptToken = sessionStorage.getItem(`3ld_receipt_${pedidoNum}`) || ''; } catch { /* almacenamiento restringido */ }
+      if (!receiptToken) {
+        showToast('Para ver este comprobante, volvé desde el mismo navegador donde iniciaste el pago. También podés consultar al taller.', 'info');
+        return;
+      }
+      const res = await api.get(`/tienda/pedido/${encodeURIComponent(pedidoNum)}`, {
+        headers: { 'X-Receipt-Token': receiptToken },
+      });
       if (res.data?.success && res.data?.data) {
         setReceiptOrder(res.data.data);
+        if (res.data.data.mercadopago_status === 'approved') {
+          setPaymentSuccessModal(res.data.data.numero || res.data.data.numero_pedido);
+          clearCart();
+          if (new URLSearchParams(window.location.search).has('mp_status')) {
+            window.history.replaceState({}, '', window.location.pathname);
+          }
+        } else {
+          showToast('Tu pago todavía está pendiente de confirmación. Podés consultar el comprobante más tarde.', 'info');
+        }
         metaPixel.purchase(res.data.data);
+        ecommerceTracking.purchase(res.data.data);
       } else {
         showToast('No se pudo cargar el detalle del comprobante', 'error');
       }
@@ -452,7 +476,7 @@ export default function TiendaPage() {
     let content = `${border}\r\n            3LD IMPRESIÓN 3D\r\n     COMPROBANTE DE PEDIDO & PAGO\r\n${border}\r\n\r\n`;
     content += `Orden de Pedido: #${order.numero || order.numero_pedido}\r\n`;
     content += `Fecha: ${order.fecha ? new Date(order.fecha).toLocaleString('es-AR') : new Date().toLocaleString('es-AR')}\r\n`;
-    content += `Estado de Pago: ACREDITADO (Mercado Pago)\r\n\r\n`;
+    content += `Estado de Pago: ${order.mercadopago_status === 'approved' ? 'ACREDITADO (Mercado Pago)' : 'PENDIENTE DE CONFIRMACIÓN'}\r\n\r\n`;
     content += `DATOS DEL CLIENTE:\r\n`;
     content += `• Nombre: ${order.cliente?.nombre || 'Consumidor Final'}\r\n`;
     if (order.cliente?.telefono) content += `• Teléfono: ${order.cliente.telefono}\r\n`;
@@ -503,22 +527,18 @@ export default function TiendaPage() {
     const pedidoNum = params.get('pedido') || params.get('pedido_id');
 
     if (mpStatus === 'approved') {
-      setPaymentSuccessModal(pedidoNum || 'OK');
-      clearCart();
+      // El parametro de retorno no demuestra pago: se consulta el estado del servidor.
+      setPaymentSuccessModal(null);
       if (pedidoNum && pedidoNum !== 'OK') {
         handleOpenReceipt(pedidoNum);
       }
-      const cleanUrl = window.location.pathname;
-      window.history.replaceState({}, '', cleanUrl);
     } else if (mpStatus === 'failure') {
       showToast('El pago no pudo procesarse en Mercado Pago. Podés reintentar o abonar por WhatsApp.', 'error');
       const cleanUrl = window.location.pathname;
       window.history.replaceState({}, '', cleanUrl);
     } else if (mpStatus === 'pending') {
       showToast('Tu pago está pendiente de acreditación. En cuanto se confirme comenzaremos tu pedido.', 'info');
-      clearCart();
-      const cleanUrl = window.location.pathname;
-      window.history.replaceState({}, '', cleanUrl);
+      if (pedidoNum && pedidoNum !== 'OK') handleOpenReceipt(pedidoNum);
     }
   }, []);
 
@@ -546,6 +566,7 @@ export default function TiendaPage() {
         quantity: item.qty,
         color: item.color,
         image: item.image,
+        selected_piece_ids: item.selectedPieceIds || [],
       }));
 
       const envioPayload = deliveryMethod === 'pickup'
@@ -564,14 +585,32 @@ export default function TiendaPage() {
             direccion: buyerInfo.direccion,
           });
 
+      const verifiedShipping = { ...envioPayload, method: deliveryMethod, postal_code: postalCode.trim() };
+      const quotation = await api.post('/tienda/checkout/cotizar', { items: itemsPayload, envio: verifiedShipping });
+      const quote = quotation.data?.data;
+      if (!quote || !quotation.data?.success) throw new Error('No se pudo confirmar el importe.');
+      const shownTotal = cartSubtotal + (deliveryMethod === 'shipping' ? (shippingQuote?.price || 0) : 0);
+      if (Math.round(shownTotal * 100) !== Math.round(Number(quote.total) * 100)
+        || cart.some((item, index) => Math.round(item.price * 100) !== Math.round(Number(quote.items[index]?.unit_price) * 100))) {
+        applyQuote(quote.items.map((item: { unit_price: number }) => Number(item.unit_price)));
+        if (deliveryMethod === 'shipping') setShippingQuote({ serviceName: quote.shipping.service, price: quote.shipping.cost, estimatedDays: 'Según destino', isFree: quote.shipping.cost === 0 });
+        showToast('Actualizamos los precios y el envío. Revisá el total y volvé a confirmar el pago.', 'info');
+        return;
+      }
       const res = await api.post('/tienda/mercadopago/crear-preferencia', {
         items: itemsPayload,
-        envio: envioPayload,
+        envio: verifiedShipping,
+        expected_total: quote.total,
         comprador: buyerInfo,
         notas: buyerInfo.notas,
       });
 
       if (res.data?.success && res.data?.data?.init_point) {
+        try {
+          sessionStorage.setItem(`3ld_receipt_${res.data.data.numero_pedido}`, res.data.data.receipt_token || '');
+          sessionStorage.setItem(`3ld_receipt_${res.data.data.pedido_id}`, res.data.data.receipt_token || '');
+        } catch { /* El pago sigue disponible aunque el navegador no pueda guardar el comprobante. */ }
+        ecommerceTracking.beginCheckout(cart, cartSubtotal);
         metaPixel.initiateCheckout(
           cart,
           cartSubtotal + (deliveryMethod === 'shipping' ? (shippingQuote?.price || 0) : 0)
@@ -691,9 +730,9 @@ export default function TiendaPage() {
             '@type': 'Offer',
             price: p.price,
             priceCurrency: 'ARS',
-            availability: isProductInStock(p)
+            availability: Number(p.stock_actual) > 0 || p.stockStatus === 'custom'
               ? 'https://schema.org/InStock'
-              : 'https://schema.org/PreOrder',
+              : 'https://schema.org/OutOfStock',
             seller: {
               '@type': 'Organization',
               name: '3LD Impresión 3D'
@@ -758,7 +797,8 @@ export default function TiendaPage() {
           url: `https://3ld.com.ar/tienda?producto=${activeProductModal.id}`,
           priceCurrency: 'ARS',
           price: activeProductModal.price,
-          availability: isProductInStock(activeProductModal) ? 'https://schema.org/InStock' : 'https://schema.org/PreOrder',
+          availability: Number(activeProductModal.stock_actual) > 0 || activeProductModal.stockStatus === 'custom'
+            ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
           seller: {
             '@type': 'Organization',
             name: '3LD Impresión 3D'
@@ -857,7 +897,7 @@ export default function TiendaPage() {
   };
 
   const getAdvisorWhatsAppUrl = () => {
-    const phone = '5492257512597';
+    const phone = '5492257559540';
     let text = '¡Hola! Quisiera comunicarme con un asesor de 3LD.\n\n';
 
     if (activeProductModal) {
@@ -906,11 +946,6 @@ export default function TiendaPage() {
     }
 
     return `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
-  };
-
-  const showToast = (msg: string, type = 'info') => {
-    setToastMessage({ text: msg, type });
-    setTimeout(() => setToastMessage(null), 3500);
   };
 
   const addToCart = (product: StoreProduct, qty = 1, color = 'Negro Mate') => {
@@ -1063,6 +1098,11 @@ export default function TiendaPage() {
     }
 
     const cpNum = parseInt(cp) || 0;
+    if (cpNum < 7105 || cpNum > 7113) {
+      setShippingQuote(null);
+      showToast('Consultá por WhatsApp la entrega dentro de 45 km de Mar de Ajó. Por ahora no cotizamos correo fuera de la zona.', 'info');
+      return;
+    }
     const isLocalCost = cp.startsWith('71') || (cpNum >= 7100 && cpNum <= 7119);
 
     const totalItemsQty = cart.reduce((sum, item) => sum + item.qty, 0);
@@ -1191,7 +1231,7 @@ export default function TiendaPage() {
       {/* Top Notification Bar */}
       <div className="bg-gradient-to-r from-[#6B66C8] via-[#5752B3] to-[#6B66C8] text-white text-[11px] sm:text-xs py-2 px-4 text-center font-bold tracking-wide flex items-center justify-center gap-2 border-b border-[#5752B3]">
         <span className="w-2.5 h-2.5 rounded-full bg-[#F7C731] animate-pulse"></span>
-        <span>🚚 <strong>Envío Gratis</strong> en La Costa desde $30.000 | Envíos por Andreani a todo el país</span>
+        <span>🚚 <strong>Envío local gratis desde $30.000</strong> | Mar de Ajó y zona hasta 45 km</span>
       </div>
 
       {/* Main Header */}
@@ -1765,8 +1805,8 @@ export default function TiendaPage() {
               <div className="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-800 flex items-center justify-center mb-2">
                 <Truck className="w-5 h-5" />
               </div>
-              <h4 className="text-xs font-black text-slate-900">Envíos a Todo el País</h4>
-              <p className="text-[11px] text-slate-500 mt-1">A domicilio o sucursal por Correo Argentino.</p>
+              <h4 className="text-xs font-black text-slate-900">Entregas en nuestra zona</h4>
+              <p className="text-[11px] text-slate-500 mt-1">Mar de Ajó y zona hasta 45 km. Retiro sin cargo en el taller.</p>
             </div>
 
             <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200/70 text-center flex flex-col items-center">
@@ -1794,12 +1834,17 @@ export default function TiendaPage() {
               <span>•</span>
               <a href={getAdvisorWhatsAppUrl()} target="_blank" rel="noopener noreferrer" className="hover:text-cyan-600 transition">WhatsApp Oficial</a>
               <span>•</span>
-              <span>Envíos por Correo Argentino</span>
+              <a href="/envios-devoluciones.html">Envíos y devoluciones</a>
+              <a href="/envios-devoluciones.html#arrepentimiento" className="font-black underline">Botón de arrepentimiento</a>
+              <a href="mailto:3lddidacticos@gmail.com">3lddidacticos@gmail.com</a>
+              <a href="tel:+542257512597">2257 512597</a>
             </div>
             <p className="text-[10px] text-slate-400">© {new Date().getFullYear()} 3LD. Todos los derechos reservados.</p>
           </div>
         </footer>
       </main>
+
+      <a href="/envios-devoluciones.html#arrepentimiento" className="fixed bottom-3 left-3 z-40 bg-white border rounded-full px-3 py-2 text-xs font-bold shadow">Botón de arrepentimiento</a>
 
       {/* Cart Drawer */}
       {isCartOpen && (
@@ -1855,7 +1900,7 @@ export default function TiendaPage() {
               ) : (
                 cart.map((item) => (
                   <div
-                    key={`${item.id}-${item.color}`}
+                    key={`${item.id}-${item.color}-${JSON.stringify(item.selectedPieceIds || [])}`}
                     className="flex items-center gap-3 p-3 bg-slate-50 rounded-2xl border border-slate-200 shadow-2xs"
                   >
                     <img src={item.image} alt={item.title} className="w-14 h-14 object-cover rounded-xl border border-slate-200 shrink-0" />
@@ -1869,14 +1914,14 @@ export default function TiendaPage() {
 
                     <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-xl p-1">
                       <button
-                        onClick={() => updateCartQty(item.id, item.color, -1)}
+                        onClick={() => updateCartQty(item.id, item.color, -1, item.selectedPieceIds)}
                         className="px-2 py-0.5 text-xs font-bold text-slate-600 hover:text-slate-900"
                       >
                         -
                       </button>
                       <span className="text-xs font-black px-1.5">{item.qty}</span>
                       <button
-                        onClick={() => updateCartQty(item.id, item.color, 1)}
+                        onClick={() => updateCartQty(item.id, item.color, 1, item.selectedPieceIds)}
                         className="px-2 py-0.5 text-xs font-bold text-slate-600 hover:text-slate-900"
                       >
                         +
@@ -1884,7 +1929,7 @@ export default function TiendaPage() {
                     </div>
 
                     <button
-                      onClick={() => removeCartItem(item.id, item.color)}
+                      onClick={() => removeCartItem(item.id, item.color, item.selectedPieceIds)}
                       className="p-1.5 text-slate-400 hover:text-red-500 transition rounded-lg"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -1932,7 +1977,7 @@ export default function TiendaPage() {
                         <Truck className="w-4 h-4 text-cyan-600" />
                         <span className="text-xs font-black">Envío Domicilio</span>
                       </div>
-                      <span className="text-[10px] text-slate-500 font-medium">Andreani / Correo</span>
+                      <span className="text-[10px] text-slate-500 font-medium">Mar de Ajó +45 km</span>
                     </button>
                   </div>
 
@@ -2375,7 +2420,7 @@ export default function TiendaPage() {
                 </div>
                 <div className="text-right">
                   <span className="inline-block px-2.5 py-1 bg-emerald-100 text-emerald-800 rounded-lg text-[10px] font-black uppercase mb-1">
-                    {receiptOrder.estado === 'aprobado' || receiptOrder.estado === 'cobrado' ? 'Pago Acreditado' : 'Pedido Registrado'}
+                    {receiptOrder.mercadopago_status === 'approved' ? 'Pago Acreditado' : 'Pedido Registrado'}
                   </span>
                   <p className="text-xs font-bold text-slate-900">Orden: #{receiptOrder.numero}</p>
                   <p className="text-[11px] text-slate-500">
@@ -2775,7 +2820,7 @@ export default function TiendaPage() {
               openProductModal(prod);
             }}
             onAddToCart={(prod) => {
-              addToCart(prod);
+              if (prod.piezas?.length) { setIsStoriesOpen(false); openProductModal(prod); } else addToCart(prod);
             }}
             favorites={favorites}
             onToggleFavorite={toggleFavorite}

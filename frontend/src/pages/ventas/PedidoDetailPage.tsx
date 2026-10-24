@@ -223,6 +223,11 @@ export default function PedidoDetailPage() {
             </p>
           </div>
         </div>
+        {(pedido.items_sin_costo ?? 0) > 0 && (
+          <p className="mt-3 text-center text-xs text-amber-700" role="status">
+            Costo incompleto: {pedido.items_sin_costo} artículo(s) sin costo registrado. El margen es provisional.
+          </p>
+        )}
         {pedido.fecha_entrega_estimada && (
           <p className="mt-3 text-center text-xs text-slate-400">
             📅 Entrega estimada: {formatDate(pedido.fecha_entrega_estimada)}

@@ -4,7 +4,10 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { RouterProvider } from 'react-router-dom'
 import { router } from '@/router'
 import { metaPixel } from '@/lib/metaPixel'
+import { initGoogleAnalytics } from '@/lib/googleAnalytics'
 import './index.css'
+
+initGoogleAnalytics(import.meta.env.VITE_GA4_MEASUREMENT_ID || 'G-WD1S1HMZGV')
 
 // Inicialización de Meta Pixel oficial para 3LD (Pixel ID: 612576675192830)
 metaPixel.init()

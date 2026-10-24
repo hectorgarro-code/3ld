@@ -9,3 +9,6 @@ config.local.php
 uploads/
 backend/config/mercadopago.json
 mercadopago.json
+
+backend/var/return-requests/*.php
+/docs/VENTAS_Y_CONVERSIONES.md

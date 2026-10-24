@@ -73,6 +73,7 @@ export interface Pedido {
   impuesto_pct?: number
   total: number
   costo_total?: number
+  items_sin_costo?: number
   margen_bruto?: number
   margen?: number
   notas?: string

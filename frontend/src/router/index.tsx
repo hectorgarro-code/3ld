@@ -67,6 +67,7 @@ const ComprasPage = lazy(() => import('@/pages/compras/ComprasPage'))
 const NuevaCompraPage = lazy(() => import('@/pages/compras/NuevaCompraPage'))
 
 const TiendaPage = lazy(() => import('@/pages/tienda/TiendaPage'))
+const ReturnsPage = lazy(() => import('@/pages/tienda/ReturnsPage'))
 const TiendaAdminPage = lazy(() => import('@/pages/tienda/TiendaAdminPage'))
 const TiendaBuilderPage = lazy(() => import('@/pages/tienda/TiendaBuilderPage'))
 const MediaPage = lazy(() => import('@/pages/media/MediaPage'))
@@ -118,6 +119,7 @@ export const router = createBrowserRouter([
       </Suspense>
     ),
     children: [
+      { path: 'devoluciones', element: <Suspense fallback={<PageLoader />}><ReturnsPage /></Suspense> },
       {
         index: true,
         element: (

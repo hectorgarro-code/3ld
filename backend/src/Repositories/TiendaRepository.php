@@ -26,7 +26,7 @@ class TiendaRepository
         $stockStatus = $params['stock_status'] ?? '';
         $sort = $params['sort'] ?? 'featured';
 
-        $where = "WHERE p.activo = 1";
+        $where = "WHERE p.activo = 1 AND (p.es_tienda = 1 OR p.es_vendible = 1)";
         $binds = [];
 
         if (!empty($q)) {
@@ -67,7 +67,9 @@ class TiendaRepository
 
         try {
             $sql = "SELECT p.id, p.nombre AS title, p.subcategoria, p.descripcion,
-                           p.precio_venta AS price, p.precio_oferta AS oldPrice,
+                           CASE WHEN p.precio_oferta > 0 AND p.precio_oferta < p.precio_venta THEN p.precio_oferta ELSE p.precio_venta END AS price,
+                           CASE WHEN p.precio_oferta > 0 AND p.precio_oferta < p.precio_venta THEN p.precio_venta ELSE NULL END AS oldPrice,
+                           p.precios_cantidad,
                            p.stock_actual,
                            CASE WHEN COALESCE(p.stock_actual, 0) > 0 AND p.estado_stock = 'ready' THEN 'ready' ELSE 'custom' END AS stockStatus,
                            p.imagen_url AS image, p.imagenes, p.colores, p.piezas, p.peso_gramos AS weightGrams,
@@ -100,6 +102,12 @@ class TiendaRepository
             }
 
             foreach ($items as &$item) {
+                $tiers = is_string($item['precios_cantidad'] ?? null) ? json_decode($item['precios_cantidad'], true) : ($item['precios_cantidad'] ?? []);
+                $item['precios_cantidad'] = array_values(array_map(static fn($tier) => [
+                    'cantidad' => (int)$tier['cantidad'], 'precio' => (float)$tier['precio'],
+                ], array_filter(is_array($tiers) ? $tiers : [], static fn($tier) => is_array($tier)
+                    && is_numeric($tier['cantidad'] ?? null) && (int)$tier['cantidad'] > 0
+                    && is_numeric($tier['precio'] ?? null) && (float)$tier['precio'] > 0)));
                 $stock = isset($item['stock_actual']) ? (float)$item['stock_actual'] : 0;
                 if ($stock <= 0) {
                     $item['stockStatus'] = 'custom';
@@ -114,7 +122,21 @@ class TiendaRepository
 
                 if (!empty($item['piezas'])) {
                     $decP = is_string($item['piezas']) ? json_decode($item['piezas'], true) : $item['piezas'];
-                    $item['piezas'] = is_array($decP) ? array_values($decP) : [];
+                    $rawPiezas = is_array($decP) ? array_values($decP) : [];
+                    $allowedFields = ['id', 'nombre', 'precio', 'medidas', 'imagen_url'];
+                    $sanitizedPiezas = [];
+                    foreach ($rawPiezas as $p) {
+                        if (is_array($p)) {
+                            $clean = [];
+                            foreach ($allowedFields as $field) {
+                                if (array_key_exists($field, $p)) {
+                                    $clean[$field] = $p[$field];
+                                }
+                            }
+                            $sanitizedPiezas[] = $clean;
+                        }
+                    }
+                    $item['piezas'] = $sanitizedPiezas;
                 } else {
                     $item['piezas'] = [];
                 }

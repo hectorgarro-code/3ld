@@ -402,6 +402,7 @@ export default function TiendaAdminPage() {
           <div className="flex items-center gap-2">
             <Store className="h-6 w-6 text-primary" />
             <h1 className="text-2xl font-black text-slate-900">Gestión de Tienda Pública</h1>
+            <Link to="/devoluciones" className="text-sm font-bold underline">Solicitudes de devolución</Link>
           </div>
           <p className="text-xs text-slate-500 mt-1">
             Administra los productos del catálogo web, realiza acciones masivas de precios, stock y categorías.

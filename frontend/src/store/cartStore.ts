@@ -7,6 +7,7 @@ export interface CartItem {
   title: string
   price: number
   basePrice?: number
+  selectedPieceIds?: string[]
   image: string
   color: string
   weightGrams: number
@@ -22,6 +23,7 @@ interface CartState {
       title: string
       price: number
       basePrice?: number
+      selectedPieceIds?: string[]
       image: string
       weightGrams?: number
       precios_cantidad?: { cantidad: number; precio: number }[] | any
@@ -29,10 +31,13 @@ interface CartState {
     qty?: number,
     color?: string
   ) => void
-  updateCartQty: (id: string | number, color: string, delta: number) => void
-  removeCartItem: (id: string | number, color: string) => void
+  updateCartQty: (id: string | number, color: string, delta: number, selectedPieceIds?: string[]) => void
+  removeCartItem: (id: string | number, color: string, selectedPieceIds?: string[]) => void
+  applyQuote: (prices: number[]) => void
   clearCart: () => void
 }
+
+const variantKey = (ids?: string[]) => JSON.stringify([...(ids || [])].sort())
 
 export const useCartStore = create<CartState>()(
   persist(
@@ -47,14 +52,14 @@ export const useCartStore = create<CartState>()(
             : (typeof rawEscalas === 'string' ? JSON.parse(rawEscalas || '[]') : [])
 
           const basePrice = product.basePrice !== undefined ? product.basePrice : product.price
-          const existing = state.cart.find((item) => item.id === product.id && item.color === color)
+          const existing = state.cart.find((item) => item.id === product.id && item.color === color && variantKey(item.selectedPieceIds) === variantKey(product.selectedPieceIds))
 
           if (existing) {
             const newQty = existing.qty + qty
             const tierPrice = obtenerPrecioPorCantidad(existing.precios_cantidad || escalas, newQty) ?? (existing.basePrice ?? basePrice)
             return {
               cart: state.cart.map((item) =>
-                item.id === product.id && item.color === color
+                item === existing
                   ? { ...item, qty: newQty, price: tierPrice }
                   : item
               ),
@@ -67,6 +72,7 @@ export const useCartStore = create<CartState>()(
               ...state.cart,
               {
                 id: product.id,
+                selectedPieceIds: product.selectedPieceIds,
                 title: product.title,
                 price: tierPrice,
                 basePrice: basePrice,
@@ -84,11 +90,11 @@ export const useCartStore = create<CartState>()(
         })
       },
 
-      updateCartQty: (id, color, delta) => {
+      updateCartQty: (id, color, delta, selectedPieceIds) => {
         set((state) => ({
           cart: state.cart
             .map((item) => {
-              if (item.id === id && item.color === color) {
+              if (item.id === id && item.color === color && variantKey(item.selectedPieceIds) === variantKey(selectedPieceIds)) {
                 const newQty = item.qty + delta
                 if (newQty <= 0) return null
                 const base = item.basePrice ?? item.price
@@ -101,11 +107,13 @@ export const useCartStore = create<CartState>()(
         }))
       },
 
-      removeCartItem: (id, color) => {
+      removeCartItem: (id, color, selectedPieceIds) => {
         set((state) => ({
-          cart: state.cart.filter((item) => !(item.id === id && item.color === color)),
+          cart: state.cart.filter((item) => !(item.id === id && item.color === color && variantKey(item.selectedPieceIds) === variantKey(selectedPieceIds))),
         }))
       },
+
+      applyQuote: (prices) => set((state) => ({ cart: state.cart.map((item, index) => ({ ...item, price: prices[index] ?? item.price })) })),
 
       clearCart: () => {
         set({ cart: [] })

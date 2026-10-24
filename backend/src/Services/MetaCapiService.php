@@ -80,13 +80,16 @@ class MetaCapiService
             ];
         }
 
-        $orderNum = (string)($pedido['numero_pedido'] ?? $pedido['numero'] ?? $pedido['id'] ?? '');
-        if (empty($orderNum)) {
-            return ['success' => false, 'message' => 'Número de pedido requerido'];
+        $internalId = filter_var($pedido['id'] ?? null, FILTER_VALIDATE_INT);
+        $total = $pedido['total'] ?? null;
+        if (!$internalId || $internalId <= 0
+            || ($pedido['mercadopago_status'] ?? '') !== 'approved'
+            || !is_numeric($total) || !is_finite((float)$total) || (float)$total <= 0) {
+            return ['success' => false, 'message' => 'Compra sin pago aprobado, importe o ID interno válido'];
         }
 
-        // Deduplicación Pixel + CAPI exacta
-        $eventId = 'order_' . $orderNum;
+        // Deduplicación Pixel + CAPI exacta por ID interno inmutable
+        $eventId = 'order_' . $internalId;
 
         // User Data con hashing SHA-256 requerido por Meta
         $userData = [];

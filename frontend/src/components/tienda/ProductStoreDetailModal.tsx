@@ -205,7 +205,8 @@ export function ProductStoreDetailModal({
     if (product.piezas && product.piezas.length > 0) {
       const selectedList = product.piezas.filter((p) => selectedPiezas[p.id || p.nombre])
       if (selectedList.length > 0) {
-        return selectedList.reduce((sum, p) => sum + (Number(p.precio) || 0), 0)
+        const sum = selectedList.reduce((sum, p) => sum + (Number(p.precio) || 0), 0)
+        return selectedList.length === product.piezas.length && product.raw?.oldPrice ? product.price : sum
       }
       return 0
     }
@@ -237,6 +238,8 @@ export function ProductStoreDetailModal({
         ...(product.raw || product),
         title: `${product.title} (${selectedList.length} pieza${selectedList.length > 1 ? 's' : ''}: ${piezaNames})`,
         price: calculatedPrice,
+        selectedPieceIds: selectedList.map(p => String(p.id || p.nombre)),
+        precios_cantidad: selectedList.length === product.piezas.length ? product.precios_cantidad : [],
       }
       onAddToCart(customProduct, 1, finalColor)
     } else {

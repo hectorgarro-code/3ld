@@ -22,7 +22,7 @@ class MetaCatalogController
     /**
      * Obtiene los productos publicables para el catálogo de Meta (Facebook, Instagram y WhatsApp)
      */
-    private function getCatalogProducts(): array
+    protected function getCatalogProducts(): array
     {
         $sql = "SELECT 
                     p.id, 
@@ -136,6 +136,7 @@ class MetaCatalogController
             }
 
             $xml .= "      <g:brand>3LD</g:brand>\n";
+            $xml .= "      <g:mpn>" . htmlspecialchars($id, ENT_XML1) . "</g:mpn>\n";
             $xml .= "      <g:condition>new</g:condition>\n";
             $xml .= "      <g:availability>{$availability}</g:availability>\n";
             $xml .= "      <g:price>{$priceFormatted}</g:price>\n";
@@ -156,9 +157,24 @@ class MetaCatalogController
     }
 
     /**
-     * GET /api/v1/meta/catalog.csv
-     * Catálogo en formato CSV estándar de Meta
+     * GET /api/v1/google/catalog.xml
+     * Disponibilidad con valores admitidos por Google; conserva IDs de Meta.
      */
+    public function getGoogleXml(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
+    {
+        $feed = $this->getXml($request, $response);
+        $body = (string)$feed->getBody();
+        $body = str_replace(
+            ['<g:availability>in stock</g:availability>', '<g:availability>out of stock</g:availability>'],
+            ['<g:availability>in_stock</g:availability>', '<g:availability>out_of_stock</g:availability>'],
+            $body
+        );
+        $stream = fopen('php://temp', 'r+');
+        fwrite($stream, $body);
+        rewind($stream);
+        return $feed->withBody(new \Slim\Psr7\Stream($stream));
+    }
+
     public function getCsv(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
     {
         $products = $this->getCatalogProducts();

@@ -29,7 +29,7 @@ export default function LoginPage() {
     formState: { errors },
   } = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
-    defaultValues: { email: 'admin@3ld.com', password: 'Admin3LD#2026!' },
+    defaultValues: { email: '', password: '' },
   })
 
   const onSubmit = async (data: LoginForm) => {
@@ -79,7 +79,7 @@ export default function LoginPage() {
                 type="email"
                 {...register('email')}
                 className="w-full rounded-xl border border-slate-100 bg-slate-50/50 pl-10 pr-4 py-3 text-sm font-semibold text-slate-800 placeholder-gray-500 outline-none transition-colors focus:border-primary"
-                placeholder="admin@3ld.com"
+                placeholder="correo@ejemplo.com"
               />
             </div>
             {errors.email && (
@@ -114,15 +114,6 @@ export default function LoginPage() {
             {isLoading ? 'Ingresando...' : 'Ingresar'}
           </button>
         </form>
-
-        {/* Dev hint */}
-        <div className="mt-6 rounded-xl border border-slate-100 bg-slate-50/50 p-3 text-xs text-slate-400">
-          <p className="font-bold text-slate-500 mb-1">🛠 Credenciales de prueba</p>
-          <p className="text-slate-400">
-            Email: <span className="text-emerald-500">admin@3ld.com</span><br />
-            Password: <span className="text-emerald-500">Admin3LD#2026!</span>
-          </p>
-        </div>
       </div>
 
       {/* Footer */}

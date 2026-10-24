@@ -10,6 +10,7 @@
  */
 
 import { metaPixel } from '@/lib/metaPixel';
+import { ecommerceTracking } from '@/lib/ecommerceTracking';
 
 const VISITOR_KEY = '3ld_analytics_vid';
 const SESSION_KEY = '3ld_analytics_session_data';
@@ -204,6 +205,7 @@ export function trackViewProduct(product: { id: string | number; title?: string;
     producto_nombre: product.title || product.nombre,
   });
   metaPixel.viewContent(product);
+  ecommerceTracking.viewItem(product);
 }
 
 export function trackViewStory(product: { id: string | number; title?: string; nombre?: string }): void {
@@ -222,6 +224,7 @@ export function trackAddToCart(product: { id: string | number; title?: string; n
     metadata: { cantidad: qty },
   });
   metaPixel.addToCart(product, qty);
+  ecommerceTracking.addToCart(product, qty);
 }
 
 export function trackWhatsAppClick(context?: string, product?: { id: string | number; title?: string }): void {

@@ -571,6 +571,7 @@ $app->group('/api/v1', function (RouteCollectorProxy $api) use ($config, $auth, 
 
     // Tienda Admin
     $api->group('/tienda', function (RouteCollectorProxy $g) use ($container) {
+        $g->get('/arrepentimientos', function ($req, $res) { return (new \App\Controllers\ReturnController())->index($req, $res); });
         $g->post('/productos/bulk-update', function ($req, $res) use ($container) {
             return $container->get(TiendaController::class)->bulkUpdate($req, $res);
         });
@@ -638,6 +639,10 @@ $app->get('/api/v1/tienda/config', function ($req, $res) use ($container) {
 });
 $app->get('/api/v1/tienda/mercadopago/status', function ($req, $res) use ($container) {
     return $container->get(MercadoPagoController::class)->getPublicStatus($req, $res);
+});
+$app->post('/api/v1/tienda/arrepentimiento', function ($req, $res) { return (new \App\Controllers\ReturnController())->create($req, $res); });
+$app->post('/api/v1/tienda/checkout/cotizar', function ($req, $res) use ($container) {
+    return $container->get(MercadoPagoController::class)->quoteCheckout($req, $res);
 });
 $app->post('/api/v1/tienda/mercadopago/crear-preferencia', function ($req, $res) use ($container) {
     return $container->get(MercadoPagoController::class)->createPreference($req, $res);
@@ -738,6 +743,11 @@ $app->get('/meta-catalog.csv', function ($req, $res) use ($container) {
 });
 $app->get('/api/v1/meta/status', function ($req, $res) use ($container) {
     return $container->get(MetaCatalogController::class)->getStatus($req, $res);
+});
+
+// Feed Google independiente, compatible con Merchant Center.
+$app->get('/api/v1/google/catalog.xml', function ($req, $res) use ($container) {
+    return $container->get(MetaCatalogController::class)->getGoogleXml($req, $res);
 });
 
 // ── Health check (no auth) ───────────────────────────────────────────────────

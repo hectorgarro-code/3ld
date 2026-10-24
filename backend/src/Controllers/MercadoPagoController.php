@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace App\Controllers;
 
 use App\Helpers\Response;
+use App\Helpers\ReceiptAccess;
+use App\Helpers\PaymentVerification;
+use App\Services\CheckoutQuote;
 use PDO;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -179,6 +182,19 @@ class MercadoPagoController
     /**
      * POST /api/v1/tienda/mercadopago/crear-preferencia (Público)
      */
+    public function quoteCheckout(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
+    {
+        try {
+            $body = (array)$request->getParsedBody();
+            return Response::success((new CheckoutQuote($this->db))->calculate((array)($body['items'] ?? []), (array)($body['envio'] ?? [])))
+                ->withHeader('Cache-Control', 'no-store');
+        } catch (\InvalidArgumentException $e) {
+            return Response::error($e->getMessage(), 400);
+        } catch (Throwable $e) {
+            return Response::error('No se pudo cotizar el carrito. Intentá nuevamente.', 500);
+        }
+    }
+
     public function createPreference(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
     {
         try {
@@ -195,7 +211,20 @@ class MercadoPagoController
 
             $comprador = (array) ($body['comprador'] ?? []);
             $envio = (array) ($body['envio'] ?? []);
-            $costoEnvio = max(0, (float)($envio['costo'] ?? 0));
+            try {
+                $quote = (new CheckoutQuote($this->db))->calculate($items, $envio);
+            } catch (\InvalidArgumentException $e) {
+                return Response::error($e->getMessage(), 400);
+            }
+            // El cliente confirma una cotización previa. No crear nada si cambió.
+            $expected = $body['expected_total'] ?? null;
+            if (!is_numeric($expected) || (int)round((float)$expected * 100) !== (int)round($quote['total'] * 100)) {
+                return Response::error('El precio cambió. Revisá el carrito antes de volver a pagar.', 409);
+            }
+            $validatedItems = $quote['items'];
+            $subtotal = $quote['subtotal'];
+            $costoEnvio = $quote['shipping']['cost'];
+            $envio['tipo'] = $quote['shipping']['service'];
             $notas = trim((string)($body['notas'] ?? ''));
 
             // 1. Obtener o crear cliente
@@ -247,53 +276,6 @@ class MercadoPagoController
                     !empty($dirComprador) ? $dirComprador : null,
                 ]);
                 $clienteId = (int)$this->db->lastInsertId();
-            }
-
-            // 2. Validar y recalcular precios desde la base de datos para prevenir manipulación del cliente
-            $stmtProdCheck = $this->db->prepare("SELECT id, nombre, precio_venta, activo FROM productos WHERE id = ? LIMIT 1");
-            $validatedItems = [];
-            $subtotal = 0.0;
-
-            foreach ($items as $it) {
-                $qty = max(1, (int)($it['quantity'] ?? $it['qty'] ?? 1));
-                $prodId = !empty($it['id']) && is_numeric($it['id']) ? (int)$it['id'] : null;
-                $title = trim((string)($it['title'] ?? 'Producto Impresión 3D'));
-                $price = 0.0;
-
-                if ($prodId) {
-                    $stmtProdCheck->execute([$prodId]);
-                    $prodDb = $stmtProdCheck->fetch(PDO::FETCH_ASSOC);
-                    if ($prodDb && (float)$prodDb['precio_venta'] > 0) {
-                        $price = (float)$prodDb['precio_venta'];
-                        if (empty($title) || $title === 'Producto Impresión 3D') {
-                            $title = (string)$prodDb['nombre'];
-                        }
-                    }
-                }
-
-                // Fallback seguro si es un ítem cotizado / ad-hoc no registrado en el catálogo
-                if ($price <= 0) {
-                    $price = max(0, (float)($it['unit_price'] ?? $it['price'] ?? 0));
-                }
-
-                if ($price <= 0) {
-                    continue;
-                }
-
-                $validatedItems[] = [
-                    'id'          => $prodId ? (string)$prodId : (string)($it['id'] ?? 'item'),
-                    'prod_id'     => $prodId,
-                    'title'       => $title,
-                    'color'       => $it['color'] ?? null,
-                    'quantity'    => $qty,
-                    'unit_price'  => $price,
-                    'image'       => $it['image'] ?? null,
-                ];
-                $subtotal += ($qty * $price);
-            }
-
-            if (empty($validatedItems) || $subtotal <= 0) {
-                return Response::error('No se encontraron artículos con precios válidos para procesar.', 400);
             }
 
             $total = $subtotal + $costoEnvio;
@@ -371,7 +353,7 @@ class MercadoPagoController
             }
 
             $cleanPhone = preg_replace('/\D/', '', $telComprador);
-            $payerEmail = filter_var($emailComprador, FILTER_VALIDATE_EMAIL) ? $emailComprador : '3ldidacticos@gmail.com';
+            $payerEmail = filter_var($emailComprador, FILTER_VALIDATE_EMAIL) ? $emailComprador : '3lddidacticos@gmail.com';
 
             $payerData = [
                 'name'  => !empty($nombreComprador) ? $nombreComprador : 'Cliente Tienda',
@@ -434,13 +416,14 @@ class MercadoPagoController
                     'total'            => $total,
                     'envio_tipo'       => $envio['tipo'] ?? 'Retiro en taller (Salta 3169, San Bernardo)',
                     'envio_direccion'  => $envio['direccion'] ?? '',
-                    'items'            => $items,
+                    'items'            => $validatedItems,
                 ]);
 
                 return Response::success([
                     'preference_id' => $prefId,
                     'init_point'    => $initPoint,
                     'pedido_id'     => $pedidoId,
+                    'receipt_token' => ReceiptAccess::token($pedidoId, (string)$prefId),
                     'numero_pedido' => $numeroPedido,
                 ]);
             }
@@ -465,7 +448,7 @@ class MercadoPagoController
 
             $stmt = $this->db->prepare(
                 "SELECT p.id, p.numero_pedido, p.estado, p.subtotal, p.total, p.saldo_pendiente,
-                        p.notas, p.created_at, p.mercadopago_status,
+                        p.notas, p.created_at, p.mercadopago_status, p.mercadopago_preference_id,
                         c.nombre AS cliente_nombre, c.telefono AS cliente_telefono, c.email AS cliente_email, c.direccion AS cliente_direccion
                  FROM pedidos p
                  LEFT JOIN clientes c ON c.id = p.cliente_id
@@ -475,9 +458,13 @@ class MercadoPagoController
             $stmt->execute([$numero, is_numeric($numero) ? (int)$numero : 0]);
             $pedido = $stmt->fetch(PDO::FETCH_ASSOC);
 
-            if (!$pedido) {
-                return Response::error('Pedido no encontrado', 404);
+            $receiptToken = trim($request->getHeaderLine('X-Receipt-Token'));
+            if (!$pedido || !ReceiptAccess::allows(
+                (int)$pedido['id'], (string)($pedido['mercadopago_preference_id'] ?? ''), $receiptToken
+            )) {
+                return Response::error('Comprobante no disponible. Volvé desde el checkout original o consultá al taller.', 404);
             }
+            unset($pedido['mercadopago_preference_id']);
 
             // Items
             $stmtItems = $this->db->prepare(
@@ -523,7 +510,7 @@ class MercadoPagoController
                 'direccion' => $pedido['cliente_direccion'] ?: '',
             ];
 
-            return Response::success($pedido);
+            return Response::success($pedido)->withHeader('Cache-Control', 'private, no-store');
         } catch (Throwable $e) {
             return Response::error('Error al obtener pedido: ' . $e->getMessage(), 500);
         }
@@ -590,7 +577,7 @@ class MercadoPagoController
             </html>
             ";
 
-            $adminEmail = '3ldidacticos@gmail.com';
+            $adminEmail = '3lddidacticos@gmail.com';
             $headers = [
                 'MIME-Version: 1.0',
                 'Content-type: text/html; charset=UTF-8',
@@ -603,7 +590,7 @@ class MercadoPagoController
                 @mail($to, $subject, $message, implode("\r\n", $headers));
             }
 
-            // Enviar siempre notificación y copia al taller (3ldidacticos@gmail.com)
+            // Enviar siempre notificación y copia al taller (3lddidacticos@gmail.com)
             @mail($adminEmail, "[Nuevo Pedido] {$subject}", $message, implode("\r\n", $headers));
         } catch (\Throwable $e) {}
     }
@@ -647,6 +634,20 @@ class MercadoPagoController
                         $pedidoId = (int)($paymentData['external_reference'] ?? 0);
 
                         if ($pedidoId > 0) {
+                            $stmtOrder = $this->db->prepare('SELECT id, total, mercadopago_status, mercadopago_payment_id FROM pedidos WHERE id = ?');
+                            $stmtOrder->execute([$pedidoId]);
+                            $verifiedOrder = $stmtOrder->fetch(PDO::FETCH_ASSOC);
+                            if (!$verifiedOrder || ($status === 'approved' && !PaymentVerification::matchesApprovedOrder($paymentData, $verifiedOrder))) {
+                                error_log('[MercadoPago] Pago no coincide con el pedido ' . $pedidoId);
+                                $response->getBody()->write(json_encode(['status' => 'ignored']));
+                                return $response->withStatus(200)->withHeader('Content-Type', 'application/json');
+                            }
+                            // Reenvios del proveedor no deben volver a acreditar ni enviar correos.
+                            if (($verifiedOrder['mercadopago_status'] ?? '') === 'approved'
+                                && (string)($verifiedOrder['mercadopago_payment_id'] ?? '') === (string)$paymentId) {
+                                $response->getBody()->write(json_encode(['status' => 'ok']));
+                                return $response->withStatus(200)->withHeader('Content-Type', 'application/json');
+                            }
                             $nuevoEstado = ($status === 'approved') ? 'cobrado' : (($status === 'in_process') ? 'en_produccion' : null);
 
                             if ($nuevoEstado !== null) {
@@ -709,11 +710,14 @@ class MercadoPagoController
                                                     return !str_starts_with($it['descripcion'] ?? '', 'Costo de Envío:');
                                                 });
 
-                                                $clientIp = $request->getServerParams()['REMOTE_ADDR'] ?? null;
-                                                $userAgent = $request->getHeaderLine('User-Agent') ?: null;
+                                                // La IP y el User-Agent de este request son del proveedor, no del comprador.
+                                                $clientIp = null;
+                                                $userAgent = null;
 
                                                 $this->metaCapiService->sendPurchaseEvent(
                                                     [
+                                                        'id'            => $pedidoId,
+                                                        'mercadopago_status' => $status,
                                                         'numero_pedido' => $pData['numero_pedido'],
                                                         'total'         => (float)$pData['total'],
                                                     ],

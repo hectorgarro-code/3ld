@@ -282,50 +282,88 @@ export interface MetaOrder {
  * Incluye eventID para deduplicación automática con Meta Conversions API (CAPI)
  */
 export function purchase(order: MetaOrder): void {
-  if (!order || isStaffUser()) return;
-
-  const orderNum = order.numero || order.numero_pedido || String(order.id || '');
-  if (!orderNum) return;
-
-  // Deduplicación en almacenamiento local: Evita duplicar el evento si el usuario recarga la página
-  const dedupeStorageKey = `3ld_meta_purchase_${orderNum}`;
   try {
-    if (localStorage.getItem(dedupeStorageKey)) {
+    if (!order || isStaffUser()) return;
+
+    // Requiere pago aprobado
+    if (order.mercadopago_status?.toLowerCase() !== 'approved') {
       return;
     }
-    localStorage.setItem(dedupeStorageKey, Date.now().toString());
+
+    // Requiere ID interno válido e inmutable (no número de pedido reutilizable)
+    const rawId = order.id !== undefined && order.id !== null ? String(order.id).trim() : '';
+    const numericId = Number(rawId);
+    if (!rawId || !Number.isSafeInteger(numericId) || numericId <= 0) {
+      return;
+    }
+    const internalId = String(numericId);
+
+    // Requiere total positivo y válido
+    const totalValue = formatPrice(order.total);
+    if (totalValue <= 0 || !isFinite(totalValue)) {
+      return;
+    }
+
+    // No marcar enviado si fbq no está disponible en window
+    if (typeof window === 'undefined' || typeof window.fbq !== 'function') {
+      return;
+    }
+
+    // Deduplicación por ID inmutable en almacenamiento local
+    const dedupeStorageKey = `3ld_meta_purchase_${internalId}`;
+    try {
+      if (localStorage.getItem(dedupeStorageKey)) {
+        return;
+      }
+    } catch {
+      // Ignorar fallo de lectura en localStorage
+    }
+
+    const rawItems = Array.isArray(order.items) ? order.items : [];
+    const contentIds = rawItems
+      .map((it) => formatCatalogId(it.producto_id ?? it.id))
+      .filter((id) => Boolean(id));
+
+    const contents = rawItems.map((it) => {
+      const unitPrice = formatPrice(it.precio_unit ?? it.price ?? 0);
+      const qty = Math.max(1, Number(it.cantidad ?? it.qty ?? 1) || 1);
+      return {
+        id: formatCatalogId(it.producto_id ?? it.id),
+        quantity: qty,
+        item_price: unitPrice,
+      };
+    });
+
+    const numItems = rawItems.reduce(
+      (acc, it) => acc + Math.max(1, Number(it.cantidad ?? it.qty ?? 1) || 1),
+      0
+    );
+
+    // EventID único y coherente basado en ID interno inmutable
+    const eventId = `order_${internalId}`;
+
+    window.fbq(
+      'track',
+      'Purchase',
+      {
+        content_ids: contentIds,
+        contents: contents,
+        num_items: numItems,
+        value: totalValue,
+        currency: META_CURRENCY,
+      },
+      { eventID: eventId }
+    );
+
+    // Marcar enviado solo después de que fbq está disponible y fue invocado
+    try {
+      localStorage.setItem(dedupeStorageKey, Date.now().toString());
+    } catch {
+      // Tolerar bloqueos de storage
+    }
   } catch {
-    // Si localStorage está bloqueado o lleno, continuar normalmente
+    // Evitar cualquier interrupción del proceso de compra
   }
-
-  const rawItems = Array.isArray(order.items) ? order.items : [];
-  const contentIds = rawItems.map((it) => formatCatalogId(it.producto_id ?? it.id));
-  const contents = rawItems.map((it) => {
-    const unitPrice = formatPrice(it.precio_unit ?? it.price ?? 0);
-    const qty = Math.max(1, Number(it.cantidad ?? it.qty ?? 1));
-    return {
-      id: formatCatalogId(it.producto_id ?? it.id),
-      quantity: qty,
-      item_price: unitPrice,
-    };
-  });
-
-  const numItems = rawItems.reduce((acc, it) => acc + Math.max(1, Number(it.cantidad ?? it.qty ?? 1)), 0);
-  const totalValue = formatPrice(order.total);
-  const eventId = `order_${orderNum}`;
-
-  safeFbq(
-    'track',
-    'Purchase',
-    {
-      content_ids: contentIds,
-      contents: contents,
-      num_items: numItems,
-      value: totalValue,
-      currency: META_CURRENCY,
-    },
-    { eventID: eventId }
-  );
 }
 
 export const metaPixel = {
