@@ -1122,7 +1122,7 @@ export default function TiendaPage() {
       setShippingQuote({
         serviceName: 'Envío Local La Costa / San Bernardo',
         price: isFreeLocalShipping ? 0 : 2500,
-        estimatedDays: '24 a 48 hs',
+        estimatedDays: 'A coordinar: martes y jueves después de las 17 h, una vez listo el pedido',
         isFree: isFreeLocalShipping
       });
     } else {
@@ -1601,7 +1601,7 @@ export default function TiendaPage() {
                       </span>
                     ) : (
                       <span className="bg-cyan-600/90 text-white text-[10px] font-black px-2 py-0.5 rounded-md backdrop-blur-xs flex items-center gap-1 shadow-xs">
-                        ⚡ Listo en 24-48 hs
+                        🛠️ Fabricación: 4 días hábiles
                       </span>
                     )}
                   </div>
@@ -1789,8 +1789,8 @@ export default function TiendaPage() {
               <div className="w-10 h-10 rounded-xl bg-cyan-100 text-cyan-800 flex items-center justify-center mb-2">
                 <Zap className="w-5 h-5" />
               </div>
-              <h4 className="text-xs font-black text-slate-900">Despacho en 24-48 hs</h4>
-              <p className="text-[11px] text-slate-500 mt-1">Impresión en taller propio con tiempos récord.</p>
+              <h4 className="text-xs font-black text-slate-900">Fabricación en 4 días hábiles</h4>
+              <p className="text-[11px] text-slate-500 mt-1">Fabricamos de lunes a viernes. Entregas coordinadas martes y jueves después de las 17 h.</p>
             </div>
 
             <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200/70 text-center flex flex-col items-center">

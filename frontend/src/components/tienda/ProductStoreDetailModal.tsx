@@ -364,7 +364,7 @@ export function ProductStoreDetailModal({
                 </span>
               ) : (
                 <span className="bg-amber-100 text-amber-900 text-[10px] font-black px-2 py-0.5 rounded-md flex items-center gap-1 border border-amber-300">
-                  ⚡ Impresión 3D: Listo en 24-48 hs
+                  🛠️ Impresión 3D: fabricación en 4 días hábiles
                 </span>
               )}
             </div>
