@@ -1849,289 +1849,66 @@ export default function TiendaPage() {
 
       {/* Cart Drawer */}
       {isCartOpen && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-slate-950/60 backdrop-blur-xs">
-          <div role="dialog" aria-modal="true" aria-labelledby="cart-title" className="w-full max-w-md bg-white h-dvh min-h-0 overflow-hidden shadow-2xl flex flex-col animate-in slide-in-from-right duration-200">
-            {/* Header */}
-            <div className="shrink-0 p-4 border-b border-slate-200 flex items-center justify-between bg-slate-900 text-white">
-              <div className="flex items-center gap-2">
-                <ShoppingCart className="w-5 h-5 text-cyan-400" />
-                <h2 id="cart-title" className="font-extrabold text-base tracking-tight">Tu Carrito de Compras</h2>
-                <span className="bg-cyan-500 text-white text-xs font-black px-2 py-0.5 rounded-full">
-                  {cartItemsCount}
-                </span>
-              </div>
-              <button aria-label="Cerrar carrito" onClick={() => setIsCartOpen(false)} className="p-1 hover:bg-slate-800 rounded-lg text-slate-300">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+        <div className="fixed inset-0 z-50 flex justify-end bg-slate-950/45 backdrop-blur-xs">
+          <section role="dialog" aria-modal="true" aria-labelledby="cart-title" className="flex h-dvh min-h-0 w-full max-w-[560px] flex-col overflow-hidden bg-white shadow-2xl" data-testid="cart-drawer-v2">
+            <header className="flex shrink-0 items-center justify-between border-b border-slate-100 px-5 py-5 sm:px-7">
+              <div><h2 id="cart-title" className="text-xl font-extrabold tracking-tight text-slate-900">Tu carrito</h2><p className="mt-1 text-sm text-slate-500">{cartItemsCount} {cartItemsCount === 1 ? 'artículo' : 'artículos'} seleccionados</p></div>
+              <button onClick={() => setIsCartOpen(false)} aria-label="Cerrar carrito" className="flex h-10 w-10 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100"><X className="h-5 w-5" /></button>
+            </header>
 
-            {/* Free Shipping Progress Bar */}
-            {cart.length > 0 && (
-              <div className="shrink-0 px-4 py-2.5 bg-slate-50 border-b border-slate-200">
-                {cartSubtotal >= freeShippingThreshold ? (
-                  <div className="flex items-center gap-1.5 text-xs font-black text-emerald-700">
-                    <span className="text-base">🎉</span>
-                    <span>¡Felicitaciones! Tenés <strong>Envío Gratis</strong> en tu compra.</span>
-                  </div>
-                ) : (
-                  <div className="space-y-1.5">
-                    <div className="flex justify-between text-[11px] font-bold text-slate-700">
-                      <span>Agregá <strong>${(freeShippingThreshold - cartSubtotal).toLocaleString('es-AR')}</strong> más para <strong>Envío Gratis</strong></span>
-                      <span className="text-cyan-700 font-extrabold">{Math.round((cartSubtotal / freeShippingThreshold) * 100)}%</span>
-                    </div>
-                    <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-linear-to-r from-cyan-500 to-emerald-500 rounded-full transition-all duration-300"
-                        style={{ width: `${Math.min(100, (cartSubtotal / freeShippingThreshold) * 100)}%` }}
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Cart Items List */}
             <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain" data-testid="cart-scroll-content">
-            <div className="p-4 space-y-3" aria-label="Productos del carrito">
               {cart.length === 0 ? (
-                <div className="text-center py-16">
-                  <ShoppingCart className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                  <p className="text-sm font-bold text-slate-700">Tu carrito está vacío</p>
-                  <p className="text-xs text-slate-400 mt-1">Explorá el catálogo para agregar artículos.</p>
-                </div>
+                <div className="px-7 py-20 text-center"><ShoppingCart className="mx-auto mb-4 h-10 w-10 text-slate-300" /><h3 className="font-bold">Tu carrito está vacío</h3><p className="mt-2 text-sm text-slate-500">Elegí algo que te guste y lo guardamos acá.</p><button onClick={() => setIsCartOpen(false)} className="mt-6 rounded-xl bg-slate-900 px-6 py-3 text-sm font-bold text-white">Explorar productos</button></div>
               ) : (
-                cart.map((item) => (
-                  <div
-                    key={`${item.id}-${item.color}-${JSON.stringify(item.selectedPieceIds || [])}`}
-                    className="grid grid-cols-[48px_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 p-3 bg-slate-50 rounded-2xl border border-slate-200 shadow-2xs"
-                  >
-                    <img src={item.image} alt={item.title} className="row-span-2 w-12 h-12 object-cover rounded-xl border border-slate-200 shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <h4 className="text-xs font-bold text-slate-900 line-clamp-2">{item.title}</h4>
-                      <p className="text-[11px] text-slate-500 font-medium">Color: {item.color}</p>
-                      <p className="text-xs font-black text-slate-900 mt-0.5">
-                        ${(item.price * item.qty).toLocaleString('es-AR')}
-                      </p>
-                    </div>
-
-                    <div className="col-start-2 row-start-2 justify-self-start flex items-center gap-1 bg-white border border-slate-200 rounded-xl p-1">
-                      <button
-                        aria-label={`Reducir cantidad de ${item.title}`}
-                        onClick={() => updateCartQty(item.id, item.color, -1, item.selectedPieceIds)}
-                        className="px-2 py-0.5 text-xs font-bold text-slate-600 hover:text-slate-900"
-                      >
-                        -
-                      </button>
-                      <span className="text-xs font-black px-1.5">{item.qty}</span>
-                      <button
-                        aria-label={`Aumentar cantidad de ${item.title}`}
-                        onClick={() => updateCartQty(item.id, item.color, 1, item.selectedPieceIds)}
-                        className="px-2 py-0.5 text-xs font-bold text-slate-600 hover:text-slate-900"
-                      >
-                        +
-                      </button>
-                    </div>
-
-                    <button
-                      onClick={() => removeCartItem(item.id, item.color, item.selectedPieceIds)}
-                      aria-label={`Quitar ${item.title}`}
-                      className="col-start-3 row-start-1 p-1.5 text-slate-400 hover:text-red-500 transition rounded-lg"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                <div className="px-5 pb-6 sm:px-7">
+                  <div className="py-4">
+                    <p className="text-xs text-slate-600">{cartSubtotal >= freeShippingThreshold ? <span className="font-bold text-emerald-700">Tu compra ya tiene envío local gratis</span> : <>Te faltan <strong className="text-slate-900">${(freeShippingThreshold - cartSubtotal).toLocaleString('es-AR')}</strong> para el envío local gratis</>}</p>
+                    <div className="mt-2 h-1 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${Math.min(100, (cartSubtotal / freeShippingThreshold) * 100)}%` }} /></div>
                   </div>
-                ))
+                  <div aria-label="Productos del carrito" className="divide-y divide-slate-100">
+                    {cart.map(item => (
+                      <article key={`${item.id}-${item.color}-${JSON.stringify(item.selectedPieceIds || [])}`} className="grid grid-cols-[72px_minmax(0,1fr)] gap-4 py-5 sm:grid-cols-[88px_minmax(0,1fr)]">
+                        <img src={item.image} alt={item.title} className="h-[88px] w-full rounded-xl bg-slate-50 object-cover sm:h-[104px]" />
+                        <div className="min-w-0">
+                          <div className="flex items-start justify-between gap-2"><h3 className="text-sm font-bold leading-snug text-slate-900">{item.title}</h3><button onClick={() => removeCartItem(item.id, item.color, item.selectedPieceIds)} aria-label={`Quitar ${item.title}`} className="-mr-2 -mt-2 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 hover:bg-red-50 hover:text-red-600"><Trash2 className="h-4 w-4" /></button></div>
+                          <p className="mt-1 text-xs text-slate-500">{item.color}</p>
+                          <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                            <div className="inline-flex items-center rounded-lg border border-slate-200"><button aria-label={`Reducir cantidad de ${item.title}`} onClick={() => updateCartQty(item.id, item.color, -1, item.selectedPieceIds)} className="h-8 w-8 text-slate-600 hover:bg-slate-50">−</button><span className="min-w-7 text-center text-sm font-bold">{item.qty}</span><button aria-label={`Aumentar cantidad de ${item.title}`} onClick={() => updateCartQty(item.id, item.color, 1, item.selectedPieceIds)} className="h-8 w-8 text-slate-600 hover:bg-slate-50">+</button></div>
+                            <p className="text-sm font-extrabold text-slate-900">${(item.price * item.qty).toLocaleString('es-AR')}</p>
+                          </div>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+
+                  <fieldset className="mt-3 border-t border-slate-200 pt-5">
+                    <legend className="float-left mb-3 w-full text-sm font-extrabold text-slate-900">¿Cómo lo recibís?</legend>
+                    <div className="clear-both grid grid-cols-2 gap-2 rounded-xl bg-slate-100 p-1">
+                      <button type="button" aria-pressed={deliveryMethod === 'pickup'} onClick={() => setDeliveryMethod('pickup')} className={`rounded-lg px-3 py-3 text-sm font-bold transition ${deliveryMethod === 'pickup' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}>Retiro en taller <span className="block text-xs font-normal text-emerald-700">Gratis</span></button>
+                      <button type="button" aria-pressed={deliveryMethod === 'shipping'} onClick={() => setDeliveryMethod('shipping')} className={`rounded-lg px-3 py-3 text-sm font-bold transition ${deliveryMethod === 'shipping' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}>Envío local <span className="block text-xs font-normal">La Costa</span></button>
+                    </div>
+                    {deliveryMethod === 'pickup' ? <p className="mt-3 text-xs leading-relaxed text-slate-500">Salta 3169, San Bernardo del Tuyú.</p> : (
+                      <div className="mt-3 space-y-3">
+                        <p className="text-xs text-slate-500">Cobertura en La Costa, excepto Costa Esmeralda.</p>
+                        <form onSubmit={handleCalculateShipping} className="flex gap-2"><label className="min-w-0 flex-1"><span className="sr-only">Código postal de entrega</span><input inputMode="numeric" value={postalCode} onChange={e => { setPostalCode(e.target.value); setShippingQuote(null); }} placeholder="Código postal · ej. 7111" className="w-full rounded-lg border border-slate-200 bg-white px-3 py-3 text-sm focus:outline-cyan-500" /></label><button disabled={isCalculatingShipping} className="rounded-lg bg-slate-900 px-4 text-sm font-bold text-white disabled:opacity-50">{isCalculatingShipping ? 'Calculando…' : 'Calcular'}</button></form>
+                        {shippingQuote && <p className="text-sm text-slate-700">Entrega local: <strong>{shippingQuote.price === 0 ? 'gratis' : `$${shippingQuote.price.toLocaleString('es-AR')}`}</strong></p>}
+                      </div>
+                    )}
+                    <div className="mt-3"><DeliveryEstimate compact requiresManufacturing={cart.some(item => !isProductInStock(products.find(p => String(p.id) === String(item.id))))} method={deliveryMethod} /></div>
+                  </fieldset>
+                  <details className="mt-5 border-t border-slate-100 pt-4 text-sm text-slate-600"><summary className="cursor-pointer">Ver detalle del total</summary><dl className="mt-3 space-y-2"><div className="flex justify-between"><dt>Productos</dt><dd>${cartSubtotal.toLocaleString('es-AR')}</dd></div><div className="flex justify-between"><dt>Entrega</dt><dd>{deliveryMethod === 'pickup' || shippingQuote?.price === 0 ? 'Gratis' : shippingQuote ? `$${shippingQuote.price.toLocaleString('es-AR')}` : 'A calcular'}</dd></div></dl></details>
+                </div>
               )}
             </div>
 
-            {/* Shipping & Delivery Method + Total Footer */}
             {cart.length > 0 && (
-              <div className="p-4 border-t border-slate-200 bg-slate-50 space-y-3">
-
-                {/* Selector Forma de Entrega */}
-                <div className="space-y-2">
-                  <label className="text-[11px] font-black uppercase tracking-wider text-slate-500 block">
-                    Forma de Entrega:
-                  </label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      aria-pressed={deliveryMethod === 'pickup'}
-                      onClick={() => setDeliveryMethod('pickup')}
-                      className={`p-2.5 rounded-xl border text-left transition flex flex-col justify-between cursor-pointer ${
-                        deliveryMethod === 'pickup'
-                          ? 'bg-cyan-50 border-cyan-500 text-cyan-950 font-bold shadow-xs'
-                          : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'
-                      }`}
-                    >
-                      <div className="flex items-center gap-1.5 mb-1">
-                        <Store className="w-4 h-4 text-cyan-600" />
-                        <span className="text-xs font-black">Retiro en Taller</span>
-                      </div>
-                      <span className="text-[10px] text-emerald-600 font-extrabold">¡GRATIS!</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      aria-pressed={deliveryMethod === 'shipping'}
-                      onClick={() => setDeliveryMethod('shipping')}
-                      className={`p-2.5 rounded-xl border text-left transition flex flex-col justify-between cursor-pointer ${
-                        deliveryMethod === 'shipping'
-                          ? 'bg-cyan-50 border-cyan-500 text-cyan-950 font-bold shadow-xs'
-                          : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'
-                      }`}
-                    >
-                      <div className="flex items-center gap-1.5 mb-1">
-                        <Truck className="w-4 h-4 text-cyan-600" />
-                        <span className="text-xs font-black">Envío Domicilio</span>
-                      </div>
-                      <span className="text-[10px] text-slate-500 font-medium">La Costa, excepto Costa Esmeralda</span>
-                    </button>
-                  </div>
-
-                  {deliveryMethod === 'pickup' ? (
-                    <p className="flex items-start gap-2 text-xs text-slate-600">
-                      <MapPin className="w-4 h-4 shrink-0" />
-                      Salta 3169, San Bernardo del Tuyú
-                    </p>
-                  ) : (
-                    <div className="space-y-2">
-                      <form onSubmit={handleCalculateShipping} className="flex gap-2">
-                        <input
-                          type="text"
-                          value={postalCode}
-                          onChange={(e) => setPostalCode(e.target.value)}
-                          placeholder="Código Postal (ej: 7111)"
-                          className="flex-1 px-3 py-2 text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-cyan-500 bg-white"
-                        />
-                        <button
-                          type="submit"
-                          disabled={isCalculatingShipping}
-                          className="px-3 py-2 bg-slate-900 text-white text-xs font-bold rounded-xl hover:bg-slate-800 transition disabled:opacity-50 cursor-pointer"
-                        >
-                          {isCalculatingShipping ? 'Cotizando...' : 'Calcular'}
-                        </button>
-                      </form>
-
-                      {shippingQuote && (
-                        <div className="p-2.5 bg-cyan-50 border border-cyan-200 rounded-xl text-xs flex justify-between items-center text-cyan-950 font-semibold">
-                          <div>
-                            <p className="font-bold">{shippingQuote.serviceName}</p>
-                            <p className="text-[10px] text-cyan-700">
-                              Demora: {shippingQuote.estimatedDays}
-                              {shippingQuote.weightKg ? ` • ${shippingQuote.weightKg} kg facturables` : ''}
-                            </p>
-                          </div>
-                          <span className="font-black text-sm shrink-0 ml-2">
-                            {shippingQuote.isFree || shippingQuote.price === 0 ? '¡GRATIS!' : `$${shippingQuote.price.toLocaleString('es-AR')}`}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                <DeliveryEstimate compact
-                  requiresManufacturing={cart.some(item => !isProductInStock(products.find(p => String(p.id) === String(item.id))))}
-                  method={deliveryMethod}
-                />
-              </div>
+              <footer className="max-h-[45dvh] shrink-0 overflow-y-auto border-t border-slate-200 bg-white px-5 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-7" data-testid="cart-checkout-footer">
+                <div className="mb-4 flex items-center justify-between gap-3"><div><p className="text-sm text-slate-500">{deliveryMethod === 'shipping' && !shippingQuote ? 'Subtotal · envío a calcular' : 'Total a pagar'}</p></div><p className="text-2xl font-extrabold tracking-tight text-slate-900">${(cartSubtotal + (deliveryMethod === 'shipping' ? (shippingQuote?.price || 0) : 0)).toLocaleString('es-AR')}</p></div>
+                {isMpEnabled && <button onClick={() => { if (!buyerInfo.nombre.trim() || !buyerInfo.telefono.trim()) setIsBuyerModalOpen(true); else handleMercadoPagoCheckout(); }} disabled={isProcessingMp} className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#009EE3] px-4 py-3.5 text-sm font-extrabold text-white transition hover:bg-[#0089c7] disabled:opacity-50"><CreditCard className="h-4 w-4" />{isProcessingMp ? 'Conectando…' : 'Continuar con Mercado Pago'}</button>}
+                <button onClick={handleWhatsAppCheckout} className={`flex w-full items-center justify-center gap-2 rounded-xl px-3 py-3 text-sm font-bold ${isMpEnabled ? 'mt-1 text-emerald-800 hover:bg-emerald-50' : 'bg-emerald-600 text-white hover:bg-emerald-700'}`}><MessageCircle className="h-4 w-4" />{isMpEnabled ? 'O coordinar por WhatsApp' : 'Coordinar pedido por WhatsApp'}</button>
+              </footer>
             )}
-            </div>
-
-            {cart.length > 0 && (
-              <div className="shrink-0 max-h-[50dvh] overflow-y-auto overscroll-contain border-t border-slate-200 bg-slate-50 p-4 space-y-2 pb-[max(1rem,env(safe-area-inset-bottom))]" data-testid="cart-checkout-footer">
-                {/* Subtotal & Total */}
-                <div className="space-y-1 text-xs pt-1">
-                  <div className="flex justify-between text-slate-600">
-                    <span>Subtotal productos:</span>
-                    <span className="font-bold">${cartSubtotal.toLocaleString('es-AR')}</span>
-                  </div>
-                  <div className="flex justify-between text-slate-600">
-                    <span>Entrega ({deliveryMethod === 'pickup' ? 'Retiro en Taller' : 'Envío a Domicilio'}):</span>
-                    <span className="font-bold">
-                      {deliveryMethod === 'pickup' || (deliveryMethod === 'shipping' && shippingQuote?.price === 0)
-                        ? '¡GRATIS!'
-                        : deliveryMethod === 'shipping' && shippingQuote
-                          ? `$${shippingQuote.price.toLocaleString('es-AR')}`
-                          : deliveryMethod === 'shipping'
-                            ? 'A cotizar'
-                            : '$0'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-sm font-black text-slate-900 pt-2 border-t border-slate-200">
-                    <span>TOTAL FINAL:</span>
-                    <span className="text-cyan-600">
-                      ${(cartSubtotal + (deliveryMethod === 'shipping' ? (shippingQuote?.price || 0) : 0)).toLocaleString('es-AR')}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Checkout Buttons */}
-                <div className="space-y-2 pt-1">
-                  {isMpEnabled ? (
-                    <>
-                      <button
-                        onClick={() => {
-                          if (!buyerInfo.nombre.trim() || !buyerInfo.telefono.trim()) {
-                            setIsBuyerModalOpen(true);
-                          } else {
-                            handleMercadoPagoCheckout();
-                          }
-                        }}
-                        disabled={isProcessingMp}
-                        className="w-full py-3.5 bg-[#009EE3] hover:bg-[#0089c7] text-white font-black text-sm rounded-2xl shadow-lg shadow-sky-500/20 flex items-center justify-center gap-2 transition active:scale-95 disabled:opacity-50 cursor-pointer"
-                      >
-                        {isProcessingMp ? (
-                          <>
-                            <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                            <span>Conectando con Mercado Pago...</span>
-                          </>
-                        ) : (
-                          <>
-                            <CreditCard className="w-5 h-5" />
-                            <span>Pagar con Mercado Pago</span>
-                          </>
-                        )}
-                      </button>
-
-                      <button
-                        onClick={handleWhatsAppCheckout}
-                        className="w-full py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-xs rounded-xl border border-emerald-300/80 flex items-center justify-center gap-2 transition active:scale-95 cursor-pointer"
-                      >
-                        <MessageCircle className="w-4 h-4 text-emerald-600" />
-                        <span>O coordinar pedido por WhatsApp</span>
-                      </button>
-                    </>
-                  ) : (
-                    <button
-                      onClick={handleWhatsAppCheckout}
-                      className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-sm rounded-2xl shadow-md flex items-center justify-center gap-2 transition active:scale-95 cursor-pointer"
-                    >
-                      <MessageCircle className="w-5 h-5" />
-                      <span>Enviar Pedido por WhatsApp</span>
-                    </button>
-                  )}
-                </div>
-
-                {/* Trust Badges */}
-                <div className="grid grid-cols-3 gap-1 pt-2 border-t border-slate-200 text-center text-[10px] text-slate-500 font-semibold">
-                  <div className="flex flex-col items-center">
-                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 mb-0.5" />
-                    <span>Compra Segura</span>
-                  </div>
-                  <div className="flex flex-col items-center">
-                    <Truck className="w-3.5 h-3.5 text-cyan-600 mb-0.5" />
-                    <span>Entrega local</span>
-                  </div>
-                  <div className="flex flex-col items-center">
-                    <Sparkles className="w-3.5 h-3.5 text-amber-500 mb-0.5" />
-                    <span>Calidad 3LD</span>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
+          </section>
         </div>
       )}
 

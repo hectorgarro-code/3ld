@@ -17,9 +17,9 @@ export function DeliveryEstimate({ requiresManufacturing = true, method = 'shipp
     {method === 'shipping' ? 'Válida en nuestra zona de La Costa, excepto Costa Esmeralda, con entrega coordinada martes o jueves. ' : 'Te avisamos cuando esté listo para coordinar el retiro. '}
     Fecha tentativa: feriados, cantidades especiales y disponibilidad pueden modificarla. La confirmamos con vos.
   </>
-  if (compact) return <div className="rounded-xl border border-cyan-200 bg-cyan-50 p-3 text-xs text-cyan-950" data-testid="delivery-estimate">
-    <p className="font-bold">{method === 'pickup' ? 'Retiro estimado' : 'Entrega estimada'}: {method === 'pickup' ? estimate.readyLabel : `${estimate.deliveryLabel}, después de las 17 h`}</p>
-    <details className="mt-1"><summary className="cursor-pointer text-cyan-800 underline">Ver plazos y condiciones</summary><p className="mt-2 leading-relaxed">{conditions}</p></details>
+  if (compact) return <div className="text-xs text-slate-600" data-testid="delivery-estimate">
+    <p className="font-bold">{method === 'pickup' ? 'Disponible desde' : 'Entrega estimada'}: {method === 'pickup' ? estimate.readyLabel : `${estimate.deliveryLabel}, después de las 17 h`}</p>
+    <details className="mt-1"><summary className="cursor-pointer text-slate-500 underline underline-offset-2">Ver plazos y condiciones</summary><p className="mt-2 leading-relaxed">{conditions}</p></details>
   </div>
   return (
     <div className="my-3 rounded-xl border border-cyan-200 bg-cyan-50 p-3 text-xs text-cyan-950" data-testid="delivery-estimate">

@@ -10,8 +10,17 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      injectRegister: false,
       workbox: {
-        navigateFallbackDenylist: [/^\/api/, /^\/uploads/, /\.xml$/, /\.csv$/, /\/envios-devoluciones\.html$/],
+        // Los documentos HTML se consultan a la red; no fijar una versión vieja de la SPA en precaché.
+        globPatterns: ['**/*.{js,css,ico,png,svg,webp,woff,woff2}'],
+        globIgnores: ['registerSW.js'],
+        navigateFallback: null,
+        runtimeCaching: [{
+          urlPattern: ({ request, url }) => request.mode === 'navigate' && !/^\/(api|backend|uploads)(\/|$)/.test(url.pathname),
+          handler: 'NetworkFirst',
+          options: { cacheName: '3ld-documents-v2', networkTimeoutSeconds: 3, cacheableResponse: { statuses: [200] }, expiration: { maxEntries: 12, maxAgeSeconds: 86400 } },
+        }],
       },
       manifest: {
         name: 'Sistema 3LD',
