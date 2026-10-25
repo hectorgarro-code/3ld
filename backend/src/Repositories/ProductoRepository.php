@@ -55,7 +55,7 @@ class ProductoRepository
                            p.es_vendible, p.es_insumo, p.es_tienda, p.es_destacado, p.subcategoria,
                            p.horas_impresion, p.peso_gramos,
                            p.alto_mm, p.ancho_mm, p.profundidad_mm, p.dimensiones,
-                           p.created_at, p.updated_at,
+                           p.seo_title, p.seo_description, p.created_at, p.updated_at,
                            c.id AS categoria_id, c.nombre AS categoria_nombre
                     FROM productos p
                     LEFT JOIN categorias_producto c ON c.id = p.categoria_id
@@ -71,7 +71,7 @@ class ProductoRepository
                            p.precio_venta, p.precio_costo, p.precio_mayorista, p.precio_oferta, p.stock_actual, p.stock_minimo,
                            p.unidad_medida, p.imagen_url, p.imagenes, p.archivo_url, p.piezas, p.activo,
                            p.es_vendible, p.es_insumo, p.es_tienda, p.es_destacado, p.subcategoria,
-                           p.created_at, p.updated_at,
+                           p.seo_title, p.seo_description, p.created_at, p.updated_at,
                            c.id AS categoria_id, c.nombre AS categoria_nombre
                     FROM productos p
                     LEFT JOIN categorias_producto c ON c.id = p.categoria_id

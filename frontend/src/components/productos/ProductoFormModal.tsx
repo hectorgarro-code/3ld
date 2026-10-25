@@ -948,7 +948,7 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
                   <input
                     type="number"
                     step="0.01"
-                    {...register('precio_mayorista', { setValueAs: v => v === "" || isNaN(v) ? null : parseFloat(v) })}
+                    {...register('precio_mayorista', { setValueAs: v => v == null || v === "" || isNaN(v) ? null : parseFloat(v) })}
                     placeholder="Opcional (para clientes mayoristas)"
                     className="w-full rounded-xl border border-indigo-200 bg-indigo-50/30 px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition-colors focus:border-indigo-500 focus:bg-white"
                   />
@@ -961,7 +961,7 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
                   <input
                     type="number"
                     step="0.01"
-                    {...register('precio_oferta', { setValueAs: v => v === "" || isNaN(v) ? null : parseFloat(v) })}
+                    {...register('precio_oferta', { setValueAs: v => v == null || v === "" || isNaN(v) ? null : parseFloat(v) })}
                     placeholder="Opcional (Ej. 12000)"
                     className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition-colors focus:border-primary focus:bg-white"
                   />
