@@ -141,7 +141,7 @@ export function MakerWorldImportModal({ isOpen, onClose, onSuccess }: Props) {
           calcCost = Math.round(d.suggested_price * 0.5)
         }
 
-        const calculatedVenta = calcCost > 0 ? Math.round(calcCost * 2) : (d.suggested_price ? Math.round(d.suggested_price) : 0)
+        const calculatedVenta = calcCost > 0 ? Math.ceil(calcCost * 2 / 100) * 100 : (d.suggested_price ? Math.round(d.suggested_price) : 0)
 
         setPrecioCosto(calcCost)
         setPrecioVenta(calculatedVenta)
@@ -200,6 +200,7 @@ export function MakerWorldImportModal({ isOpen, onClose, onSuccess }: Props) {
     }
 
     setSaving(true)
+    setErrorMsg(null)
     try {
       if (categoriaId) {
         localStorage.setItem('last_categoria_id', String(categoriaId))
@@ -241,7 +242,9 @@ export function MakerWorldImportModal({ isOpen, onClose, onSuccess }: Props) {
       onSuccess?.()
       onClose()
     } catch (err: any) {
-      toast('Error al guardar el producto', 'error')
+      const message = err.response?.data?.message || err.message || 'Error al guardar el producto'
+      setErrorMsg(message)
+      toast(message, 'error')
     } finally {
       setSaving(false)
     }
@@ -509,7 +512,7 @@ export function MakerWorldImportModal({ isOpen, onClose, onSuccess }: Props) {
                       onChange={(e) => {
                         const val = parseFloat(e.target.value) || 0
                         setPrecioCosto(val)
-                        setPrecioVenta(Math.round(val * 2))
+                        setPrecioVenta(Math.ceil(val * 2 / 100) * 100)
                       }}
                       className="w-full p-2 bg-white border border-slate-200 rounded-xl font-bold text-slate-900"
                     />
