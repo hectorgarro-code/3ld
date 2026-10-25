@@ -14,6 +14,8 @@ import {
 } from 'lucide-react'
 import { resolveImageUrl } from '@/lib/utils'
 import { obtenerPrecioPorCantidad } from '@/lib/pricing'
+import { projectFreeShipping, type ShippingCartLine } from '@/lib/freeShipping'
+import { FreeShippingProgress } from './FreeShippingProgress'
 import { SocialShareModal } from '@/components/productos/SocialShareModal'
 import { CustomerShareModal } from '@/components/tienda/CustomerShareModal'
 import { DeliveryEstimate } from '@/components/tienda/DeliveryEstimate'
@@ -153,6 +155,7 @@ export interface ProductStoreDetailModalProps {
   onShare?: (product: any) => void
   isAdminView?: boolean
   onEdit?: (product: any) => void
+  cartItems?: ShippingCartLine[]
 }
 
 export function ProductStoreDetailModal({
@@ -163,6 +166,7 @@ export function ProductStoreDetailModal({
   onShare,
   isAdminView = false,
   onEdit,
+  cartItems = [],
 }: ProductStoreDetailModalProps) {
   const product = useMemo(() => normalizeToStoreProduct(rawProduct), [rawProduct])
 
@@ -175,7 +179,7 @@ export function ProductStoreDetailModal({
 
   // Inicializar estado cuando se abre con un producto nuevo
   useEffect(() => {
-    if (product) {
+    if (product && isOpen) {
       setActiveImage(product.images[0] || product.image || '')
       setSelectedColor('')
       setQuantity(1)
@@ -191,7 +195,7 @@ export function ProductStoreDetailModal({
         setSelectedPiezas({})
       }
     }
-  }, [product])
+  }, [product, isOpen])
 
   useEffect(() => {
     if (!isOpen) return
@@ -238,10 +242,28 @@ export function ProductStoreDetailModal({
     .filter(t => Number.isInteger(Number(t.cantidad)) && Number(t.cantidad) > 0 && Number.isFinite(Number(t.precio)) && Number(t.precio) >= 0)
     .map(t => ({ cantidad: Number(t.cantidad), precio: Number(t.precio) }))
     .sort((a, b) => a.cantidad - b.cantidad), [product])
-  const unitPrice = (allPiecesSelected ? obtenerPrecioPorCantidad(quantityTiers, quantity) : null) ?? calculatedPrice
+  const selectionPrice = (allPiecesSelected ? obtenerPrecioPorCantidad(quantityTiers, quantity) : null) ?? calculatedPrice
+  const money = (value: number) => '$' + value.toLocaleString('es-AR', { maximumFractionDigits: 2 })
+
+  const cartSelection = useMemo(() => {
+    if (!product) return null
+    const pieces = product.piezas?.filter(p => selectedPiezas[p.id || p.nombre]) || []
+    if (product.piezas?.length && !pieces.length) return null
+    return {
+      ...(product.raw || product),
+      id: product.id,
+      title: pieces.length ? `${product.title} (${pieces.length} pieza${pieces.length > 1 ? 's' : ''}: ${pieces.map(p => p.nombre).join(', ')})` : product.title,
+      price: selectionPrice,
+      basePrice: calculatedPrice,
+      selectedPieceIds: pieces.length ? pieces.map(p => String(p.id || p.nombre)) : undefined,
+      precios_cantidad: allPiecesSelected ? quantityTiers : [],
+    }
+  }, [product, selectedPiezas, selectionPrice, calculatedPrice, allPiecesSelected, quantityTiers])
+  const shippingGoal = cartSelection ? projectFreeShipping(cartItems, cartSelection, quantity, selectedColor || 'Estándar') : null
+  const unitPrice = shippingGoal?.unitPrice ?? selectionPrice
   const totalPrice = Math.round(unitPrice * quantity * 100) / 100
   const unitSaving = Math.max(0, calculatedPrice - unitPrice)
-  const money = (value: number) => '$' + value.toLocaleString('es-AR', { maximumFractionDigits: 2 })
+  const volumeQuantity = shippingGoal?.combinedQuantity ?? quantity
 
   if (!isOpen || !product) return null
 
@@ -260,22 +282,8 @@ export function ProductStoreDetailModal({
   const handleAddCartClick = () => {
     if (!onAddToCart) return
     const finalColor = selectedColor || 'Estándar'
-    if (product.piezas && product.piezas.length > 0) {
-      const selectedList = product.piezas.filter((p) => selectedPiezas[p.id || p.nombre])
-      if (selectedList.length === 0) return
-      const piezaNames = selectedList.map((p) => p.nombre).join(', ')
-      const customProduct = {
-        ...(product.raw || product),
-        title: `${product.title} (${selectedList.length} pieza${selectedList.length > 1 ? 's' : ''}: ${piezaNames})`,
-        price: unitPrice,
-        basePrice: calculatedPrice,
-        selectedPieceIds: selectedList.map(p => String(p.id || p.nombre)),
-        precios_cantidad: selectedList.length === product.piezas.length ? product.precios_cantidad : [],
-      }
-      onAddToCart(customProduct, quantity, finalColor)
-    } else {
-      onAddToCart({ ...(product.raw || product), price: unitPrice, basePrice: product.price, precios_cantidad: quantityTiers }, quantity, finalColor)
-    }
+    if (!cartSelection) return
+    onAddToCart({ ...cartSelection, price: unitPrice }, quantity, finalColor)
     onClose()
   }
 
@@ -416,15 +424,25 @@ export function ProductStoreDetailModal({
             </div>
             {unitSaving > 0 && <p className="mt-1 text-sm font-bold text-emerald-700">Ahorrás {money(unitSaving)} {product.piezas?.length ? 'por selección' : 'por unidad'} con esta cantidad</p>}
 
+            {!!shippingGoal?.existingQuantity && <p className="mt-1 text-xs leading-relaxed text-slate-500">Se suman a las {shippingGoal.existingQuantity} unidades de esta misma opción que ya tenés en el carrito.</p>}
+            {onAddToCart && shippingGoal && <div className="mt-4">
+              <FreeShippingProgress subtotal={shippingGoal.projectedSubtotal} preview>
+                {shippingGoal.targetQuantity !== null && <button type="button" onClick={() => setQuantity(shippingGoal.targetQuantity!)} className="mt-3 min-h-11 w-full rounded-xl border border-cyan-300 bg-white px-3 py-2 text-sm font-bold text-cyan-900 hover:bg-cyan-100 cursor-pointer">
+                  Elegir {shippingGoal.targetQuantity} unidades · Pedido {money(shippingGoal.targetSubtotal!)}
+                </button>}
+                {shippingGoal.targetQuantity !== null && <p className="mt-1.5 text-xs leading-relaxed text-cyan-900">Sumá {shippingGoal.targetQuantity - quantity} más de esta selección. Ya calculamos los descuentos por cantidad{cartItems.length ? ' y lo que tenés en el carrito' : ''}.</p>}
+              </FreeShippingProgress>
+            </div>}
+
             {quantityTiers.length > 0 && allPiecesSelected && (
               <section className="mt-4 rounded-2xl border border-teal-200 bg-teal-50 p-3 sm:p-4" aria-label="Descuentos por cantidad">
                 <h3 className="text-sm font-extrabold text-teal-950">Llevá más, pagá menos</h3>
                 <p className="mt-1 text-xs text-teal-800">Elegí una cantidad. El descuento se aplica automáticamente.</p>
                 <div className="mt-3 grid gap-2">
                   {quantityTiers.map((tier, index) => {
-                    const active = quantity >= tier.cantidad && !(quantityTiers[index + 1] && quantity >= quantityTiers[index + 1].cantidad)
+                    const active = volumeQuantity >= tier.cantidad && !(quantityTiers[index + 1] && volumeQuantity >= quantityTiers[index + 1].cantidad)
                     const saving = Math.max(0, calculatedPrice - tier.precio)
-                    return <button key={`${tier.cantidad}-${index}`} type="button" onClick={() => setQuantity(tier.cantidad)} aria-label={`Elegir ${tier.cantidad} unidades`} aria-pressed={active}
+                    return <button key={`${tier.cantidad}-${index}`} type="button" onClick={() => setQuantity(Math.max(1, tier.cantidad - (shippingGoal?.existingQuantity || 0)))} aria-label={`${shippingGoal?.existingQuantity ? 'Alcanzar' : 'Elegir'} ${tier.cantidad} unidades`} aria-pressed={active}
                       className={`min-h-14 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-xl border p-3 text-left cursor-pointer transition ${active ? 'border-teal-600 bg-white ring-1 ring-teal-600' : 'border-teal-200 bg-white/70 hover:bg-white'}`}>
                       <span className="text-sm font-bold text-teal-950">Desde {tier.cantidad} unidades <span className="font-normal">· {money(tier.precio)} {product.piezas?.length ? 'por selección' : 'c/u'}</span></span>
                       {saving > 0 && <span className="text-xs font-bold text-emerald-700">Ahorrás {money(saving)} {product.piezas?.length ? 'por selección' : 'por unidad'}</span>}

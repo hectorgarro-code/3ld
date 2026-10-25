@@ -36,6 +36,8 @@ import { calcularTarifaCorreoArgentino } from '@/lib/correoArgentino';
 import { CustomerShareModal } from '@/components/tienda/CustomerShareModal';
 import { ProductStoreDetailModal } from '@/components/tienda/ProductStoreDetailModal';
 import { DeliveryEstimate } from '@/components/tienda/DeliveryEstimate';
+import { FreeShippingProgress } from '@/components/tienda/FreeShippingProgress';
+import { LOCAL_FREE_SHIPPING_THRESHOLD } from '@/lib/freeShipping';
 const TiendaStoriesModal = React.lazy(() => import('@/components/tienda/TiendaStoriesModal').then(m => ({ default: m.TiendaStoriesModal })));
 import {
   trackPageView,
@@ -978,7 +980,7 @@ export default function TiendaPage() {
     return counts;
   }, [products]);
 
-  const freeShippingThreshold = 30000;
+  const freeShippingThreshold = LOCAL_FREE_SHIPPING_THRESHOLD;
   const cartSignature = useRef('');
   const cartWasOpen = useRef(false);
   useEffect(() => {
@@ -1881,10 +1883,7 @@ export default function TiendaPage() {
                 <div className="px-7 py-20 text-center"><ShoppingCart className="mx-auto mb-4 h-10 w-10 text-slate-300" /><h3 className="font-bold">Tu carrito está vacío</h3><p className="mt-2 text-sm text-slate-500">Elegí algo que te guste y lo guardamos acá.</p><button onClick={() => setIsCartOpen(false)} className="mt-6 rounded-xl bg-slate-900 px-6 py-3 text-sm font-bold text-white">Explorar productos</button></div>
               ) : (
                 <div className="px-5 pb-6 sm:px-7">
-                  <div className="py-4">
-                    <p className="text-xs text-slate-600">{cartSubtotal >= freeShippingThreshold ? <span className="font-bold text-emerald-700">Tu compra ya tiene envío local gratis</span> : <>Te faltan <strong className="text-slate-900">${(freeShippingThreshold - cartSubtotal).toLocaleString('es-AR')}</strong> para el envío local gratis</>}</p>
-                    <div className="mt-2 h-1 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${Math.min(100, (cartSubtotal / freeShippingThreshold) * 100)}%` }} /></div>
-                  </div>
+                  <div className="py-4"><FreeShippingProgress subtotal={cartSubtotal} /></div>
                   <div aria-label="Productos del carrito" className="divide-y divide-slate-100">
                     {cart.map(item => (
                       <article key={`${item.id}-${item.color}-${JSON.stringify(item.selectedPieceIds || [])}`} className="grid grid-cols-[72px_minmax(0,1fr)] gap-4 py-5 sm:grid-cols-[88px_minmax(0,1fr)]">
@@ -1935,6 +1934,7 @@ export default function TiendaPage() {
       {/* Product Detail Modal (Unificado) */}
       <ProductStoreDetailModal
         product={activeProductModal}
+        cartItems={cart}
         isOpen={!!activeProductModal}
         onClose={closeProductModal}
         onAddToCart={(product, qty, color) => addToCart(product, qty, color)}
