@@ -307,7 +307,7 @@ export function ProductStoreDetailModal({
                 <Eye className="w-3.5 h-3.5" /> Vista Previa: Como lo ve el cliente en la Tienda
               </span>
               <a
-                href={`/tienda?producto=${product.id}`}
+                href={`https://3ld.com.ar/?producto=${encodeURIComponent(product.id)}`}
                 target="_blank"
                 rel="noreferrer"
                 className="text-[11px] text-cyan-300 hover:text-white flex items-center gap-1 underline font-semibold"
@@ -625,7 +625,7 @@ export function ProductStoreDetailModal({
                           onClose()
                           onEdit(product.raw || product)
                         }}
-                        className="px-3.5 py-2.5 bg-slate-100 hover:bg-primary/20 text-slate-700 hover:text-primary font-bold text-xs rounded-2xl transition flex items-center gap-1.5 cursor-pointer"
+                        className="min-h-11 px-3.5 py-2.5 bg-slate-100 hover:bg-primary/20 text-slate-700 hover:text-primary font-bold text-xs rounded-2xl transition flex items-center gap-1.5 cursor-pointer"
                         title="Editar en el panel"
                       >
                         <Pencil className="w-3.5 h-3.5 text-primary" />
@@ -633,10 +633,10 @@ export function ProductStoreDetailModal({
                       </button>
                     )}
                     <a
-                      href={`/tienda?producto=${product.id}`}
+                      href={`https://3ld.com.ar/?producto=${encodeURIComponent(product.id)}`}
                       target="_blank"
                       rel="noreferrer"
-                      className="px-4 py-2.5 bg-[#6B66C8] hover:bg-[#5752B3] text-white font-bold text-xs rounded-2xl shadow-xs transition flex items-center gap-1.5"
+                      className="min-h-11 px-4 py-2.5 bg-[#6B66C8] hover:bg-[#5752B3] text-white font-bold text-xs rounded-2xl shadow-xs transition flex items-center gap-1.5"
                     >
                       <ExternalLink className="w-3.5 h-3.5" />
                       <span>Ir a Tienda</span>
