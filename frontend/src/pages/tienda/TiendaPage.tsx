@@ -1852,7 +1852,7 @@ export default function TiendaPage() {
         <div className="fixed inset-0 z-50 flex justify-end bg-slate-950/45 backdrop-blur-xs">
           <section role="dialog" aria-modal="true" aria-labelledby="cart-title" className="flex h-dvh min-h-0 w-full max-w-[560px] flex-col overflow-hidden bg-white shadow-2xl" data-testid="cart-drawer-v2">
             <header className="flex shrink-0 items-center justify-between border-b border-slate-100 px-5 py-5 sm:px-7">
-              <div><h2 id="cart-title" className="text-xl font-extrabold tracking-tight text-slate-900">Tu carrito</h2><p className="mt-1 text-sm text-slate-500">{cartItemsCount} {cartItemsCount === 1 ? 'artículo' : 'artículos'} seleccionados</p></div>
+              <div><h2 id="cart-title" className="text-xl font-extrabold tracking-tight text-slate-900">Tu carrito</h2><p className="mt-1 text-sm text-slate-500">{cartItemsCount} {cartItemsCount === 1 ? 'artículo seleccionado' : 'artículos seleccionados'}</p></div>
               <button onClick={() => setIsCartOpen(false)} aria-label="Cerrar carrito" className="flex h-10 w-10 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100"><X className="h-5 w-5" /></button>
             </header>
 
