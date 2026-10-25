@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 import { estimateDelivery } from '@/lib/deliveryEstimate'
 
-type Props = { requiresManufacturing?: boolean; method?: 'pickup' | 'shipping' }
+type Props = { requiresManufacturing?: boolean; method?: 'pickup' | 'shipping'; compact?: boolean }
 
-export function DeliveryEstimate({ requiresManufacturing = true, method = 'shipping' }: Props) {
+export function DeliveryEstimate({ requiresManufacturing = true, method = 'shipping', compact = false }: Props) {
   const [now, setNow] = useState(() => new Date())
   useEffect(() => {
     const update = () => setNow(new Date())
@@ -12,6 +12,15 @@ export function DeliveryEstimate({ requiresManufacturing = true, method = 'shipp
     return () => { window.clearInterval(timer); window.removeEventListener('focus', update) }
   }, [])
   const estimate = estimateDelivery(now, requiresManufacturing)
+  const conditions = <>
+    Si confirmás el pedido hoy. {requiresManufacturing ? 'Incluye 4 días de fabricación, de lunes a viernes. ' : 'Para la disponibilidad en stock indicada. '}
+    {method === 'shipping' ? 'Válida en nuestra zona de La Costa, excepto Costa Esmeralda, con entrega coordinada martes o jueves. ' : 'Te avisamos cuando esté listo para coordinar el retiro. '}
+    Fecha tentativa: feriados, cantidades especiales y disponibilidad pueden modificarla. La confirmamos con vos.
+  </>
+  if (compact) return <div className="rounded-xl border border-cyan-200 bg-cyan-50 p-3 text-xs text-cyan-950" data-testid="delivery-estimate">
+    <p className="font-bold">{method === 'pickup' ? 'Retiro estimado' : 'Entrega estimada'}: {method === 'pickup' ? estimate.readyLabel : `${estimate.deliveryLabel}, después de las 17 h`}</p>
+    <details className="mt-1"><summary className="cursor-pointer text-cyan-800 underline">Ver plazos y condiciones</summary><p className="mt-2 leading-relaxed">{conditions}</p></details>
+  </div>
   return (
     <div className="my-3 rounded-xl border border-cyan-200 bg-cyan-50 p-3 text-xs text-cyan-950" data-testid="delivery-estimate">
       <p className="font-extrabold">
@@ -21,9 +30,7 @@ export function DeliveryEstimate({ requiresManufacturing = true, method = 'shipp
         {method === 'pickup' ? estimate.readyLabel : `${estimate.deliveryLabel}, después de las 17 h`}
       </p>
       <p className="mt-1 leading-relaxed">
-        Si confirmás el pedido hoy. {requiresManufacturing ? 'Incluye 4 días de fabricación, de lunes a viernes. ' : 'Para la disponibilidad en stock indicada. '}
-        {method === 'shipping' ? 'Válida en nuestra zona de La Costa, excepto Costa Esmeralda, con entrega coordinada martes o jueves. ' : 'Te avisamos cuando esté listo para coordinar el retiro. '}
-        Fecha tentativa: feriados, cantidades especiales y disponibilidad pueden modificarla. La confirmamos con vos.
+        {conditions}
       </p>
     </div>
   )
