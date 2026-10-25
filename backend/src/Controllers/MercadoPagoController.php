@@ -408,6 +408,12 @@ class MercadoPagoController
                     $stmtUp->execute([$prefId, $pedidoId]);
                 } catch (\Throwable $e) {}
 
+                // Atribución privada, separada del procesamiento y aprobación del pago.
+                if (!$request->getHeaderLine('Authorization')) {
+                    try { (new \App\Services\CartFunnel($this->db))->linkCheckout((int)$pedidoId,$body['analytics'] ?? null); }
+                    catch (\Throwable $e) { error_log('3LD: atribución de checkout no disponible; el pago continúa.'); }
+                }
+
                 // Enviar email de confirmación y aviso al taller
                 $this->enviarEmailConfirmacion([
                     'email'            => $emailComprador,

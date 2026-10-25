@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   ShoppingCart,
   Search,
@@ -43,6 +43,8 @@ import {
   trackAddToCart,
   trackWhatsAppClick,
   trackQuoteClick,
+  trackEvent,
+  getCheckoutAnalyticsIdentity,
 } from '@/lib/analyticsTracker';
 import { metaPixel } from '@/lib/metaPixel';
 import { ecommerceTracking } from '@/lib/ecommerceTracking';
@@ -602,6 +604,7 @@ export default function TiendaPage() {
         items: itemsPayload,
         envio: verifiedShipping,
         expected_total: quote.total,
+        analytics: getCheckoutAnalyticsIdentity(),
         comprador: buyerInfo,
         notas: buyerInfo.notas,
       });
@@ -618,9 +621,11 @@ export default function TiendaPage() {
         );
         window.location.href = res.data.data.init_point;
       } else {
+        trackEvent({ tipo: 'pago_error', metadata: { etapa: 'preferencia' } });
         showToast(res.data?.message || 'Error al iniciar pago en Mercado Pago', 'error');
       }
     } catch (err: any) {
+      trackEvent({ tipo: 'pago_error', metadata: { etapa: 'checkout' } });
       showToast(err?.response?.data?.error || err?.response?.data?.message || 'Error al conectar con Mercado Pago', 'error');
     } finally {
       setIsProcessingMp(false);
@@ -974,6 +979,20 @@ export default function TiendaPage() {
   }, [products]);
 
   const freeShippingThreshold = 30000;
+  const cartSignature = useRef('');
+  const cartWasOpen = useRef(false);
+  useEffect(() => {
+    const signature = JSON.stringify(cart.map(item => [item.id, item.color, item.qty, item.price, item.selectedPieceIds]));
+    if (signature === cartSignature.current) return;
+    const hadCart = cartSignature.current !== '' && cartSignature.current !== '[]';
+    cartSignature.current = signature;
+    if (cartItemsCount > 0 || hadCart) trackEvent({ tipo: 'carrito_estado', metadata: { version: 1, articulos: cartItemsCount, valor: cartSubtotal } });
+  }, [cart, cartItemsCount, cartSubtotal]);
+  useEffect(() => {
+    if (isCartOpen && !cartWasOpen.current && cartItemsCount > 0) trackEvent({ tipo: 'carrito_abierto' });
+    cartWasOpen.current = isCartOpen;
+  }, [isCartOpen, cartItemsCount]);
+
   const isFreeLocalShipping = cartSubtotal >= freeShippingThreshold;
 
   const mobileFeaturedCategories = useMemo(() => {
@@ -1173,6 +1192,7 @@ export default function TiendaPage() {
 
   const handleWhatsAppCheckout = () => {
     if (cart.length === 0) return;
+    trackEvent({ tipo: 'pedido_whatsapp', metadata: { articulos: cartItemsCount, valor: cartSubtotal } });
     metaPixel.initiateCheckout(
       cart,
       cartSubtotal + (deliveryMethod === 'shipping' ? (shippingQuote?.price || 0) : 0)
@@ -1904,7 +1924,7 @@ export default function TiendaPage() {
             {cart.length > 0 && (
               <footer className="max-h-[45dvh] shrink-0 overflow-y-auto border-t border-slate-200 bg-white px-5 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-7" data-testid="cart-checkout-footer">
                 <div className="mb-4 flex items-center justify-between gap-3"><div><p className="text-sm text-slate-500">{deliveryMethod === 'shipping' && !shippingQuote ? 'Subtotal · envío a calcular' : 'Total a pagar'}</p></div><p className="text-2xl font-extrabold tracking-tight text-slate-900">${(cartSubtotal + (deliveryMethod === 'shipping' ? (shippingQuote?.price || 0) : 0)).toLocaleString('es-AR')}</p></div>
-                {isMpEnabled && <button onClick={() => { if (!buyerInfo.nombre.trim() || !buyerInfo.telefono.trim()) setIsBuyerModalOpen(true); else handleMercadoPagoCheckout(); }} disabled={isProcessingMp} className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#009EE3] px-4 py-3.5 text-sm font-extrabold text-white transition hover:bg-[#0089c7] disabled:opacity-50"><CreditCard className="h-4 w-4" />{isProcessingMp ? 'Conectando…' : 'Continuar con Mercado Pago'}</button>}
+                {isMpEnabled && <button onClick={() => { trackEvent({ tipo: 'iniciar_pago', metadata: { canal: 'mercadopago' } }); if (!buyerInfo.nombre.trim() || !buyerInfo.telefono.trim()) setIsBuyerModalOpen(true); else handleMercadoPagoCheckout(); }} disabled={isProcessingMp} className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#009EE3] px-4 py-3.5 text-sm font-extrabold text-white transition hover:bg-[#0089c7] disabled:opacity-50"><CreditCard className="h-4 w-4" />{isProcessingMp ? 'Conectando…' : 'Continuar con Mercado Pago'}</button>}
                 <button onClick={handleWhatsAppCheckout} className={`flex w-full items-center justify-center gap-2 rounded-xl px-3 py-3 text-sm font-bold ${isMpEnabled ? 'mt-1 text-emerald-800 hover:bg-emerald-50' : 'bg-emerald-600 text-white hover:bg-emerald-700'}`}><MessageCircle className="h-4 w-4" />{isMpEnabled ? 'O coordinar por WhatsApp' : 'Coordinar pedido por WhatsApp'}</button>
               </footer>
             )}

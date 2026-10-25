@@ -78,6 +78,9 @@ class AnalyticsController
                 return Response::success(['tracked' => false, 'reason' => 'internal_route_excluded']);
             }
 
+            $allowed=['pageview','ver_producto','ver_historia','like_producto','agregar_carrito','whatsapp_click','cotizar_click','carrito_estado','carrito_abierto','iniciar_pago','pago_error','pedido_whatsapp'];
+            if (!in_array($parsed['tipo'] ?? 'pageview',$allowed,true)) return Response::success(['tracked'=>false,'reason'=>'unsupported_event']);
+
             $this->repository->recordTrack($parsed, $ip, $ua);
 
             $res = Response::success(['tracked' => true]);
@@ -112,7 +115,7 @@ class AnalyticsController
             $period = $params['period'] ?? '7d';
 
             $stats = $this->repository->getStats($period);
-            return Response::success($stats);
+            return Response::success($stats)->withHeader('Cache-Control','private, no-store');
         } catch (Throwable $e) {
             return Response::error('Error al obtener estadísticas de visitas: ' . $e->getMessage(), 500);
         }

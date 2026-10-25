@@ -259,7 +259,11 @@ class AnalyticsRepository
         $visitantesUnicos = (int)($summary['visitantes_unicos'] ?? 0);
         $promedioAcciones = $totalSesiones > 0 ? round($totalAccionesPeriodo / $totalSesiones, 1) : 0;
 
+        try { $funnel=(new \App\Services\CartFunnel($this->db))->report($period); }
+        catch (\Throwable $e) { $funnel=null; error_log('3LD: informe de carrito no disponible.'); }
+
         return [
+            'cart_funnel' => $funnel,
             'period'                    => $period,
             'total_sesiones'            => $totalSesiones,
             'visitantes_unicos'         => $visitantesUnicos,

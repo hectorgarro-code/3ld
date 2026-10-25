@@ -30,8 +30,10 @@ import {
   CartesianGrid,
 } from 'recharts'
 import api from '@/lib/api'
+import { CartFunnelReport, type CartFunnelData } from '@/components/CartFunnelReport'
 
 interface AnalyticsStats {
+  cart_funnel?: CartFunnelData | null
   period: string
   total_sesiones: number
   visitantes_unicos: number
@@ -109,6 +111,9 @@ export default function VisitasPage() {
   const renderActionBadge = (action: string | null, product: string | null) => {
     if (!action) return <span className="text-slate-400 text-xs">Navegando el catálogo</span>
 
+    const funnelLabels: Record<string, string> = { carrito_estado: 'Actualizó el carrito', carrito_abierto: 'Abrió el carrito', iniciar_pago: 'Comenzó el pago web', pedido_whatsapp: 'Eligió coordinar por WhatsApp', pago_error: 'Error al iniciar el pago' }
+    if (funnelLabels[action]) return <span className="rounded-md bg-violet-50 px-2 py-1 text-xs font-semibold text-violet-800">{funnelLabels[action]}</span>
+
     switch (action) {
       case 'ver_producto':
         return (
@@ -174,7 +179,7 @@ export default function VisitasPage() {
           </div>
           <p className="text-xs text-slate-500 mt-1 flex items-center gap-1.5">
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-            Métricas nativas y privadas con 0% impacto en la velocidad del sitio.
+            Actividad registrada en la tienda, con filtros de administradores y bots detectados.
           </p>
         </div>
 
@@ -222,7 +227,7 @@ export default function VisitasPage() {
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <p className="font-black text-emerald-900 text-xs sm:text-sm">Auditoría Estricta: Solo Público Real</p>
+              <p className="font-black text-emerald-900 text-xs sm:text-sm">Filtros de tráfico activos</p>
               <span className="bg-emerald-200/70 text-emerald-800 text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider">
                 Filtro Activo
               </span>
@@ -247,6 +252,7 @@ export default function VisitasPage() {
         </div>
       ) : stats ? (
         <>
+          <CartFunnelReport data={stats.cart_funnel} />
           {/* Tarjetas Principales de KPI */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Total Visitas */}

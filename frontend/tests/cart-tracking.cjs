@@ -1,0 +1,12 @@
+const fs=require('node:fs'),vm=require('node:vm'),ts=require('typescript'),assert=require('node:assert/strict');
+const source=fs.readFileSync('src/lib/analyticsTracker.ts','utf8');
+const stored=new Map(),queue=[],sent=[];
+const context={exports:{},require:()=>({metaPixel:{},ecommerceTracking:{}}),localStorage:{getItem:k=>stored.get(k)||null,setItem:(k,v)=>stored.set(k,v)},window:{location:{pathname:'/tienda',search:'',href:'https://3ld.com.ar/tienda'},requestIdleCallback:fn=>queue.push(fn)},navigator:{sendBeacon:(url,body)=>{sent.push({url,body});return true}},document:{referrer:''},Blob,setTimeout:()=>0,Date,Math,JSON};
+vm.createContext(context);vm.runInContext(ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,context);
+const {trackEvent,getCheckoutAnalyticsIdentity}=context.exports;
+const identity=getCheckoutAnalyticsIdentity();assert.ok(identity.session_id.startsWith('s_'));assert.ok(identity.visitor_id.startsWith('v_'));assert.deepEqual(Object.keys(identity).sort(),['session_id','visitor_id']);
+trackEvent({tipo:'carrito_estado',metadata:{version:1,articulos:1,valor:100}});trackEvent({tipo:'carrito_estado',metadata:{version:1,articulos:1,valor:100}});trackEvent({tipo:'carrito_estado',metadata:{version:1,articulos:0,valor:0}});
+queue.splice(0).forEach(fn=>fn());assert.equal(sent.length,2,'deduplica iguales pero conserva vaciado inmediato');
+stored.set('3ld-auth-storage',JSON.stringify({state:{isAuthenticated:true}}));assert.equal(getCheckoutAnalyticsIdentity(),null);trackEvent({tipo:'iniciar_pago'});assert.equal(queue.length,0);
+stored.delete('3ld-auth-storage');stored.set('3ld_analytics_opt_out','true');assert.equal(getCheckoutAnalyticsIdentity(),null);trackEvent({tipo:'pedido_whatsapp'});assert.equal(queue.length,0);
+(async()=>{const payload=JSON.parse(await sent[0].body.text());assert.equal(payload.session_id,identity.session_id);assert.equal(payload.visitor_id,identity.visitor_id);assert.equal(payload.metadata.articulos,1);assert.ok(!JSON.stringify(payload).includes('telefono'));console.log('OK: identidad anónima consistente, estados/vaciado, deduplicación y exclusión de personal/opt-out sin red.');})().catch(e=>{console.error(e);process.exitCode=1});

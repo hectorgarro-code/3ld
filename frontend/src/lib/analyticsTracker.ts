@@ -119,7 +119,12 @@ export type EventType =
   | 'like_producto'
   | 'agregar_carrito'
   | 'whatsapp_click'
-  | 'cotizar_click';
+  | 'cotizar_click'
+  | 'carrito_estado'
+  | 'carrito_abierto'
+  | 'iniciar_pago'
+  | 'pago_error'
+  | 'pedido_whatsapp';
 
 interface TrackOptions {
   tipo: EventType;
@@ -139,7 +144,7 @@ export function trackEvent(options: TrackOptions): void {
   }
 
   // Evitar trackear llamadas repetidas exactamente iguales en un lapso de 2.5 segundos
-  const dedupeKey = `${options.tipo}_${options.producto_id || ''}_${options.producto_nombre || ''}`;
+  const dedupeKey = `${options.tipo}_${options.producto_id || ''}_${options.producto_nombre || ''}_${JSON.stringify(options.metadata || {})}`;
   if (recentEventsCache.has(dedupeKey)) return;
   recentEventsCache.add(dedupeKey);
   setTimeout(() => recentEventsCache.delete(dedupeKey), 2500);
@@ -240,4 +245,11 @@ export function trackQuoteClick(): void {
   trackEvent({
     tipo: 'cotizar_click',
   });
+}
+
+/** Solo identificadores anónimos de medición; nunca nombre, teléfono o email. */
+export function getCheckoutAnalyticsIdentity(): { session_id: string; visitor_id: string } | null {
+  if (isSystemOrStaffUser()) return null;
+  const identity = getOrCreateSession();
+  return { session_id: identity.sessionId, visitor_id: identity.visitorId };
 }
