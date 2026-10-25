@@ -146,9 +146,7 @@ class MakerWorldScraper
             $proxyImages[] = '/api/v1/ai/proxy-image?url=' . urlencode($remoteUrl);
         }
 
-        if (empty($proxyImages)) {
-            $proxyImages[] = 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=600&auto=format&fit=crop&q=80';
-        }
+        // Sin foto real, dejar pendiente: una imagen genérica no representa el producto.
 
         return [
             'raw_title'       => trim($title),

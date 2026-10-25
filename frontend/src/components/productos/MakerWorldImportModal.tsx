@@ -135,22 +135,19 @@ export function MakerWorldImportModal({ isOpen, onClose, onSuccess }: Props) {
         const savedFilamento = parseFloat(localStorage.getItem('costo_filamento_kg_default') || '15000')
         const savedHora = parseFloat(localStorage.getItem('costo_hora_maquina_default') || '500')
         let calcCost = 0
-        if (g > 0 || h > 0) {
+        if (g > 0 && h > 0) {
           calcCost = Math.round((g / 1000) * savedFilamento + h * savedHora)
-        } else if (d.suggested_price) {
-          calcCost = Math.round(d.suggested_price * 0.5)
         }
+        if (!(g > 0 && h > 0)) setEsTienda(false)
 
-        const calculatedVenta = calcCost > 0 ? Math.ceil(calcCost * 2 / 100) * 100 : (d.suggested_price ? Math.round(d.suggested_price) : 0)
+        const calculatedVenta = calcCost > 0 ? Math.ceil(calcCost * 2 / 100) * 100 : 0
 
         setPrecioCosto(calcCost)
         setPrecioVenta(calculatedVenta)
         setStockActual(0)
 
         setArchivoUrl(d.source_url || url.trim())
-        if (d.images && d.images.length > 0) {
-          setSelectedImages(d.images.slice(0, 5))
-        }
+        setSelectedImages(Array.isArray(d.images) ? d.images.slice(0, 5) : [])
 
         // Matchear categoría si es posible
         if (categorias && categorias.length > 0) {
@@ -494,6 +491,8 @@ export function MakerWorldImportModal({ isOpen, onClose, onSuccess }: Props) {
                   </div>
                 </div>
 
+                {(pesoGramos <= 0 || horasImpresion <= 0) && <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-relaxed text-amber-900" role="status">MakerWorld no informó todos los consumos. Revisá gramos, horas y costo antes de publicar; no se usa el precio sugerido como costo de fabricación.</p>}
+                {selectedImages.length === 0 && <p className="text-xs text-slate-600">No se obtuvo una foto del modelo. Podés agregar una foto real desde la edición del artículo.</p>}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   <div>
                     <label className="font-bold text-slate-700 block mb-1">Precio Venta ($)</label>
