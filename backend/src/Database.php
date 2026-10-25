@@ -38,6 +38,10 @@ class Database
             try {
                 self::$instance = new PDO($dsn, $user, $pass, $options);
                 self::ensureSchema(self::$instance);
+                try {
+                    $column=self::$instance->query("SHOW COLUMNS FROM productos LIKE 'precios_cantidad'")->fetch();
+                    if (!$column) self::$instance->exec("ALTER TABLE productos ADD COLUMN precios_cantidad TEXT NULL");
+                } catch (\Throwable $e) { error_log('3LD: columna de precios por cantidad pendiente.'); }
                 // Cada instalación importa sus archivos antiguos al registro compartido, sin borrarlos.
                 if (glob(__DIR__ . '/../var/return-requests/*.php')) {
                     try { (new \App\Services\ReturnLedger(self::$instance))->importLegacy(new \App\Services\ReturnRequests()); }

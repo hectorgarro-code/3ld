@@ -284,31 +284,8 @@ class ProductoRepository
                 $data['seo_description'] ?? null,
             ]);
         } catch (\PDOException $e) {
-            $stmt = $this->db->prepare(
-                "INSERT INTO productos
-                    (nombre, variante, sku, descripcion, tipo, categoria_id, precio_venta, precio_costo, precio_mayorista,
-                     stock_actual, stock_minimo, unidad_medida, imagen_url, archivo_url,
-                     es_vendible, es_insumo, activo, created_at, updated_at)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())"
-            );
-            $stmt->execute([
-                trim($data['nombre']),
-                $data['variante']      ?? null,
-                $sku,
-                $data['descripcion']   ?? null,
-                $data['tipo']          ?? 'impresion_3d',
-                $data['categoria_id']  ?? null,
-                (float) ($data['precio_venta']  ?? 0),
-                (float) ($data['precio_costo']  ?? 0),
-                isset($data['precio_mayorista']) ? (float)$data['precio_mayorista'] : null,
-                (int)   ($data['stock_actual']  ?? 0),
-                (int)   ($data['stock_minimo']  ?? 0),
-                $data['unidad_medida'] ?? 'unidad',
-                $data['imagen_url']    ?? null,
-                $data['archivo_url']   ?? null,
-                isset($data['es_vendible']) ? (int)$data['es_vendible'] : 1,
-                isset($data['es_insumo']) ? (int)$data['es_insumo'] : 0,
-            ]);
+            // No guardar una versión incompleta que descarte piezas, costos o datos de impresión.
+            throw $e;
         }
 
 
