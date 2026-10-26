@@ -42,6 +42,29 @@ class Database
                     $column=self::$instance->query("SHOW COLUMNS FROM productos LIKE 'precios_cantidad'")->fetch();
                     if (!$column) self::$instance->exec("ALTER TABLE productos ADD COLUMN precios_cantidad TEXT NULL");
                 } catch (\Throwable $e) { error_log('3LD: columna de precios por cantidad pendiente.'); }
+
+                try {
+                    $colParent = self::$instance->query("SHOW COLUMNS FROM categorias_producto LIKE 'parent_id'")->fetch();
+                    if (!$colParent) {
+                        self::$instance->exec("ALTER TABLE categorias_producto ADD COLUMN parent_id INT UNSIGNED NULL DEFAULT NULL");
+                        try { self::$instance->exec("CREATE INDEX idx_categorias_parent ON categorias_producto (parent_id)"); } catch (\Throwable $e) {}
+                    }
+                } catch (\Throwable $e) { error_log('3LD: columna parent_id pendiente: ' . $e->getMessage()); }
+
+                try {
+                    $colCatSec = self::$instance->query("SHOW COLUMNS FROM productos LIKE 'categoria_secundaria_id'")->fetch();
+                    if (!$colCatSec) {
+                        self::$instance->exec("ALTER TABLE productos ADD COLUMN categoria_secundaria_id INT UNSIGNED NULL DEFAULT NULL");
+                        try { self::$instance->exec("CREATE INDEX idx_productos_categoria_secundaria ON productos (categoria_secundaria_id)"); } catch (\Throwable $e) {}
+                    }
+                } catch (\Throwable $e) { error_log('3LD: columna categoria_secundaria_id pendiente: ' . $e->getMessage()); }
+
+                try {
+                    $colSync = self::$instance->query("SHOW COLUMNS FROM productos LIKE 'sync_mercadolibre'")->fetch();
+                    if (!$colSync) {
+                        self::$instance->exec("ALTER TABLE productos ADD COLUMN sync_mercadolibre TINYINT(1) NOT NULL DEFAULT 0");
+                    }
+                } catch (\Throwable $e) { error_log('3LD: columna sync_mercadolibre pendiente: ' . $e->getMessage()); }
                 // Cada instalación importa sus archivos antiguos al registro compartido, sin borrarlos.
                 if (glob(__DIR__ . '/../var/return-requests/*.php')) {
                     try { (new \App\Services\ReturnLedger(self::$instance))->importLegacy(new \App\Services\ReturnRequests()); }
@@ -60,7 +83,7 @@ class Database
 
     private static function ensureSchema(PDO $db): void
     {
-        $flagFile = sys_get_temp_dir() . '/sistema3ld_schema_v5.flag';
+        $flagFile = sys_get_temp_dir() . '/sistema3ld_schema_v9.flag';
         if (file_exists($flagFile) && (time() - filemtime($flagFile) < 86400)) {
             return;
         }
@@ -142,7 +165,7 @@ class Database
             $db->exec("CREATE INDEX idx_productos_categoria_secundaria ON productos (categoria_secundaria_id)");
         } catch (\Throwable $e) {}
         try {
-            $db->exec("ALTER TABLE productos ADD COLUMN sync_mercadolibre TINYINT(1) NOT NULL DEFAULT 0 AFTER es_tienda");
+            $db->exec("ALTER TABLE productos ADD COLUMN sync_mercadolibre TINYINT(1) NOT NULL DEFAULT 0");
         } catch (\Throwable $e) {}
         try {
             $db->exec("ALTER TABLE pedidos ADD COLUMN saldo_pendiente DECIMAL(12,2) NOT NULL DEFAULT 0.00");
