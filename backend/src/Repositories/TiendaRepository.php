@@ -36,13 +36,18 @@ class TiendaRepository
         }
 
         if (!empty($categoria) && $categoria !== 'all') {
-            $where .= " AND c.nombre LIKE ?";
+            $where .= " AND (c.nombre LIKE ? OR c_sec.nombre LIKE ? OR c_parent.nombre LIKE ? OR p.subcategoria LIKE ?)";
+            $binds[] = "%{$categoria}%";
+            $binds[] = "%{$categoria}%";
+            $binds[] = "%{$categoria}%";
             $binds[] = "%{$categoria}%";
         }
 
         if (!empty($subcategory) && $subcategory !== 'all') {
-            $where .= " AND p.subcategoria = ?";
-            $binds[] = $subcategory;
+            $where .= " AND (c.nombre LIKE ? OR c_sec.nombre LIKE ? OR p.subcategoria LIKE ?)";
+            $binds[] = "%{$subcategory}%";
+            $binds[] = "%{$subcategory}%";
+            $binds[] = "%{$subcategory}%";
         }
 
         if (!empty($stockStatus) && $stockStatus !== 'all') {
@@ -74,10 +79,13 @@ class TiendaRepository
                            CASE WHEN COALESCE(p.stock_actual, 0) > 0 AND p.estado_stock = 'ready' THEN 'ready' ELSE 'custom' END AS stockStatus,
                            p.imagen_url AS image, p.imagenes, p.colores, p.piezas, p.peso_gramos AS weightGrams,
                            p.dimensiones AS size, p.alto_mm, p.ancho_mm, p.profundidad_mm, p.es_destacado,
-                           p.categoria_id, p.seo_title, p.seo_description,
-                           COALESCE(c.nombre, 'Sin categoría') AS category
+                           p.categoria_id, p.categoria_secundaria_id, p.seo_title, p.seo_description,
+                           COALESCE(c.nombre, 'Sin categoría') AS category,
+                           c_sec.nombre AS secondaryCategory
                     FROM productos p
                     LEFT JOIN categorias_producto c ON c.id = p.categoria_id
+                    LEFT JOIN categorias_producto c_parent ON c_parent.id = c.parent_id
+                    LEFT JOIN categorias_producto c_sec ON c_sec.id = p.categoria_secundaria_id
                     {$where}
                     {$orderBy}";
 
@@ -333,25 +341,42 @@ class TiendaRepository
     public function getCategoriasPublicas(): array
     {
         try {
-            $sql = "SELECT c.id, c.nombre AS name, COALESCE(c.icono, '✨') AS icon, c.imagen_url AS image, c.es_destacada,
-                           (SELECT COUNT(*) FROM productos p WHERE p.categoria_id = c.id AND p.activo = 1 AND (p.es_tienda = 1 OR p.es_vendible = 1)) AS productos_count
+            $sql = "SELECT c.id, c.nombre AS name, COALESCE(c.icono, '✨') AS icon, c.imagen_url AS image, c.es_destacada, c.parent_id,
+                           (SELECT COUNT(*) FROM productos p WHERE (p.categoria_id = c.id OR p.categoria_secundaria_id = c.id) AND p.activo = 1 AND (p.es_tienda = 1 OR p.es_vendible = 1)) AS productos_count
                     FROM categorias_producto c
-                    ORDER BY c.es_destacada DESC, c.nombre ASC";
+                    ORDER BY c.parent_id IS NOT NULL ASC, c.es_destacada DESC, c.nombre ASC";
             $stmt = $this->db->prepare($sql);
             $stmt->execute();
-            $cats = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $allCats = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            $subcategoriesByParent = [];
+            foreach ($allCats as $cat) {
+                if (!empty($cat['parent_id'])) {
+                    $pid = (int)$cat['parent_id'];
+                    $subcategoriesByParent[$pid][] = $cat['name'];
+                }
+            }
 
             $result = [];
-            foreach ($cats as $cat) {
+            foreach ($allCats as $cat) {
                 $catId = (int)$cat['id'];
-                $subs = [];
-                try {
-                    $subStmt = $this->db->prepare("SELECT DISTINCT subcategoria FROM productos WHERE categoria_id = ? AND subcategoria IS NOT NULL AND subcategoria != '' AND activo = 1 AND es_tienda = 1");
-                    $subStmt->execute([$catId]);
-                    $subs = $subStmt->fetchAll(PDO::FETCH_COLUMN) ?: [];
-                } catch (\Throwable $e) {
-                    $subs = [];
+                // Only root categories in the main list
+                if (!empty($cat['parent_id'])) {
+                    continue;
                 }
+
+                $subs = $subcategoriesByParent[$catId] ?? [];
+
+                try {
+                    $subStmt = $this->db->prepare("SELECT DISTINCT subcategoria FROM productos WHERE (categoria_id = ? OR categoria_secundaria_id = ?) AND subcategoria IS NOT NULL AND subcategoria != '' AND activo = 1 AND es_tienda = 1");
+                    $subStmt->execute([$catId, $catId]);
+                    $textSubs = $subStmt->fetchAll(PDO::FETCH_COLUMN) ?: [];
+                    foreach ($textSubs as $ts) {
+                        if (!in_array($ts, $subs, true)) {
+                            $subs[] = $ts;
+                        }
+                    }
+                } catch (\Throwable $e) {}
 
                 $result[] = [
                     'id' => $cat['name'],
@@ -361,7 +386,7 @@ class TiendaRepository
                     'image' => $cat['image'] ?? null,
                     'imagen_url' => $cat['image'] ?? null,
                     'es_destacada' => (bool)$cat['es_destacada'],
-                    'subcategories' => !empty($subs) ? array_merge(['Todos'], $subs) : [],
+                    'subcategories' => !empty($subs) ? array_merge(['Todos'], array_values(array_unique($subs))) : [],
                     'productos_count' => (int)$cat['productos_count'],
                 ];
             }

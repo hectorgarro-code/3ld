@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { useProductos, useCategorias, useDeleteProducto, useUpdateProducto } from '@/hooks/useProductos'
 import { formatARS } from '@/lib/cost-calculator'
 import { cn, resolveImageUrl } from '@/lib/utils'
 import { Search, AlertTriangle, Package, Plus, Minus, Pencil, Copy, Trash2, Loader2, Bot, Sparkles, Tags, Download, ExternalLink, ChevronLeft, ChevronRight, Images, Printer, Share2 } from 'lucide-react'
-import type { Producto, ProductoTipo } from '@/types'
+import type { Producto, ProductoTipo, Categoria } from '@/types'
 import { ProductoFormModal } from '@/components/productos/ProductoFormModal'
 import { MakerWorldImportModal } from '@/components/productos/MakerWorldImportModal'
 import { CategoriasModal } from '@/components/productos/CategoriasModal'
@@ -200,8 +200,22 @@ function ProductoCard({
         <p className="mb-1 text-xs font-bold text-slate-500">Var: <span className="text-slate-400">{producto.variante}</span></p>
       )}
 
-      {producto.categoria && (
-        <p className="mb-2 text-xs text-slate-400">{producto.categoria.nombre}</p>
+      {(producto.categoria?.nombre || producto.categoria_nombre || producto.categoria_secundaria_nombre) && (
+        <div className="mb-2 flex items-center gap-1.5 flex-wrap text-xs">
+          {(producto.categoria?.nombre || producto.categoria_nombre) && (
+            <span className="text-slate-500 font-medium truncate max-w-[150px]">
+              {producto.categoria?.nombre || producto.categoria_nombre}
+            </span>
+          )}
+          {producto.categoria_secundaria_nombre && (
+            <span
+              className="text-[10px] bg-indigo-50 text-indigo-700 border border-indigo-200/80 font-bold px-1.5 py-0.2 rounded-md"
+              title={`Categoría secundaria: ${producto.categoria_secundaria_nombre}`}
+            >
+              + {producto.categoria_secundaria_nombre}
+            </span>
+          )}
+        </div>
       )}
 
       <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-2">
@@ -271,6 +285,36 @@ export default function ProductosPage() {
 
   const { data: categorias } = useCategorias()
   const deleteMutation = useDeleteProducto()
+
+  const formattedCategoryFilterOptions = useMemo(() => {
+    if (!categorias) return []
+    const roots = categorias.filter((c) => !c.parent_id)
+    const childMap: Record<number, Categoria[]> = {}
+    categorias.forEach((c) => {
+      if (c.parent_id) {
+        if (!childMap[c.parent_id]) childMap[c.parent_id] = []
+        childMap[c.parent_id].push(c)
+      }
+    })
+
+    const options: { id: number; displayName: string }[] = []
+    roots.forEach((root) => {
+      options.push({ id: root.id, displayName: `📁 ${root.nombre}` })
+      const children = childMap[root.id] || []
+      children.forEach((child) => {
+        options.push({ id: child.id, displayName: `   └─ ${child.nombre}` })
+      })
+    })
+
+    const processedIds = new Set(options.map((o) => o.id))
+    categorias.forEach((c) => {
+      if (!processedIds.has(c.id)) {
+        options.push({ id: c.id, displayName: c.path || c.nombre })
+      }
+    })
+
+    return options
+  }, [categorias])
 
   const handleNew = () => {
     setSelectedProducto(null)
@@ -358,8 +402,8 @@ export default function ProductosPage() {
             className="w-full sm:w-48 rounded-xl border border-slate-100 bg-white card-shadow px-4 py-2.5 text-sm text-slate-800 outline-none focus:border-primary"
           >
             <option value="">Todas las categorías</option>
-            {categorias.map((c) => (
-              <option key={c.id} value={c.id}>{c.nombre}</option>
+            {formattedCategoryFilterOptions.map((c) => (
+              <option key={c.id} value={c.id}>{c.displayName}</option>
             ))}
           </select>
         )}

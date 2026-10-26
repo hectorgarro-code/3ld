@@ -61,20 +61,22 @@ export function useCategorias() {
 
 export function useCreateCategoria() {
   const queryClient = useQueryClient()
-  return useMutation<Categoria, Error, { nombre: string; descripcion?: string; icono?: string; es_destacada?: boolean | number }>({
+  return useMutation<Categoria, Error, { nombre: string; descripcion?: string; icono?: string; imagen_url?: string; es_destacada?: boolean | number; parent_id?: number | null }>({
     mutationFn: async (payload) => {
       const { data } = await api.post<ApiResponse<Categoria>>('/categorias', payload)
       return data.data
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categorias'] })
+      queryClient.invalidateQueries({ queryKey: ['productos'] })
+      queryClient.invalidateQueries({ queryKey: ['tienda-categorias-publicas'] })
     },
   })
 }
 
 export function useUpdateCategoria() {
   const queryClient = useQueryClient()
-  return useMutation<Categoria, Error, { id: number; payload: { nombre: string; descripcion?: string; icono?: string; es_destacada?: boolean | number } }>({
+  return useMutation<Categoria, Error, { id: number; payload: { nombre: string; descripcion?: string; icono?: string; imagen_url?: string; es_destacada?: boolean | number; parent_id?: number | null } }>({
     mutationFn: async ({ id, payload }) => {
       const { data } = await api.put<ApiResponse<Categoria>>(`/categorias/${id}`, payload)
       return data.data
@@ -82,6 +84,7 @@ export function useUpdateCategoria() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categorias'] })
       queryClient.invalidateQueries({ queryKey: ['productos'] })
+      queryClient.invalidateQueries({ queryKey: ['tienda-categorias-publicas'] })
     },
   })
 }

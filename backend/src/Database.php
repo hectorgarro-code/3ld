@@ -126,6 +126,25 @@ class Database
             // Se ignora si ya existe
         }
         try {
+            $db->exec("ALTER TABLE categorias_producto ADD COLUMN parent_id INT UNSIGNED NULL DEFAULT NULL AFTER id");
+        } catch (\Throwable $e) {
+            // Se ignora si ya existe
+        }
+        try {
+            $db->exec("CREATE INDEX idx_categorias_parent ON categorias_producto (parent_id)");
+        } catch (\Throwable $e) {}
+        try {
+            $db->exec("ALTER TABLE productos ADD COLUMN categoria_secundaria_id INT UNSIGNED NULL DEFAULT NULL AFTER categoria_id");
+        } catch (\Throwable $e) {
+            // Se ignora si ya existe
+        }
+        try {
+            $db->exec("CREATE INDEX idx_productos_categoria_secundaria ON productos (categoria_secundaria_id)");
+        } catch (\Throwable $e) {}
+        try {
+            $db->exec("ALTER TABLE productos ADD COLUMN sync_mercadolibre TINYINT(1) NOT NULL DEFAULT 0 AFTER es_tienda");
+        } catch (\Throwable $e) {}
+        try {
             $db->exec("ALTER TABLE pedidos ADD COLUMN saldo_pendiente DECIMAL(12,2) NOT NULL DEFAULT 0.00");
         } catch (\Throwable $e) {
             // Se ignora si ya existe

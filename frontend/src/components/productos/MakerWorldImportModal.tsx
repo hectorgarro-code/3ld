@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import {
   X,
   Sparkles,
@@ -20,7 +20,7 @@ import {
   ArrowDown,
 } from 'lucide-react'
 import api from '@/lib/api'
-import type { ProductoPieza } from '@/types'
+import type { ProductoPieza, Categoria } from '@/types'
 import { compressImage } from '@/lib/imageUtils'
 import { useCreateProducto, useCategorias } from '@/hooks/useProductos'
 import { toast } from '@/store/toastStore'
@@ -59,6 +59,10 @@ export function MakerWorldImportModal({ isOpen, onClose, onSuccess }: Props) {
     const saved = localStorage.getItem('last_categoria_id')
     return saved ? parseInt(saved, 10) : undefined
   })
+  const [categoriaSecundariaId, setCategoriaSecundariaId] = useState<number | undefined>(() => {
+    const saved = localStorage.getItem('last_categoria_secundaria_id')
+    return saved ? parseInt(saved, 10) : undefined
+  })
   const [subcategoria, setSubcategoria] = useState<string>(() => {
     return localStorage.getItem('last_subcategoria') || ''
   })
@@ -90,11 +94,45 @@ export function MakerWorldImportModal({ isOpen, onClose, onSuccess }: Props) {
   const { data: categorias } = useCategorias()
   const createMutation = useCreateProducto()
 
+  const formattedCategoryOptions = useMemo(() => {
+    if (!categorias) return []
+    const roots = categorias.filter((c) => !c.parent_id)
+    const childMap: Record<number, Categoria[]> = {}
+    categorias.forEach((c) => {
+      if (c.parent_id) {
+        if (!childMap[c.parent_id]) childMap[c.parent_id] = []
+        childMap[c.parent_id].push(c)
+      }
+    })
+
+    const options: { id: number; displayName: string }[] = []
+    roots.forEach((root) => {
+      options.push({ id: root.id, displayName: `${root.icono || '📁'} ${root.nombre}` })
+      const children = childMap[root.id] || []
+      children.forEach((child) => {
+        options.push({ id: child.id, displayName: `   └─ ${child.icono || '•'} ${child.nombre} (${root.nombre})` })
+      })
+    })
+
+    const processedIds = new Set(options.map((o) => o.id))
+    categorias.forEach((c) => {
+      if (!processedIds.has(c.id)) {
+        options.push({ id: c.id, displayName: c.path || c.nombre })
+      }
+    })
+
+    return options
+  }, [categorias])
+
   useEffect(() => {
     if (isOpen) {
       const saved = localStorage.getItem('last_categoria_id')
       if (saved) {
         setCategoriaId(parseInt(saved, 10))
+      }
+      const savedSec = localStorage.getItem('last_categoria_secundaria_id')
+      if (savedSec) {
+        setCategoriaSecundariaId(parseInt(savedSec, 10))
       }
       const savedSubcat = localStorage.getItem('last_subcategoria')
       if (savedSubcat) {
@@ -202,6 +240,11 @@ export function MakerWorldImportModal({ isOpen, onClose, onSuccess }: Props) {
       if (categoriaId) {
         localStorage.setItem('last_categoria_id', String(categoriaId))
       }
+      if (categoriaSecundariaId) {
+        localStorage.setItem('last_categoria_secundaria_id', String(categoriaSecundariaId))
+      } else {
+        localStorage.removeItem('last_categoria_secundaria_id')
+      }
       if (subcategoria.trim()) {
         localStorage.setItem('last_subcategoria', subcategoria.trim())
       }
@@ -219,6 +262,7 @@ export function MakerWorldImportModal({ isOpen, onClose, onSuccess }: Props) {
         stock_actual: stockActual,
         stock_minimo: stockMinimo,
         categoria_id: categoriaId,
+        categoria_secundaria_id: categoriaSecundariaId || undefined,
         subcategoria: subcategoria.trim() || undefined,
         piezas: piezas.filter((p) => p.nombre.trim() !== ''),
         precios_cantidad: preciosCantidad
@@ -642,16 +686,43 @@ export function MakerWorldImportModal({ isOpen, onClose, onSuccess }: Props) {
                       className="w-full p-2.5 bg-white border border-slate-200 rounded-xl font-semibold text-slate-800 focus:ring-2 focus:ring-cyan-500"
                     >
                       <option value="">Ninguna</option>
-                      {categorias?.map((c) => (
+                      {formattedCategoryOptions.map((c) => (
                         <option key={c.id} value={c.id}>
-                          {c.nombre}
+                          {c.displayName}
                         </option>
                       ))}
                     </select>
                   </div>
 
                   <div>
-                    <label className="font-bold text-slate-700 block mb-1">Categorías Secundarias / Etiquetas</label>
+                    <label className="font-bold text-slate-700 block mb-1 flex items-center justify-between">
+                      <span>Categoría Secundaria</span>
+                      <span className="text-[10px] text-slate-400 font-medium">Mismo menú</span>
+                    </label>
+                    <select
+                      value={categoriaSecundariaId || ''}
+                      onChange={(e) => {
+                        const val = e.target.value ? parseInt(e.target.value) : undefined
+                        setCategoriaSecundariaId(val)
+                        if (val) {
+                          localStorage.setItem('last_categoria_secundaria_id', String(val))
+                        } else {
+                          localStorage.removeItem('last_categoria_secundaria_id')
+                        }
+                      }}
+                      className="w-full p-2.5 bg-white border border-slate-200 rounded-xl font-semibold text-slate-800 focus:ring-2 focus:ring-cyan-500"
+                    >
+                      <option value="">Ninguna (Sin categoría secundaria)</option>
+                      {formattedCategoryOptions.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.displayName}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <label className="font-bold text-slate-700 block mb-1">Etiquetas Adicionales / Momentos de Venta (Opcional)</label>
                     <input
                       type="text"
                       value={subcategoria}
@@ -662,11 +733,8 @@ export function MakerWorldImportModal({ isOpen, onClose, onSuccess }: Props) {
                         }
                       }}
                       placeholder="Ej. Día de la Madre, San Valentín, Llaveros"
-                      className="w-full p-2.5 bg-white border border-slate-200 rounded-xl font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-cyan-500"
+                      className="w-full p-2.5 bg-white border border-slate-200 rounded-xl font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-cyan-500 text-xs"
                     />
-                    <p className="text-[10px] text-slate-400 mt-1">
-                      Ingresá varias categorías o etiquetas separadas por coma.
-                    </p>
                   </div>
                 </div>
 

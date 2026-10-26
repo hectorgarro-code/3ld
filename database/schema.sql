@@ -113,9 +113,14 @@ CREATE TABLE IF NOT EXISTS categorias_producto (
   id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   nombre      VARCHAR(100) NOT NULL UNIQUE,
   descripcion TEXT,
-  icono       VARCHAR(10)  DEFAULT '📦',
+  icono       VARCHAR(50)  DEFAULT '✨',
   color_hex   CHAR(7)      DEFAULT '#6366F1',
-  created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+  parent_id   INT UNSIGNED NULL DEFAULT NULL,
+  es_destacada TINYINT(1)  NOT NULL DEFAULT 0,
+  imagen_url  VARCHAR(500) NULL,
+  created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (parent_id) REFERENCES categorias_producto(id) ON DELETE SET NULL,
+  INDEX idx_categorias_parent (parent_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ==============================================
@@ -133,6 +138,7 @@ CREATE TABLE IF NOT EXISTS productos (
   tipo           ENUM('impresion_3d','ceramica','juguete_educativo','accesorio','comprado','fabricado','compuesto')
                  NOT NULL DEFAULT 'impresion_3d',
   categoria_id   INT UNSIGNED,
+  categoria_secundaria_id INT UNSIGNED NULL,
   sku            VARCHAR(80) UNIQUE,
   precio_venta   DECIMAL(10,2) NOT NULL DEFAULT 0.00,
   precio_costo   DECIMAL(10,2) DEFAULT 0.00,
@@ -143,9 +149,13 @@ CREATE TABLE IF NOT EXISTS productos (
   activo         TINYINT(1) NOT NULL DEFAULT 1,
   es_vendible    TINYINT(1) NOT NULL DEFAULT 1,
   es_insumo      TINYINT(1) NOT NULL DEFAULT 0,
+  es_tienda      TINYINT(1) NOT NULL DEFAULT 0,
+  sync_mercadolibre TINYINT(1) NOT NULL DEFAULT 0,
   created_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   FOREIGN KEY (categoria_id) REFERENCES categorias_producto(id) ON DELETE SET NULL,
+  FOREIGN KEY (categoria_secundaria_id) REFERENCES categorias_producto(id) ON DELETE SET NULL,
+  INDEX idx_productos_categoria_secundaria (categoria_secundaria_id),
   INDEX idx_productos_activo_tipo (activo, es_vendible, es_insumo)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

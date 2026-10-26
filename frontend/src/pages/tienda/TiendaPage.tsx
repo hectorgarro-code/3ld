@@ -68,6 +68,8 @@ export interface StoreProduct {
   title: string;
   category: string;
   subcategory?: string;
+  secondaryCategory?: string;
+  categoria_secundaria_id?: number | null;
   price: number;
   oldPrice?: number | null;
   stock_actual?: number | string;
@@ -1022,8 +1024,14 @@ export default function TiendaPage() {
         if (selectedCategory !== 'all') {
           const catIdLower = selectedCategory.toLowerCase();
           const catNameLower = (currentCategoryData?.name || '').toLowerCase();
+          const subcatsLower = (currentCategoryData?.subcategories || []).map((s) => s.toLowerCase());
+
           const catMatch = (p.category || '').toLowerCase() === catIdLower
                         || (p.category || '').toLowerCase() === catNameLower
+                        || (p.secondaryCategory || '').toLowerCase() === catIdLower
+                        || (p.secondaryCategory || '').toLowerCase() === catNameLower
+                        || subcatsLower.includes((p.category || '').toLowerCase())
+                        || subcatsLower.includes((p.secondaryCategory || '').toLowerCase())
                         || pSubcategories.includes(catIdLower)
                         || pSubcategories.includes(catNameLower);
           if (!catMatch) return false;
@@ -1031,6 +1039,8 @@ export default function TiendaPage() {
         if (selectedSubcategory !== 'all') {
           const subcatLower = selectedSubcategory.toLowerCase();
           const subMatch = (p.subcategory || '').toLowerCase() === subcatLower
+                        || (p.category || '').toLowerCase() === subcatLower
+                        || (p.secondaryCategory || '').toLowerCase() === subcatLower
                         || pSubcategories.includes(subcatLower);
           if (!subMatch) return false;
         }

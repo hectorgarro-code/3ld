@@ -39,8 +39,17 @@ class ProductoRepository
         }
 
         if ($categoriaId > 0) {
-            $where .= " AND p.categoria_id = ?";
-            $binds[] = $categoriaId;
+            $subIds = [];
+            try {
+                $stSubs = $this->db->prepare("SELECT id FROM categorias_producto WHERE parent_id = ?");
+                $stSubs->execute([$categoriaId]);
+                $subIds = $stSubs->fetchAll(\PDO::FETCH_COLUMN) ?: [];
+            } catch (\Throwable $e) {}
+
+            $allMatchedIds = array_values(array_unique(array_merge([$categoriaId], array_map('intval', $subIds))));
+            $inClause = implode(',', array_fill(0, count($allMatchedIds), '?'));
+            $where .= " AND (p.categoria_id IN ({$inClause}) OR p.categoria_secundaria_id IN ({$inClause}))";
+            $binds = array_merge($binds, $allMatchedIds, $allMatchedIds);
         }
 
         // Count
@@ -52,13 +61,15 @@ class ProductoRepository
             $sql = "SELECT p.id, p.nombre, p.variante, p.sku, p.descripcion, p.tipo,
                            p.precio_venta, p.precio_costo, p.precio_mayorista, p.precio_oferta, p.stock_actual, p.stock_minimo,
                            p.unidad_medida, p.imagen_url, p.imagenes, p.archivo_url, p.colores, p.piezas, p.precios_cantidad, p.activo,
-                           p.es_vendible, p.es_insumo, p.es_tienda, p.es_destacado, p.subcategoria,
+                           p.es_vendible, p.es_insumo, p.es_tienda, p.sync_mercadolibre, p.es_destacado, p.subcategoria,
                            p.horas_impresion, p.peso_gramos,
                            p.alto_mm, p.ancho_mm, p.profundidad_mm, p.dimensiones,
                            p.seo_title, p.seo_description, p.created_at, p.updated_at,
-                           c.id AS categoria_id, c.nombre AS categoria_nombre
+                           c.id AS categoria_id, c.nombre AS categoria_nombre,
+                           p.categoria_secundaria_id, c_sec.nombre AS categoria_secundaria_nombre
                     FROM productos p
                     LEFT JOIN categorias_producto c ON c.id = p.categoria_id
+                    LEFT JOIN categorias_producto c_sec ON c_sec.id = p.categoria_secundaria_id
                     {$where}
                     ORDER BY p.nombre ASC
                     LIMIT {$perPage} OFFSET {$offset}";
@@ -70,11 +81,13 @@ class ProductoRepository
             $sql = "SELECT p.id, p.nombre, p.variante, p.sku, p.descripcion, p.tipo,
                            p.precio_venta, p.precio_costo, p.precio_mayorista, p.precio_oferta, p.stock_actual, p.stock_minimo,
                            p.unidad_medida, p.imagen_url, p.imagenes, p.archivo_url, p.piezas, p.activo,
-                           p.es_vendible, p.es_insumo, p.es_tienda, p.es_destacado, p.subcategoria,
+                           p.es_vendible, p.es_insumo, p.es_tienda, p.sync_mercadolibre, p.es_destacado, p.subcategoria,
                            p.seo_title, p.seo_description, p.created_at, p.updated_at,
-                           c.id AS categoria_id, c.nombre AS categoria_nombre
+                           c.id AS categoria_id, c.nombre AS categoria_nombre,
+                           p.categoria_secundaria_id, c_sec.nombre AS categoria_secundaria_nombre
                     FROM productos p
                     LEFT JOIN categorias_producto c ON c.id = p.categoria_id
+                    LEFT JOIN categorias_producto c_sec ON c_sec.id = p.categoria_secundaria_id
                     {$where}
                     ORDER BY p.nombre ASC
                     LIMIT {$perPage} OFFSET {$offset}";
@@ -149,9 +162,10 @@ class ProductoRepository
     public function findById(int $id): ?array
     {
         $stmt = $this->db->prepare(
-            "SELECT p.*, c.nombre AS categoria_nombre
+            "SELECT p.*, c.nombre AS categoria_nombre, c_sec.nombre AS categoria_secundaria_nombre
              FROM productos p
              LEFT JOIN categorias_producto c ON c.id = p.categoria_id
+             LEFT JOIN categorias_producto c_sec ON c_sec.id = p.categoria_secundaria_id
              WHERE p.id = ? AND p.activo = 1"
         );
         $stmt->execute([$id]);
@@ -237,10 +251,10 @@ class ProductoRepository
         try {
             $stmt = $this->db->prepare(
                 "INSERT INTO productos
-                    (nombre, variante, sku, descripcion, tipo, categoria_id, precio_venta, precio_costo, precio_mayorista,
+                    (nombre, variante, sku, descripcion, tipo, categoria_id, categoria_secundaria_id, precio_venta, precio_costo, precio_mayorista,
                      stock_actual, stock_minimo, unidad_medida, imagen_url, imagenes, archivo_url,
-                     es_vendible, es_insumo, es_tienda, subcategoria, precio_oferta, peso_gramos, horas_impresion, alto_mm, ancho_mm, profundidad_mm, dimensiones, estado_stock, es_destacado, piezas, precios_cantidad, seo_title, seo_description, activo, created_at, updated_at)
-                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())"
+                     es_vendible, es_insumo, es_tienda, sync_mercadolibre, subcategoria, precio_oferta, peso_gramos, horas_impresion, alto_mm, ancho_mm, profundidad_mm, dimensiones, estado_stock, es_destacado, piezas, precios_cantidad, seo_title, seo_description, activo, created_at, updated_at)
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())"
             );
 
             $initStock = (int) ($data['stock_actual'] ?? 0);
@@ -249,6 +263,8 @@ class ProductoRepository
                 $initEstadoStock = 'custom';
             }
 
+            $catSecId = isset($data['categoria_secundaria_id']) && $data['categoria_secundaria_id'] !== '' ? (int)$data['categoria_secundaria_id'] : null;
+
             $stmt->execute([
                 trim($data['nombre']),
                 $data['variante']      ?? null,
@@ -256,6 +272,7 @@ class ProductoRepository
                 $data['descripcion']   ?? null,
                 $data['tipo']          ?? 'impresion_3d',
                 $data['categoria_id']  ?? null,
+                $catSecId,
                 (float) ($data['precio_venta']  ?? 0),
                 (float) ($data['precio_costo']  ?? 0),
                 isset($data['precio_mayorista']) ? (float)$data['precio_mayorista'] : null,
@@ -268,6 +285,7 @@ class ProductoRepository
                 isset($data['es_vendible']) ? (int)$data['es_vendible'] : 1,
                 isset($data['es_insumo']) ? (int)$data['es_insumo'] : 0,
                 isset($data['es_tienda']) ? (int)$data['es_tienda'] : 0,
+                isset($data['sync_mercadolibre']) ? (int)$data['sync_mercadolibre'] : 0,
                 $data['subcategoria']  ?? null,
                 isset($data['precio_oferta']) ? (float)$data['precio_oferta'] : null,
                 (int) ($data['peso_gramos'] ?? 0),
@@ -323,6 +341,7 @@ class ProductoRepository
             'descripcion'   => 'string',
             'tipo'          => 'string',
             'categoria_id'  => 'int',
+            'categoria_secundaria_id' => 'int',
             'precio_venta'  => 'float',
             'precio_costo'  => 'float',
             'precio_mayorista' => 'float',
@@ -334,6 +353,7 @@ class ProductoRepository
             'es_vendible'   => 'int',
             'es_insumo'     => 'int',
             'es_tienda'     => 'int',
+            'sync_mercadolibre' => 'int',
             'subcategoria'  => 'string',
             'precio_oferta' => 'float',
             'peso_gramos'   => 'int',

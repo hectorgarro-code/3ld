@@ -1,10 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { X, Loader2, ImagePlus, Trash2, Plus, Sparkles, ExternalLink, Star, Upload, ChevronUp, ChevronDown, ArrowUp, ArrowDown } from 'lucide-react'
 import api from '@/lib/api'
-import type { Producto, ProductoPieza } from '@/types'
+import type { Producto, ProductoPieza, Categoria } from '@/types'
 import { compressImage } from '@/lib/imageUtils'
 import { useCreateProducto, useUpdateProducto, useCategorias, useProductos } from '@/hooks/useProductos'
 import { toast } from '@/store/toastStore'
@@ -20,6 +20,7 @@ const productoSchema = z.object({
   sku: z.string().optional(),
   tipo: z.enum(['impresion_3d', 'ceramica', 'juguete_educativo', 'accesorio', 'comprado', 'fabricado', 'compuesto']),
   categoria_id: z.number().optional().nullable(),
+  categoria_secundaria_id: z.number().optional().nullable(),
   precio_venta: z.number().min(0, 'El precio no puede ser negativo'),
   precio_costo: z.number().min(0).optional(),
   precio_mayorista: z.number().min(0).optional().nullable(),
@@ -40,6 +41,7 @@ const productoSchema = z.object({
   es_vendible: z.boolean().default(true),
   es_insumo: z.boolean().default(false),
   es_tienda: z.boolean().default(false),
+  sync_mercadolibre: z.boolean().default(false),
 })
 
 type ProductoForm = z.infer<typeof productoSchema>
@@ -97,6 +99,36 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
   const { data: productosData } = useProductos({ per_page: 500 })
   const insumosDisponibles = productosData?.data?.filter(p => p.es_insumo === 1 && p.id !== producto?.id) || []
 
+  const formattedCategoryOptions = useMemo(() => {
+    if (!categorias) return []
+    const roots = categorias.filter((c) => !c.parent_id)
+    const childMap: Record<number, Categoria[]> = {}
+    categorias.forEach((c) => {
+      if (c.parent_id) {
+        if (!childMap[c.parent_id]) childMap[c.parent_id] = []
+        childMap[c.parent_id].push(c)
+      }
+    })
+
+    const options: { id: number; displayName: string }[] = []
+    roots.forEach((root) => {
+      options.push({ id: root.id, displayName: `${root.icono || '📁'} ${root.nombre}` })
+      const children = childMap[root.id] || []
+      children.forEach((child) => {
+        options.push({ id: child.id, displayName: `   └─ ${child.icono || '•'} ${child.nombre} (${root.nombre})` })
+      })
+    })
+
+    const processedIds = new Set(options.map((o) => o.id))
+    categorias.forEach((c) => {
+      if (!processedIds.has(c.id)) {
+        options.push({ id: c.id, displayName: c.path || c.nombre })
+      }
+    })
+
+    return options
+  }, [categorias])
+
   const isEditing = !!producto && !isDuplicate
 
   const {
@@ -115,6 +147,7 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
       sku: '',
       tipo: 'impresion_3d',
       categoria_id: null,
+      categoria_secundaria_id: null,
       precio_venta: 0,
       precio_costo: 0,
       precio_oferta: null,
@@ -134,6 +167,7 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
       es_vendible: true,
       es_insumo: false,
       es_tienda: false,
+      sync_mercadolibre: false,
     },
   })
 
@@ -150,6 +184,7 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
         sku: isDuplicate ? generateSKU() : (p.sku || ''),
         tipo: producto.tipo || 'impresion_3d',
         categoria_id: producto.categoria_id ? Number(producto.categoria_id) : null,
+        categoria_secundaria_id: p.categoria_secundaria_id ? Number(p.categoria_secundaria_id) : null,
         precio_venta: Number(producto.precio_venta) || 0,
         precio_costo: Number(p.precio_costo) || 0,
         precio_mayorista: p.precio_mayorista != null && p.precio_mayorista !== '' ? Number(p.precio_mayorista) : null,
@@ -170,6 +205,7 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
         es_vendible: producto.es_vendible !== 0,
         es_insumo: producto.es_insumo === 1,
         es_tienda: Boolean(p.es_tienda),
+        sync_mercadolibre: Boolean(p.sync_mercadolibre),
       })
       setReceta((producto as any).receta || [])
       let existing: string[] = []
@@ -225,6 +261,7 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
       setPiezas([])
       setPreciosCantidad([])
       const savedCatId = localStorage.getItem('last_categoria_id')
+      const savedCatSecId = localStorage.getItem('last_categoria_secundaria_id')
       const savedSubcat = localStorage.getItem('last_subcategoria')
       reset({
         nombre: '',
@@ -232,6 +269,7 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
         sku: generateSKU(),
         tipo: 'impresion_3d',
         categoria_id: savedCatId ? parseInt(savedCatId, 10) : null,
+        categoria_secundaria_id: savedCatSecId ? parseInt(savedCatSecId, 10) : null,
         precio_venta: 0,
         precio_costo: 0,
         precio_oferta: null,
@@ -249,6 +287,7 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
         es_vendible: true,
         es_insumo: false,
         es_tienda: false,
+        sync_mercadolibre: false,
       })
       setReceta([])
       if (initialImages && initialImages.length > 0) {
@@ -373,6 +412,11 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
       if (data.categoria_id) {
         localStorage.setItem('last_categoria_id', String(data.categoria_id))
       }
+      if (data.categoria_secundaria_id) {
+        localStorage.setItem('last_categoria_secundaria_id', String(data.categoria_secundaria_id))
+      } else {
+        localStorage.removeItem('last_categoria_secundaria_id')
+      }
       if (data.subcategoria) {
         localStorage.setItem('last_subcategoria', data.subcategoria)
       }
@@ -385,11 +429,13 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
           .filter((pc) => Number(pc.cantidad) > 0 && Number(pc.precio) >= 0)
           .sort((a, b) => Number(a.cantidad) - Number(b.cantidad)),
         categoria_id: data.categoria_id || undefined,
+        categoria_secundaria_id: data.categoria_secundaria_id || null,
         variante: data.variante || undefined,
         archivo_url: data.archivo_url?.trim() || null,
         es_vendible: data.es_vendible ? 1 : 0,
         es_insumo: data.es_insumo ? 1 : 0,
         es_tienda: data.es_tienda ? 1 : 0,
+        sync_mercadolibre: data.sync_mercadolibre ? 1 : 0,
         subcategoria: data.subcategoria?.trim() || null,
         precio_oferta: data.precio_oferta || null,
         estado_stock: (data.stock_actual > 0) ? 'ready' : 'custom',
@@ -660,15 +706,39 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
                     className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition-colors focus:border-primary focus:bg-white"
                   >
                     <option value="">Ninguna</option>
-                    {categorias?.map((c) => (
-                      <option key={c.id} value={c.id}>{c.nombre}</option>
+                    {formattedCategoryOptions.map((c) => (
+                      <option key={c.id} value={c.id}>{c.displayName}</option>
                     ))}
                   </select>
                 </div>
 
                 <div>
+                  <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center justify-between">
+                    <span>Categoría Secundaria</span>
+                    <span className="text-[10px] text-slate-400 font-medium">Mismo catálogo</span>
+                  </label>
+                  <select
+                    {...register('categoria_secundaria_id', {
+                      setValueAs: v => v === "" ? null : parseInt(v, 10),
+                      onChange: (e) => {
+                        if (e.target.value) localStorage.setItem('last_categoria_secundaria_id', e.target.value)
+                      }
+                    })}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition-colors focus:border-primary focus:bg-white"
+                  >
+                    <option value="">Ninguna (Sin categoría secundaria)</option>
+                    {formattedCategoryOptions.map((c) => (
+                      <option key={c.id} value={c.id}>{c.displayName}</option>
+                    ))}
+                  </select>
+                  <p className="mt-1 text-[10px] text-slate-400">
+                    Permite que el producto figure en dos listas o categorías a la vez (ej: DIDÁCTICOS &gt; MATEMÁTICA y JUEGOS Y JUGUETES).
+                  </p>
+                </div>
+
+                <div className="md:col-span-2">
                   <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-500">
-                    Categorías Secundarias / Etiquetas
+                    Etiquetas Adicionales / Momentos de Venta (Opcional)
                   </label>
                   <input
                     {...register('subcategoria', {
@@ -676,11 +746,11 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
                         if (e.target.value) localStorage.setItem('last_subcategoria', e.target.value)
                       }
                     })}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition-colors focus:border-primary focus:bg-white"
-                    placeholder="Ej. Día de la Madre, San Valentín, Llaveros"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-xs font-semibold text-slate-800 outline-none transition-colors focus:border-primary focus:bg-white"
+                    placeholder="Ej. Día de la Madre, San Valentín, Souvenirs..."
                   />
                   <p className="mt-1 text-[10px] text-slate-400">
-                    Ingresá varias categorías o momentos de venta separándolas por coma para que el artículo aparezca en múltiples listas.
+                    Palabras clave separadas por coma para optimizar la búsqueda en la tienda.
                   </p>
                 </div>
 
@@ -1235,7 +1305,7 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
                   </p>
                 </div>
                 
-                <div className="md:col-span-2 flex gap-6 mt-2 border-t border-slate-100 pt-4">
+                <div className="md:col-span-2 flex flex-wrap gap-6 mt-2 border-t border-slate-100 pt-4">
                   <label className="flex items-center gap-3 cursor-pointer">
                     <input
                       type="checkbox"
@@ -1269,6 +1339,20 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
                     <div>
                       <p className="text-sm font-bold text-slate-800">🌐 Visible en Tienda Web</p>
                       <p className="text-xs text-slate-400">Publicar en catálogo (tienda.3ld.com.ar)</p>
+                    </div>
+                  </label>
+
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      {...register('sync_mercadolibre')}
+                      className="w-5 h-5 rounded accent-amber-500 bg-slate-50 border-slate-100"
+                    />
+                    <div>
+                      <p className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
+                        <span>🤝 Sincronizar con Mercado Libre</span>
+                      </p>
+                      <p className="text-xs text-slate-400">Habilita vinculación con publicaciones de MeLi</p>
                     </div>
                   </label>
                 </div>

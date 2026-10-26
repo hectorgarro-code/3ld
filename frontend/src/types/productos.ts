@@ -7,8 +7,12 @@ export interface Categoria {
   icono?: string
   imagen_url?: string | null
   es_destacada?: boolean | number
+  parent_id?: number | null
+  parent_nombre?: string | null
+  path?: string
+  subcategorias?: Categoria[]
   productos_count?: number
-  created_at: string
+  created_at?: string
 }
 
 export interface ProductoPieza {
@@ -35,6 +39,8 @@ export interface Producto {
   categoria_id?: number
   categoria_nombre?: string
   categoria?: Categoria
+  categoria_secundaria_id?: number | null
+  categoria_secundaria_nombre?: string | null
   precio_venta: number
   precio_costo?: number
   precio_mayorista?: number
@@ -49,6 +55,7 @@ export interface Producto {
   es_vendible: number
   es_insumo: number
   es_tienda?: number | boolean
+  sync_mercadolibre?: number | boolean
   subcategoria?: string
   precio_oferta?: number | null
   peso_gramos?: number
