@@ -100,9 +100,16 @@ class ProductosController
     {
         try {
             $id   = (int) $args['id'];
-            $body = $request->getParsedBody() ?? [];
+            $body = $request->getParsedBody();
+            if (!is_array($body)) {
+                $raw = (string) $request->getBody();
+                $decoded = json_decode($raw, true);
+                $body = is_array($decoded) ? $decoded : (is_object($body) ? (array) $body : []);
+            }
 
-            $this->handleImageUpload($body);
+            if (!empty($body['imagenes']) || !empty($body['imagen_base64']) || !empty($body['imagen_url'])) {
+                $this->handleImageUpload($body);
+            }
 
             $updated = $this->repository->update($id, $body);
             if (!$updated) {
@@ -140,8 +147,6 @@ class ProductosController
 
     private function handleImageUpload(array &$body): void
     {
-        UploadHelper::syncAllExistingFiles();
-
         $processedImages = [];
 
         // Si se envió array de imágenes (hasta 5)

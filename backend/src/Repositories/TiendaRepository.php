@@ -301,38 +301,66 @@ class TiendaRepository
      */
     public function updateTiendaProduct(int $id, array $data): bool
     {
-        $stockActual = isset($data['stock_actual']) ? (float)$data['stock_actual'] : 0;
-        $stockStatus = $data['stockStatus'] ?? 'ready';
-        if ($stockActual <= 0) {
-            $stockStatus = 'custom';
+        $fields = [];
+        $binds  = [];
+
+        if (array_key_exists('precio_costo', $data)) {
+            $fields[] = "precio_costo = ?";
+            $binds[]  = (float)$data['precio_costo'];
+        }
+        if (array_key_exists('precio_venta', $data) || array_key_exists('price', $data)) {
+            $fields[] = "precio_venta = ?";
+            $binds[]  = (float)($data['precio_venta'] ?? $data['price']);
+        }
+        if (array_key_exists('precio_oferta', $data) || array_key_exists('oldPrice', $data)) {
+            $fields[] = "precio_oferta = ?";
+            $val = $data['precio_oferta'] ?? $data['oldPrice'];
+            $binds[]  = ($val !== null && $val !== '') ? (float)$val : null;
+        }
+        if (array_key_exists('stock_actual', $data)) {
+            $stockActual = (float)$data['stock_actual'];
+            $fields[] = "stock_actual = ?";
+            $binds[]  = $stockActual;
+            $stockStatus = $data['stockStatus'] ?? ($stockActual > 0 ? 'ready' : 'custom');
+            if ($stockActual <= 0) {
+                $stockStatus = 'custom';
+            }
+            $fields[] = "estado_stock = ?";
+            $binds[]  = $stockStatus;
+        } elseif (isset($data['stockStatus'])) {
+            $fields[] = "estado_stock = ?";
+            $binds[]  = $data['stockStatus'];
+        }
+        if (array_key_exists('subcategoria', $data)) {
+            $fields[] = "subcategoria = ?";
+            $binds[]  = $data['subcategoria'] ?? null;
+        }
+        if (array_key_exists('peso_gramos', $data) || array_key_exists('weightGrams', $data)) {
+            $fields[] = "peso_gramos = ?";
+            $binds[]  = (int)($data['peso_gramos'] ?? $data['weightGrams'] ?? 50);
+        }
+        if (array_key_exists('dimensiones', $data) || array_key_exists('size', $data)) {
+            $fields[] = "dimensiones = ?";
+            $binds[]  = $data['dimensiones'] ?? $data['size'] ?? null;
+        }
+        if (array_key_exists('es_tienda', $data)) {
+            $fields[] = "es_tienda = ?";
+            $binds[]  = !empty($data['es_tienda']) ? 1 : 0;
+        }
+        if (array_key_exists('es_destacado', $data)) {
+            $fields[] = "es_destacado = ?";
+            $binds[]  = !empty($data['es_destacado']) ? 1 : 0;
         }
 
-        $sql = "UPDATE productos SET 
-                    subcategoria = ?,
-                    precio_venta = ?,
-                    precio_oferta = ?,
-                    stock_actual = ?,
-                    estado_stock = ?,
-                    peso_gramos = ?,
-                    dimensiones = ?,
-                    es_tienda = ?,
-                    es_destacado = ?,
-                    updated_at = NOW()
-                WHERE id = ?";
-        
+        if (empty($fields)) {
+            return true;
+        }
+
+        $fields[] = "updated_at = NOW()";
+        $binds[]  = $id;
+        $sql = "UPDATE productos SET " . implode(', ', $fields) . " WHERE id = ?";
         $stmt = $this->db->prepare($sql);
-        return $stmt->execute([
-            $data['subcategoria'] ?? null,
-            $data['price'] ?? 0,
-            $data['oldPrice'] ?? null,
-            $stockActual,
-            $stockStatus,
-            $data['weightGrams'] ?? 50,
-            $data['size'] ?? null,
-            isset($data['es_tienda']) ? ($data['es_tienda'] ? 1 : 0) : 1,
-            isset($data['es_destacado']) ? ($data['es_destacado'] ? 1 : 0) : 0,
-            $id
-        ]);
+        return $stmt->execute($binds);
     }
 
     /**

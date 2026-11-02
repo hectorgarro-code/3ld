@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Store,
@@ -187,6 +187,7 @@ export default function TiendaAdminPage() {
     field: 'precio_costo' | 'precio_venta' | 'precio_oferta' | 'stock_actual'
     value: string
   } | null>(null)
+  const isSavingCellRef = useRef(false)
 
   const handleSort = (field: keyof AdminProduct) => {
     if (sortField === field) {
@@ -198,12 +199,19 @@ export default function TiendaAdminPage() {
   }
 
   const handleCellSave = async () => {
-    if (!editingCell) return
+    if (!editingCell || isSavingCellRef.current) return
     const { id, field, value } = editingCell
-    setEditingCell(null)
+    isSavingCellRef.current = true
 
     const rawVal = value.trim()
-    const numValue = rawVal === '' ? (field === 'precio_oferta' ? null : 0) : parseFloat(rawVal) || 0
+    const cleanVal = rawVal.replace('$', '').replace(/\s/g, '').replace(',', '.')
+    const numValue = cleanVal === '' ? (field === 'precio_oferta' ? null : 0) : parseFloat(cleanVal) || 0
+
+    // Optimistically close editing cell & update products
+    setEditingCell(null)
+    setProducts((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, [field]: numValue } : p))
+    )
 
     try {
       const payload: any = {
@@ -214,9 +222,6 @@ export default function TiendaAdminPage() {
       }
 
       await api.put(`/productos/${id}`, payload)
-      setProducts((prev) =>
-        prev.map((p) => (p.id === id ? { ...p, [field]: numValue } : p))
-      )
       const fieldLabel =
         field === 'precio_costo'
           ? 'Costo'
@@ -227,7 +232,10 @@ export default function TiendaAdminPage() {
           : 'Stock'
       showToast(`${fieldLabel} actualizado correctamente`)
     } catch (e) {
+      fetchProducts()
       showToast(`Error al actualizar ${field === 'stock_actual' ? 'el stock' : 'el precio'}`, 'error')
+    } finally {
+      isSavingCellRef.current = false
     }
   }
 
@@ -843,11 +851,16 @@ export default function TiendaAdminPage() {
                         </p>
                       </td>
 
-                      {/* Costo (Doble Clic para Editar) */}
+                      {/* Costo (Clic para Editar) */}
                       <td
                         className="p-4 font-bold text-slate-700 cursor-pointer hover:bg-amber-50/80 transition group relative"
-                        onDoubleClick={() => setEditingCell({ id: p.id, field: 'precio_costo', value: p.precio_costo ? String(p.precio_costo) : '' })}
-                        title="Doble clic para editar costo"
+                        onClick={() => {
+                          if (editingCell?.id !== p.id || editingCell?.field !== 'precio_costo') {
+                            setEditingCell({ id: p.id, field: 'precio_costo', value: p.precio_costo != null ? String(p.precio_costo) : '' })
+                          }
+                        }}
+                        onDoubleClick={() => setEditingCell({ id: p.id, field: 'precio_costo', value: p.precio_costo != null ? String(p.precio_costo) : '' })}
+                        title="Clic para editar costo"
                       >
                         {editingCell?.id === p.id && editingCell?.field === 'precio_costo' ? (
                           <div onClick={(e) => e.stopPropagation()}>
@@ -868,16 +881,21 @@ export default function TiendaAdminPage() {
                         ) : (
                           <div className="flex items-center gap-1">
                             <span>${(p.precio_costo || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                            <Edit2 className="w-3 h-3 text-slate-300 opacity-0 group-hover:opacity-100 transition" />
+                            <Edit2 className="w-3 h-3 text-slate-400 group-hover:text-amber-600 transition" />
                           </div>
                         )}
                       </td>
 
-                      {/* Precio Venta (Doble Clic para Editar) */}
+                      {/* Precio Venta (Clic para Editar) */}
                       <td
                         className="p-4 font-bold text-slate-900 cursor-pointer hover:bg-cyan-50/80 transition group relative"
-                        onDoubleClick={() => setEditingCell({ id: p.id, field: 'precio_venta', value: p.precio_venta ? String(p.precio_venta) : '' })}
-                        title="Doble clic para editar precio de venta"
+                        onClick={() => {
+                          if (editingCell?.id !== p.id || editingCell?.field !== 'precio_venta') {
+                            setEditingCell({ id: p.id, field: 'precio_venta', value: p.precio_venta != null ? String(p.precio_venta) : '' })
+                          }
+                        }}
+                        onDoubleClick={() => setEditingCell({ id: p.id, field: 'precio_venta', value: p.precio_venta != null ? String(p.precio_venta) : '' })}
+                        title="Clic para editar precio de venta"
                       >
                         {editingCell?.id === p.id && editingCell?.field === 'precio_venta' ? (
                           <div onClick={(e) => e.stopPropagation()}>
@@ -898,16 +916,21 @@ export default function TiendaAdminPage() {
                         ) : (
                           <div className="flex items-center gap-1">
                             <span>${(p.precio_venta || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                            <Edit2 className="w-3 h-3 text-slate-300 opacity-0 group-hover:opacity-100 transition" />
+                            <Edit2 className="w-3 h-3 text-slate-400 group-hover:text-cyan-600 transition" />
                           </div>
                         )}
                       </td>
 
-                      {/* Precio Oferta (Doble Clic para Editar) */}
+                      {/* Precio Oferta (Clic para Editar) */}
                       <td
                         className="p-4 cursor-pointer hover:bg-emerald-50/80 transition group relative"
-                        onDoubleClick={() => setEditingCell({ id: p.id, field: 'precio_oferta', value: p.precio_oferta ? String(p.precio_oferta) : '' })}
-                        title="Doble clic para editar precio de oferta"
+                        onClick={() => {
+                          if (editingCell?.id !== p.id || editingCell?.field !== 'precio_oferta') {
+                            setEditingCell({ id: p.id, field: 'precio_oferta', value: p.precio_oferta != null ? String(p.precio_oferta) : '' })
+                          }
+                        }}
+                        onDoubleClick={() => setEditingCell({ id: p.id, field: 'precio_oferta', value: p.precio_oferta != null ? String(p.precio_oferta) : '' })}
+                        title="Clic para editar precio de oferta"
                       >
                         {editingCell?.id === p.id && editingCell?.field === 'precio_oferta' ? (
                           <div onClick={(e) => e.stopPropagation()}>
@@ -929,21 +952,26 @@ export default function TiendaAdminPage() {
                         ) : p.precio_oferta ? (
                           <div className="flex items-center gap-1 font-bold text-emerald-600">
                             <span>${p.precio_oferta.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                            <Edit2 className="w-3 h-3 text-slate-300 opacity-0 group-hover:opacity-100 transition" />
+                            <Edit2 className="w-3 h-3 text-slate-400 group-hover:text-emerald-600 transition" />
                           </div>
                         ) : (
-                          <div className="flex items-center gap-1 text-slate-300">
+                          <div className="flex items-center gap-1 text-slate-400">
                             <span>-</span>
                             <Edit2 className="w-3 h-3 text-slate-300 opacity-0 group-hover:opacity-100 transition" />
                           </div>
                         )}
                       </td>
 
-                      {/* Stock (Doble Clic para Editar) */}
+                      {/* Stock (Clic para Editar) */}
                       <td
                         className="p-4 cursor-pointer hover:bg-cyan-50/80 transition group relative"
+                        onClick={() => {
+                          if (editingCell?.id !== p.id || editingCell?.field !== 'stock_actual') {
+                            setEditingCell({ id: p.id, field: 'stock_actual', value: String(p.stock_actual ?? 0) })
+                          }
+                        }}
                         onDoubleClick={() => setEditingCell({ id: p.id, field: 'stock_actual', value: String(p.stock_actual ?? 0) })}
-                        title="Doble clic para editar stock"
+                        title="Clic para editar stock"
                       >
                         {editingCell?.id === p.id && editingCell?.field === 'stock_actual' ? (
                           <div onClick={(e) => e.stopPropagation()}>
@@ -966,7 +994,7 @@ export default function TiendaAdminPage() {
                             <span className="font-extrabold text-slate-800">
                               {Number(p.stock_actual || 0).toFixed(2)} un
                             </span>
-                            <Edit2 className="w-3 h-3 text-slate-300 opacity-0 group-hover:opacity-100 transition" />
+                            <Edit2 className="w-3 h-3 text-slate-400 group-hover:text-cyan-600 transition" />
                           </div>
                         )}
                       </td>
