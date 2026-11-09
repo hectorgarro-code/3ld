@@ -273,6 +273,12 @@ export default function TiendaPage() {
           productos_count: countFromProds
         };
       });
+      // Asegurar que las categorías destacadas siempre queden al principio de la lista
+      dynamicCats.sort((a: Category, b: Category) => {
+        if (a.es_destacada && !b.es_destacada) return -1;
+        if (!a.es_destacada && b.es_destacada) return 1;
+        return a.name.localeCompare(b.name, 'es', { sensitivity: 'base' });
+      });
       return [allCat, ...dynamicCats];
     }
 
@@ -1370,6 +1376,7 @@ export default function TiendaPage() {
             {categories.map((cat) => {
               const active = selectedCategory === cat.id || (selectedCategory === 'all' && cat.id === 'all');
               const count = cat.id === 'all' ? products.length : (categoryProductCounts[cat.name] ?? cat.productos_count ?? 0);
+              const isDestacada = Boolean(cat.es_destacada && cat.id !== 'all');
               return (
                 <button
                   key={cat.id}
@@ -1379,15 +1386,24 @@ export default function TiendaPage() {
                   }}
                   className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold transition active:scale-95 ${
                     active
-                      ? 'bg-[#6B66C8] text-white shadow-sm ring-2 ring-[#6B66C8] ring-offset-1'
+                      ? isDestacada
+                        ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md ring-2 ring-amber-400 ring-offset-2'
+                        : 'bg-[#6B66C8] text-white shadow-sm ring-2 ring-[#6B66C8] ring-offset-1'
+                      : isDestacada
+                      ? 'bg-amber-50 text-amber-900 border-2 border-amber-400 shadow-sm hover:bg-amber-100 hover:border-amber-500 hover:scale-105'
                       : 'bg-slate-100 text-slate-700 hover:bg-[#EFEBFC] hover:text-[#6B66C8]'
                   }`}
                 >
                   <span className="text-sm">{cat.icon}</span>
-                  <span>{cat.name}</span>
+                  <span className={isDestacada ? 'font-extrabold' : ''}>{cat.name}</span>
+                  {isDestacada && (
+                    <span className="text-[10px] bg-amber-400/30 text-amber-950 px-1 py-0.2 rounded font-black tracking-wider uppercase text-[9px]">
+                      Top
+                    </span>
+                  )}
                   {cat.id !== 'all' && (
                     <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ml-0.5 ${
-                      active ? 'bg-white/25 text-white' : 'bg-slate-200/80 text-slate-600'
+                      active ? 'bg-white/25 text-white' : isDestacada ? 'bg-amber-200/80 text-amber-900' : 'bg-slate-200/80 text-slate-600'
                     }`}>
                       {isLoadingProducts && products.length === 0 ? '·' : count}
                     </span>
@@ -1412,10 +1428,11 @@ export default function TiendaPage() {
               </span>
             </button>
 
-            {/* Las 3 más utilizadas */}
+            {/* Las 3 más utilizadas / destacadas */}
             {mobileFeaturedCategories.map((cat) => {
               const active = selectedCategory === cat.id;
               const count = categoryProductCounts[cat.name] ?? cat.productos_count ?? 0;
+              const isDestacada = Boolean(cat.es_destacada && cat.id !== 'all');
               return (
                 <button
                   key={cat.id}
@@ -1425,7 +1442,11 @@ export default function TiendaPage() {
                   }}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition shrink-0 ${
                     active
-                      ? 'bg-[#6B66C8] text-white shadow-sm ring-2 ring-[#6B66C8] ring-offset-1'
+                      ? isDestacada
+                        ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md ring-2 ring-amber-400 ring-offset-2'
+                        : 'bg-[#6B66C8] text-white shadow-sm ring-2 ring-[#6B66C8] ring-offset-1'
+                      : isDestacada
+                      ? 'bg-amber-50 text-amber-900 border-2 border-amber-400 shadow-sm'
                       : 'bg-slate-100 text-slate-700'
                   }`}
                 >
@@ -1443,8 +1464,13 @@ export default function TiendaPage() {
                   ) : null}
                   <span className={cat.image ? 'hidden' : 'inline'}>{cat.icon}</span>
                   <span className="truncate max-w-[120px]">{cat.name}</span>
+                  {isDestacada && (
+                    <span className="text-[9px] bg-amber-400/30 text-amber-950 px-1 py-0.2 rounded font-black uppercase">
+                      Top
+                    </span>
+                  )}
                   <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ml-0.5 ${
-                    active ? 'bg-white/25 text-white' : 'bg-slate-200/80 text-slate-600'
+                    active ? 'bg-white/25 text-white' : isDestacada ? 'bg-amber-200/80 text-amber-900' : 'bg-slate-200/80 text-slate-600'
                   }`}>
                     {isLoadingProducts && products.length === 0 ? '·' : count}
                   </span>
