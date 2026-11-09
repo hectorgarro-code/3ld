@@ -709,7 +709,7 @@ $app->get('/sitemap.xml', function ($req, $res) use ($container) {
         }
 
         // Artículos y Productos
-        $stmtProds = $db->query("SELECT id, nombre, descripcion, imagen_url, updated_at FROM productos WHERE activo = 1 AND (es_tienda = 1 OR es_vendible = 1) ORDER BY id DESC");
+        $stmtProds = $db->query("SELECT id, nombre, descripcion, imagen_url, updated_at FROM productos WHERE activo = 1 AND es_tienda = 1 AND es_vendible = 1 ORDER BY id DESC");
         while ($prod = $stmtProds->fetch(\PDO::FETCH_ASSOC)) {
             $prodUrl = 'https://3ld.com.ar/tienda?producto=' . $prod['id'];
             $lastMod = !empty($prod['updated_at']) ? date('Y-m-d', strtotime($prod['updated_at'])) : date('Y-m-d');

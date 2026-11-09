@@ -41,7 +41,7 @@ class MetaCatalogController
                     COALESCE(c.nombre, 'Impresión 3D') AS categoria_nombre
                 FROM productos p
                 LEFT JOIN categorias_producto c ON c.id = p.categoria_id
-                WHERE p.activo = 1 AND (p.es_tienda = 1 OR p.es_vendible = 1)
+                WHERE p.activo = 1 AND p.es_tienda = 1 AND p.es_vendible = 1
                 ORDER BY p.es_destacado DESC, p.id DESC";
 
         $stmt = $this->db->query($sql);

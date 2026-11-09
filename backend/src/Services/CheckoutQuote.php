@@ -22,7 +22,7 @@ final class CheckoutQuote
             $qty = filter_var($item['quantity'] ?? $item['qty'] ?? null, FILTER_VALIDATE_INT);
             if (!$id || $id < 1 || !$qty || $qty < 1 || $qty > 1000) throw new InvalidArgumentException('Producto o cantidad inválidos.');
             $query->execute([$id]); $product = $query->fetch(PDO::FETCH_ASSOC);
-            if (!$product || !(int)$product['activo'] || !((int)($product['es_tienda'] ?? 0) || (int)($product['es_vendible'] ?? 0))) {
+            if (!$product || !(int)$product['activo'] || !(int)($product['es_tienda'] ?? 0) || !(int)($product['es_vendible'] ?? 0)) {
                 throw new InvalidArgumentException('Un producto ya no está disponible en la tienda.');
             }
             $price = (float)($product['precio_venta'] ?? 0);

@@ -26,7 +26,7 @@ class TiendaRepository
         $stockStatus = $params['stock_status'] ?? '';
         $sort = $params['sort'] ?? 'featured';
 
-        $where = "WHERE p.activo = 1 AND (p.es_tienda = 1 OR p.es_vendible = 1)";
+        $where = "WHERE p.activo = 1 AND p.es_tienda = 1 AND p.es_vendible = 1";
         $binds = [];
 
         if (!empty($q)) {
@@ -175,7 +175,7 @@ class TiendaRepository
                                    c.nombre AS category
                             FROM productos p
                             LEFT JOIN categorias_producto c ON c.id = p.categoria_id
-                            WHERE p.activo = 1 AND p.es_vendible = 1
+                            WHERE p.activo = 1 AND p.es_tienda = 1 AND p.es_vendible = 1
                             ORDER BY p.id DESC";
             $stmt = $this->db->prepare($fallbackSql);
             $stmt->execute();
@@ -370,7 +370,7 @@ class TiendaRepository
     {
         try {
             $sql = "SELECT c.id, c.nombre AS name, COALESCE(c.icono, '✨') AS icon, c.imagen_url AS image, c.es_destacada, c.parent_id,
-                           (SELECT COUNT(*) FROM productos p WHERE (p.categoria_id = c.id OR p.categoria_secundaria_id = c.id) AND p.activo = 1 AND (p.es_tienda = 1 OR p.es_vendible = 1)) AS productos_count
+                           (SELECT COUNT(*) FROM productos p WHERE (p.categoria_id = c.id OR p.categoria_secundaria_id = c.id) AND p.activo = 1 AND p.es_tienda = 1 AND p.es_vendible = 1) AS productos_count
                     FROM categorias_producto c
                     ORDER BY c.parent_id IS NOT NULL ASC, c.es_destacada DESC, c.nombre ASC";
             $stmt = $this->db->prepare($sql);
@@ -396,7 +396,7 @@ class TiendaRepository
                 $subs = $subcategoriesByParent[$catId] ?? [];
 
                 try {
-                    $subStmt = $this->db->prepare("SELECT DISTINCT subcategoria FROM productos WHERE (categoria_id = ? OR categoria_secundaria_id = ?) AND subcategoria IS NOT NULL AND subcategoria != '' AND activo = 1 AND es_tienda = 1");
+                    $subStmt = $this->db->prepare("SELECT DISTINCT subcategoria FROM productos WHERE (categoria_id = ? OR categoria_secundaria_id = ?) AND subcategoria IS NOT NULL AND subcategoria != '' AND activo = 1 AND es_tienda = 1 AND es_vendible = 1");
                     $subStmt->execute([$catId, $catId]);
                     $textSubs = $subStmt->fetchAll(PDO::FETCH_COLUMN) ?: [];
                     foreach ($textSubs as $ts) {
