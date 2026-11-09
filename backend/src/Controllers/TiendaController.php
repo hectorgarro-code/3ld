@@ -44,7 +44,7 @@ class TiendaController
         try {
             $categorias = $this->repository->getCategoriasPublicas();
             $res = Response::success($categorias);
-            return $res->withHeader('Cache-Control', 'public, max-age=120, s-maxage=600, stale-while-revalidate=1200');
+            return $res->withHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
         } catch (Throwable $e) {
             return Response::error('Error al obtener categorías de tienda: ' . $e->getMessage(), 500);
         }

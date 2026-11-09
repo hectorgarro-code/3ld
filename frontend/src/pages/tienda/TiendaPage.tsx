@@ -241,17 +241,9 @@ export default function TiendaPage() {
       } catch {}
       return list;
     },
-    initialData: () => {
-      try {
-        const cached = localStorage.getItem('3ld_cached_categories');
-        if (cached) {
-          const parsed = JSON.parse(cached);
-          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-        }
-      } catch {}
-      return undefined;
-    },
-    staleTime: 1000 * 60 * 10,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
+    staleTime: 0,
   });
 
   const categories = useMemo<Category[]>(() => {
