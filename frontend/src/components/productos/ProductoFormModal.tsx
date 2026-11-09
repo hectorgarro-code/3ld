@@ -470,21 +470,55 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
     }
   }
 
+  // Atajo de teclado: Ctrl+G o Cmd+G para guardar sin scrollear
+  useEffect(() => {
+    if (!isOpen || activeTab !== 'detalles') return
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'g' || e.key === 'G')) {
+        e.preventDefault()
+        if (!isSubmitting) {
+          handleSubmit(onSubmit)()
+        }
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [isOpen, activeTab, isSubmitting, handleSubmit, onSubmit])
+
   if (!isOpen) return null
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
       <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl border border-slate-100 bg-white shadow-2xl">
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-100 bg-white/90 px-6 py-4 backdrop-blur">
-          <h2 className="text-xl font-black text-slate-800">
-            {isEditing ? 'Editar Producto' : isDuplicate ? 'Duplicar Producto' : 'Nuevo Producto'}
-          </h2>
-          <button
-            onClick={onClose}
-            className="rounded-full p-2 text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-800"
-          >
-            <X className="h-5 w-5" />
-          </button>
+          <div className="flex items-center gap-3">
+            <h2 className="text-xl font-black text-slate-800">
+              {isEditing ? 'Editar Producto' : isDuplicate ? 'Duplicar Producto' : 'Nuevo Producto'}
+            </h2>
+            <span className="hidden sm:inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-500 border border-slate-200" title="Atajo para guardar">
+              <kbd className="font-mono">Ctrl</kbd>+<kbd className="font-mono">G</kbd>
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => handleSubmit(onSubmit)()}
+              disabled={isSubmitting}
+              className="flex items-center gap-1.5 rounded-xl bg-primary px-3.5 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-primary-dark transition disabled:opacity-50"
+              title="Guardar cambios (Ctrl+G)"
+            >
+              {isSubmitting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+              Guardar
+            </button>
+            <button
+              onClick={onClose}
+              className="rounded-full p-2 text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-800"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
         </div>
 
         {isEditing && (
