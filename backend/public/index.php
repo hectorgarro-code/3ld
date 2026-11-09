@@ -440,6 +440,9 @@ $app->group('/api/v1', function (RouteCollectorProxy $api) use ($config, $auth, 
         $g->get('/items[/]',            function ($req, $res) use ($container) {
             return $container->get(PedidosController::class)->itemsIndex($req, $res);
         });
+        $g->put('/items/bulk-estado',   function ($req, $res) use ($container) {
+            return $container->get(PedidosController::class)->cambiarEstadoItemsBulk($req, $res);
+        });
         $g->put('/items/{id}/estado',function ($req, $res, $args) use ($container) {
             return $container->get(PedidosController::class)->cambiarEstadoItem($req, $res, $args);
         });

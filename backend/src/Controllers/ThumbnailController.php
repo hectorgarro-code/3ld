@@ -184,3 +184,4 @@ class ThumbnailController
             ->withBody(new \Slim\Psr7\Stream($stream));
     }
 }
+

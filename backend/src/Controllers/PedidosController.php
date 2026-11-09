@@ -245,4 +245,46 @@ class PedidosController
             return Response::error('Error al cambiar estado del ítem: ' . $e->getMessage(), 500);
         }
     }
+
+    public function cambiarEstadoItemsBulk(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
+    {
+        try {
+            $body = $request->getParsedBody();
+            if (!is_array($body)) {
+                $raw = (string) $request->getBody();
+                $decoded = json_decode($raw, true);
+                $body = is_array($decoded) ? $decoded : (is_object($body) ? (array) $body : []);
+            }
+
+            $user = $request->getAttribute('user');
+            $ids = array_map('intval', $body['ids'] ?? []);
+            $nuevoEstado = trim((string)($body['estado'] ?? ''));
+
+            $estadosValidos = [
+                'presupuesto', 'aprobado', 'en_produccion',
+                'terminado', 'entregado', 'cobrado', 'anulado',
+            ];
+
+            if (empty($ids)) {
+                return Response::error('No se seleccionaron ítems', 400);
+            }
+
+            if (!in_array($nuevoEstado, $estadosValidos, true)) {
+                return Response::error('Estado inválido', 422);
+            }
+
+            foreach ($ids as $itemId) {
+                if ($itemId > 0) {
+                    $this->repository->cambiarEstadoItem($itemId, $nuevoEstado, $user['id'] ?? null);
+                }
+            }
+
+            return Response::success([
+                'message' => 'Estados actualizados correctamente',
+                'count'   => count($ids),
+            ]);
+        } catch (Throwable $e) {
+            return Response::error('Error al actualizar estados en lote: ' . $e->getMessage(), 500);
+        }
+    }
 }

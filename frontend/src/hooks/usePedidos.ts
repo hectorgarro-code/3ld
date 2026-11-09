@@ -133,6 +133,24 @@ export function useCambiarEstadoItem() {
   })
 }
 
+export function useCambiarEstadoItemsBulk() {
+  const queryClient = useQueryClient()
+  return useMutation<
+    void,
+    Error,
+    { ids: number[]; estado: PedidoEstado }
+  >({
+    mutationFn: async ({ ids, estado }) => {
+      await api.put('/pedidos/items/bulk-estado', { ids, estado })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pedido_items'] })
+      queryClient.invalidateQueries({ queryKey: ['pedidos'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+    },
+  })
+}
+
 export function useAnularPedido() {
   const queryClient = useQueryClient()
   return useMutation<void, Error, number>({
