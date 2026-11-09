@@ -49,3 +49,18 @@ export function resolveImageUrl(url?: string | null): string {
   }
   return cleanPath
 }
+
+export function getThumbnailUrl(url?: string | null, width = 160): string {
+  if (!url) return ''
+  if (url.startsWith('data:') || url.startsWith('blob:')) {
+    return url
+  }
+  // Si es MakerWorld, usar CDN OSS nativo con WebP ultra-liviano (~2 KB)
+  if (url.includes('makerworld.bblmw.com')) {
+    const clean = url.replace(/(\?|&)x-oss-process=[^&]*/, '')
+    const sep = clean.includes('?') ? '&' : '?'
+    return `${clean}${sep}x-oss-process=image/resize,w_${width}/format,webp`
+  }
+  const resolved = resolveImageUrl(url)
+  return `/api/v1/thumbnail?url=${encodeURIComponent(resolved)}&w=${width}`
+}

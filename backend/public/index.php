@@ -26,6 +26,7 @@ use App\Controllers\TiendaController;
 use App\Controllers\AnalyticsController;
 use App\Controllers\AiController;
 use App\Controllers\MediaController;
+use App\Controllers\ThumbnailController;
 use App\Controllers\MercadoPagoController;
 use App\Controllers\MetaCatalogController;
 use App\Services\OpenAiService;
@@ -139,6 +140,9 @@ $containerBuilder->addDefinitions([
     },
     MediaController::class => function ($c) {
         return new MediaController($c->get(PDO::class));
+    },
+    ThumbnailController::class => function () {
+        return new ThumbnailController();
     },
     MetaCatalogController::class => function ($c) {
         return new MetaCatalogController($c->get(PDO::class));
@@ -664,6 +668,11 @@ $app->get('/api/v1/mercadopago/webhook', function ($req, $res) use ($container) 
 // Proxy público de imágenes de MakerWorld
 $app->get('/api/v1/ai/proxy-image', function ($req, $res) use ($container) {
     return $container->get(AiController::class)->proxyImage($req, $res);
+});
+
+// Thumbnails optimizados dinámicos
+$app->get('/api/v1/thumbnail', function ($req, $res) use ($container) {
+    return $container->get(ThumbnailController::class)->getThumbnail($req, $res);
 });
 
 // Dynamic Sitemap XML

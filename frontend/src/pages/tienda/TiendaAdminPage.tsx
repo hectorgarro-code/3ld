@@ -31,6 +31,7 @@ import { ProductoFormModal } from '@/components/productos/ProductoFormModal'
 import { ProductStoreDetailModal } from '@/components/tienda/ProductStoreDetailModal'
 import { MetaSyncModal } from '@/components/tienda/MetaSyncModal'
 import { optimizeImagesForPrint } from '@/lib/imageOptimization'
+import { resolveImageUrl, getThumbnailUrl } from '@/lib/utils'
 
 export interface AdminProduct {
   id: number
@@ -820,9 +821,19 @@ export default function TiendaAdminPage() {
                           >
                             {p.imagen_url ? (
                               <img
-                                src={p.imagen_url}
+                                src={getThumbnailUrl(p.imagen_url, 160)}
                                 alt={p.nombre}
-                                className="h-16 w-16 object-cover rounded-2xl border border-slate-200 shadow-xs hover:ring-2 hover:ring-[#6B66C8] transition group-hover/thumb:scale-105"
+                                loading="lazy"
+                                decoding="async"
+                                referrerPolicy="no-referrer"
+                                onError={(e) => {
+                                  const target = e.currentTarget
+                                  const fallback = resolveImageUrl(p.imagen_url)
+                                  if (target.src !== fallback && fallback) {
+                                    target.src = fallback
+                                  }
+                                }}
+                                className="h-16 w-16 object-cover rounded-2xl border border-slate-200 shadow-xs hover:ring-2 hover:ring-[#6B66C8] transition group-hover/thumb:scale-105 bg-slate-50"
                               />
                             ) : (
                               <div className="h-16 w-16 rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400 shrink-0 hover:bg-slate-200 transition">

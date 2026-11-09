@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { useProductos, useCategorias, useDeleteProducto, useUpdateProducto } from '@/hooks/useProductos'
 import { formatARS } from '@/lib/cost-calculator'
-import { cn, resolveImageUrl } from '@/lib/utils'
+import { cn, resolveImageUrl, getThumbnailUrl } from '@/lib/utils'
 import { Search, AlertTriangle, Package, Plus, Minus, Pencil, Copy, Trash2, Loader2, Bot, Sparkles, Tags, Download, ExternalLink, ChevronLeft, ChevronRight, Images, Printer, Share2 } from 'lucide-react'
 import type { Producto, ProductoTipo, Categoria } from '@/types'
 import { ProductoFormModal } from '@/components/productos/ProductoFormModal'
@@ -124,19 +124,17 @@ function ProductoCard({
           title="Clic para ver detalle completo como en la tienda"
         >
           <img
-            src={resolveImageUrl(currentImg)}
+            src={getThumbnailUrl(currentImg, 240)}
             alt={producto.nombre}
+            loading="lazy"
+            decoding="async"
+            referrerPolicy="no-referrer"
             className="h-full w-full object-cover transition duration-300 group-hover/img:scale-105"
             onError={(e) => {
               const el = e.currentTarget
               if (el.dataset.triedFallback) return
               el.dataset.triedFallback = 'true'
-              const cur = el.src
-              if (cur.includes('/backend/public/uploads/')) {
-                el.src = cur.replace('/backend/public/uploads/', '/uploads/')
-              } else if (cur.includes('/uploads/') && !cur.includes('/backend/public/uploads/')) {
-                el.src = cur.replace('/uploads/', '/backend/public/uploads/')
-              }
+              el.src = resolveImageUrl(currentImg)
             }}
           />
           
