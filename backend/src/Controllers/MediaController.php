@@ -34,6 +34,71 @@ class MediaController
         $files = glob($primaryDir . '*.*');
         $mediaList = [];
 
+        // Mapeo de imagen -> productos y categorías
+        $imageCategoryMap = [];
+        try {
+            $stmt = $this->db->query("
+                SELECT p.imagen_url, p.imagenes, 
+                       c.id AS cat_id, c.nombre AS cat_nombre,
+                       c_sec.id AS cat_sec_id, c_sec.nombre AS cat_sec_nombre
+                FROM productos p
+                LEFT JOIN categorias_producto c ON c.id = p.categoria_id
+                LEFT JOIN categorias_producto c_sec ON c_sec.id = p.categoria_secundaria_id
+                WHERE (p.imagen_url IS NOT NULL AND p.imagen_url != '') OR (p.imagenes IS NOT NULL AND p.imagenes != '')
+            ");
+            $rows = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+            foreach ($rows as $row) {
+                $categories = [];
+                if (!empty($row['cat_nombre'])) {
+                    $categories[] = [
+                        'id' => (int)$row['cat_id'],
+                        'nombre' => $row['cat_nombre']
+                    ];
+                }
+                if (!empty($row['cat_sec_nombre']) && $row['cat_sec_id'] !== $row['cat_id']) {
+                    $categories[] = [
+                        'id' => (int)$row['cat_sec_id'],
+                        'nombre' => $row['cat_sec_nombre']
+                    ];
+                }
+
+                if (empty($categories)) continue;
+
+                // Extraer basenames de imagen_url
+                if (!empty($row['imagen_url'])) {
+                    $b = basename($row['imagen_url']);
+                    if (!isset($imageCategoryMap[$b])) {
+                        $imageCategoryMap[$b] = [];
+                    }
+                    foreach ($categories as $cat) {
+                        if (!in_array($cat['nombre'], array_column($imageCategoryMap[$b], 'nombre'), true)) {
+                            $imageCategoryMap[$b][] = $cat;
+                        }
+                    }
+                }
+
+                // Extraer basenames de imagenes (array JSON)
+                if (!empty($row['imagenes'])) {
+                    $imgs = is_string($row['imagenes']) ? json_decode($row['imagenes'], true) : $row['imagenes'];
+                    if (is_array($imgs)) {
+                        foreach ($imgs as $oneImg) {
+                            if (!empty($oneImg)) {
+                                $b = basename($oneImg);
+                                if (!isset($imageCategoryMap[$b])) {
+                                    $imageCategoryMap[$b] = [];
+                                }
+                                foreach ($categories as $cat) {
+                                    if (!in_array($cat['nombre'], array_column($imageCategoryMap[$b], 'nombre'), true)) {
+                                        $imageCategoryMap[$b][] = $cat;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (\Throwable $e) {}
+
         if ($files) {
             foreach ($files as $filePath) {
                 $basename = basename($filePath);
@@ -55,6 +120,8 @@ class MediaController
                     }
                 }
 
+                $cats = $imageCategoryMap[$basename] ?? [];
+
                 $mediaList[] = [
                     'filename' => $basename,
                     'url' => '/backend/public/uploads/productos/' . $basename,
@@ -64,6 +131,8 @@ class MediaController
                     'is_webp' => ($ext === 'webp'),
                     'dimensions' => $dimensions,
                     'modified_at' => $modifiedAt,
+                    'categories' => $cats,
+                    'category_names' => array_column($cats, 'nombre'),
                 ];
             }
         }

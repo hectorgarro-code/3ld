@@ -34,6 +34,8 @@ export interface MediaItem {
   is_webp: boolean
   dimensions?: { width: number; height: number } | null
   modified_at?: string | null
+  categories?: { id: number; nombre: string }[]
+  category_names?: string[]
 }
 
 interface MediaLibraryModalProps {
@@ -59,6 +61,7 @@ export function MediaLibraryModal({
   const [isLoadingMedia, setIsLoadingMedia] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [filterFormat, setFilterFormat] = useState<string>('all')
+  const [filterCategory, setFilterCategory] = useState<string>('all')
   const [copiedUrl, setCopiedUrl] = useState<string | null>(null)
   const [selectedItem, setSelectedItem] = useState<MediaItem | null>(null)
 
@@ -115,18 +118,32 @@ export function MediaLibraryModal({
     }
   }
 
+  // Extraer lista única de categorías disponibles entre todas las imágenes
+  const availableCategories = useMemo(() => {
+    const set = new Set<string>()
+    mediaList.forEach((m) => {
+      m.category_names?.forEach((c) => set.add(c))
+    })
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'es'))
+  }, [mediaList])
+
   // Filtrado de Galería
   const filteredMedia = useMemo(() => {
     return mediaList.filter((item) => {
       if (filterFormat === 'webp' && !item.is_webp) return false
       if (filterFormat === 'legacy' && item.is_webp) return false
+      if (filterCategory !== 'all') {
+        if (!item.category_names || !item.category_names.includes(filterCategory)) {
+          return false
+        }
+      }
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim()
         if (!item.filename.toLowerCase().includes(q)) return false
       }
       return true
     })
-  }, [mediaList, filterFormat, searchQuery])
+  }, [mediaList, filterFormat, filterCategory, searchQuery])
 
   // Copiar URL
   const handleCopyUrl = (url: string) => {
@@ -522,7 +539,11 @@ export function MediaLibraryModal({
   const selectAllNonWebp = () => {
     const newMap: Record<string, boolean> = {}
     mediaList.forEach((item) => {
-      if (!item.is_webp) newMap[item.filename] = true
+      if (!item.is_webp) {
+        if (filterCategory === 'all' || (item.category_names && item.category_names.includes(filterCategory))) {
+          newMap[item.filename] = true
+        }
+      }
     })
     setBatchSelected(newMap)
   }
@@ -630,14 +651,27 @@ export function MediaLibraryModal({
                   />
                 </div>
 
-                <div className="flex items-center gap-2 w-full sm:w-auto">
+                <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
                   <span className="text-[11px] font-bold text-slate-500 shrink-0">Filtrar:</span>
+                  <select
+                    value={filterCategory}
+                    onChange={(e) => setFilterCategory(e.target.value)}
+                    className="py-1.5 px-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none"
+                  >
+                    <option value="all">Todas las categorías</option>
+                    {availableCategories.map((cat) => (
+                      <option key={cat} value={cat}>
+                        📁 {cat}
+                      </option>
+                    ))}
+                  </select>
+
                   <select
                     value={filterFormat}
                     onChange={(e) => setFilterFormat(e.target.value)}
                     className="py-1.5 px-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none"
                   >
-                    <option value="all">Todas las imágenes</option>
+                    <option value="all">Todos los formatos</option>
                     <option value="webp">Solo formato WebP (Optimizado)</option>
                     <option value="legacy">Imágenes pesadas (JPG/PNG)</option>
                   </select>
@@ -721,6 +755,11 @@ export function MediaLibraryModal({
                           <p className="text-[11px] font-bold text-slate-800 truncate" title={item.filename}>
                             {item.filename}
                           </p>
+                          {item.category_names && item.category_names.length > 0 && (
+                            <p className="text-[9px] font-semibold text-cyan-600 truncate mt-0.5">
+                              📁 {item.category_names.join(', ')}
+                            </p>
+                          )}
                           <div className="flex items-center justify-between text-[10px] text-slate-600 mt-1">
                             <span>{item.size_formatted}</span>
                             {item.dimensions && (
@@ -1175,12 +1214,31 @@ export function MediaLibraryModal({
                   </p>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex items-center gap-1.5 bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200">
+                    <span className="text-[11px] font-bold text-slate-500">Categoría:</span>
+                    <select
+                      value={filterCategory}
+                      onChange={(e) => setFilterCategory(e.target.value)}
+                      className="bg-transparent text-xs font-semibold text-slate-800 focus:outline-none"
+                    >
+                      <option value="all">Todas ({mediaList.length})</option>
+                      {availableCategories.map((cat) => {
+                        const count = mediaList.filter((m) => m.category_names && m.category_names.includes(cat)).length
+                        return (
+                          <option key={cat} value={cat}>
+                            📁 {cat} ({count})
+                          </option>
+                        )
+                      })}
+                    </select>
+                  </div>
+
                   <button
                     onClick={selectAllNonWebp}
                     className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold transition"
                   >
-                    Seleccionar todas las JPG/PNG
+                    {filterCategory === 'all' ? 'Seleccionar todas las JPG/PNG' : `Seleccionar JPG/PNG de "${filterCategory}"`}
                   </button>
                   <button
                     onClick={handleBatchConvert}
@@ -1202,7 +1260,9 @@ export function MediaLibraryModal({
 
               {/* Grilla de selección batch */}
               <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3">
-                {mediaList.map((item) => {
+                {mediaList
+                  .filter((item) => filterCategory === 'all' || (item.category_names && item.category_names.includes(filterCategory)))
+                  .map((item) => {
                   const isChecked = Boolean(batchSelected[item.filename])
                   const fullUrl = resolveImageUrl(item.url)
 
@@ -1227,6 +1287,11 @@ export function MediaLibraryModal({
                       </div>
 
                       <p className="text-[10px] font-bold text-slate-700 truncate">{item.filename}</p>
+                      {item.category_names && item.category_names.length > 0 && (
+                        <p className="text-[9px] font-semibold text-cyan-600 truncate">
+                          📁 {item.category_names.join(', ')}
+                        </p>
+                      )}
                       <span className="text-[9px] text-slate-500">{item.size_formatted}</span>
                     </div>
                   )
