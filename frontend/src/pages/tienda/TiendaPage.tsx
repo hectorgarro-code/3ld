@@ -35,6 +35,7 @@ import { optimizeImagesForPrint } from '@/lib/imageOptimization';
 import { calcularTarifaCorreoArgentino } from '@/lib/correoArgentino';
 import { CustomerShareModal } from '@/components/tienda/CustomerShareModal';
 import { ProductStoreDetailModal } from '@/components/tienda/ProductStoreDetailModal';
+import { getThumbnailUrl } from '@/lib/utils';
 import { DeliveryEstimate } from '@/components/tienda/DeliveryEstimate';
 import { FreeShippingProgress } from '@/components/tienda/FreeShippingProgress';
 import { LOCAL_FREE_SHIPPING_THRESHOLD } from '@/lib/freeShipping';
@@ -1647,10 +1648,17 @@ export default function TiendaPage() {
                 {/* Product Image */}
                 <div className="relative aspect-square overflow-hidden bg-slate-100">
                   <img
-                    src={product.image}
+                    src={getThumbnailUrl(product.image, 400)}
                     alt={product.title}
                     className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
                     loading="lazy"
+                    decoding="async"
+                    onError={(e) => {
+                      // Fallback a imagen original si falla el thumbnail
+                      if (product.image && e.currentTarget.src !== product.image) {
+                        e.currentTarget.src = product.image;
+                      }
+                    }}
                   />
                   {/* Stock status badge */}
                   <div className="absolute top-2 left-2 flex flex-col gap-1">

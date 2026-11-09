@@ -617,6 +617,9 @@ $app->group('/api/v1', function (RouteCollectorProxy $api) use ($config, $auth, 
         $g->post('/upload[/]', function ($req, $res) use ($container) {
             return $container->get(MediaController::class)->upload($req, $res);
         });
+        $g->post('/batch-optimize[/]', function ($req, $res) use ($container) {
+            return $container->get(MediaController::class)->batchOptimize($req, $res);
+        });
         $g->delete('/delete[/]', function ($req, $res) use ($container) {
             return $container->get(MediaController::class)->delete($req, $res);
         });

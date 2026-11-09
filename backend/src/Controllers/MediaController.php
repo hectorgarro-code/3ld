@@ -242,4 +242,151 @@ class MediaController
         }
         return $bytes . ' B';
     }
+
+    /**
+     * POST /api/v1/media/batch-optimize
+     * Optimiza imágenes existentes a formato WebP directamente en el servidor usando GD
+     */
+    public function batchOptimize($req, $res)
+    {
+        $body = $req->getParsedBody() ?? [];
+        $filenames = $body['filenames'] ?? [];
+        $quality = isset($body['quality']) ? max(10, min(100, (int)$body['quality'])) : 80;
+        $maxWidth = isset($body['max_width']) ? max(300, min(2400, (int)$body['max_width'])) : 1200;
+        $deleteOriginal = !empty($body['delete_original']);
+
+        $dirs = UploadHelper::getTargetDirectories();
+        $primaryDir = $dirs[0] ?? null;
+
+        if (!$primaryDir || !is_dir($primaryDir)) {
+            $res->getBody()->write(json_encode(['success' => false, 'message' => 'Directorio de uploads no encontrado']));
+            return $res->withStatus(500)->withHeader('Content-Type', 'application/json');
+        }
+
+        if (!extension_loaded('gd') || !function_exists('imagewebp')) {
+            $res->getBody()->write(json_encode(['success' => false, 'message' => 'La extensión PHP GD con soporte WebP no está disponible']));
+            return $res->withStatus(500)->withHeader('Content-Type', 'application/json');
+        }
+
+        // Si no se especificaron filenames, procesar todos los archivos que no sean webp
+        if (empty($filenames)) {
+            $files = glob($primaryDir . '*.*');
+            $filenames = [];
+            foreach ($files as $f) {
+                $ext = strtolower(pathinfo($f, PATHINFO_EXTENSION));
+                if (in_array($ext, ['jpg', 'jpeg', 'png']) && !str_ends_with($f, '.webp')) {
+                    $filenames[] = basename($f);
+                }
+            }
+        }
+
+        $limit = isset($body['limit']) ? (int)$body['limit'] : 25;
+        $targets = array_slice($filenames, 0, $limit);
+
+        $processed = 0;
+        $errors = [];
+
+        foreach ($targets as $filename) {
+            $basename = basename($filename);
+            $ext = strtolower(pathinfo($basename, PATHINFO_EXTENSION));
+            if (!in_array($ext, ['jpg', 'jpeg', 'png'])) {
+                continue;
+            }
+
+            $sourcePath = $primaryDir . $basename;
+            if (!file_exists($sourcePath)) {
+                continue;
+            }
+
+            try {
+                $info = @getimagesize($sourcePath);
+                if (!$info) {
+                    continue;
+                }
+
+                $srcW = $info[0];
+                $srcH = $info[1];
+                $mime = $info['mime'];
+
+                $srcImg = null;
+                switch ($mime) {
+                    case 'image/jpeg':
+                        $srcImg = @imagecreatefromjpeg($sourcePath);
+                        break;
+                    case 'image/png':
+                        $srcImg = @imagecreatefrompng($sourcePath);
+                        break;
+                }
+
+                if (!$srcImg) {
+                    continue;
+                }
+
+                // Calcular dimensiones
+                $dstW = $srcW;
+                $dstH = $srcH;
+                if ($maxWidth > 0 && $dstW > $maxWidth) {
+                    $dstH = (int)round(($maxWidth / $dstW) * $dstH);
+                    $dstW = $maxWidth;
+                }
+
+                $dstImg = imagecreatetruecolor($dstW, $dstH);
+                imagealphablending($dstImg, false);
+                imagesavealpha($dstImg, true);
+
+                imagecopyresampled($dstImg, $srcImg, 0, 0, 0, 0, $dstW, $dstH, $srcW, $srcH);
+
+                $cleanBase = pathinfo($basename, PATHINFO_FILENAME);
+                $webpName = $cleanBase . '.webp';
+
+                // Guardar en todas las carpetas físicas
+                foreach ($dirs as $dir) {
+                    @imagewebp($dstImg, $dir . $webpName, $quality);
+                }
+
+                imagedestroy($srcImg);
+                imagedestroy($dstImg);
+
+                // Actualizar BD: reemplazar $basename por $webpName en productos
+                if ($basename !== $webpName) {
+                    try {
+                        $stmt1 = $this->db->prepare("UPDATE productos SET imagen_url = REPLACE(imagen_url, :orig, :new) WHERE imagen_url LIKE :like");
+                        $stmt1->execute([
+                            'orig' => $basename,
+                            'new' => $webpName,
+                            'like' => '%' . $basename . '%'
+                        ]);
+
+                        $stmt2 = $this->db->prepare("UPDATE productos SET imagenes = REPLACE(imagenes, :orig, :new) WHERE imagenes LIKE :like");
+                        $stmt2->execute([
+                            'orig' => $basename,
+                            'new' => $webpName,
+                            'like' => '%' . $basename . '%'
+                        ]);
+
+                        if ($deleteOriginal && file_exists($primaryDir . $webpName) && filesize($primaryDir . $webpName) > 100) {
+                            foreach ($dirs as $dir) {
+                                if (file_exists($dir . $basename)) {
+                                    @unlink($dir . $basename);
+                                }
+                            }
+                        }
+                    } catch (\Throwable $e) {}
+                }
+
+                $processed++;
+            } catch (\Throwable $e) {
+                $errors[] = $basename . ': ' . $e->getMessage();
+            }
+        }
+
+        $res->getBody()->write(json_encode([
+            'success' => true,
+            'processed' => $processed,
+            'total_queued' => count($filenames),
+            'remaining' => count($filenames) - $processed,
+            'errors' => $errors
+        ]));
+        return $res->withHeader('Content-Type', 'application/json');
+    }
 }

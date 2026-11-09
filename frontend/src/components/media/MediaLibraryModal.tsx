@@ -468,7 +468,7 @@ export function MediaLibraryModal({
     }
   }
 
-  // Optimización masiva (Batch Convert to WebP)
+  // Optimización masiva (Server-side Batch Convert to WebP con soporte para cientos de imágenes)
   const handleBatchConvert = async () => {
     const selectedFilenames = Object.keys(batchSelected).filter((k) => batchSelected[k])
     if (selectedFilenames.length === 0) {
@@ -477,34 +477,42 @@ export function MediaLibraryModal({
     }
 
     setIsBatchProcessing(true)
-    let processed = 0
+    let totalProcessed = 0
+    const chunkSize = 20
+    const chunks: string[][] = []
 
-    for (const filename of selectedFilenames) {
-      const item = mediaList.find((m) => m.filename === filename)
-      if (!item) continue
-
-      setBatchProgress(`Optimizando ${processed + 1} de ${selectedFilenames.length}: ${filename}...`)
-      try {
-        const fullUrl = resolveImageUrl(item.url)
-        const res = await processImageToWebp(fullUrl, 82, 1200)
-
-        const baseName = filename.replace(/\.[^/.]+$/, '')
-        await api.post('/media/upload', {
-          image_base64: res.dataUrl,
-          filename: `${baseName}.webp`,
-          original_filename: filename
-        })
-        processed++
-      } catch (err) {
-        console.error(`Error procesando lote ${filename}`, err)
-      }
+    for (let i = 0; i < selectedFilenames.length; i += chunkSize) {
+      chunks.push(selectedFilenames.slice(i, i + chunkSize))
     }
 
-    setIsBatchProcessing(false)
-    setBatchProgress('')
-    setBatchSelected({})
-    toast(`¡Proceso completado! ${processed} imágenes optimizadas a WebP`, 'success')
-    fetchMediaList()
+    try {
+      for (let i = 0; i < chunks.length; i++) {
+        const currentChunk = chunks[i]
+        setBatchProgress(`Procesando lote ${i + 1} de ${chunks.length} (${totalProcessed}/${selectedFilenames.length} optimizadas)...`)
+
+        const res = await api.post('/media/batch-optimize', {
+          filenames: currentChunk,
+          quality: webpQuality || 80,
+          max_width: targetWidth || 1200,
+          delete_original: false,
+          limit: chunkSize
+        })
+
+        if (res.data?.success) {
+          totalProcessed += res.data.processed || 0
+        }
+      }
+
+      toast(`¡Proceso completado con éxito! ${totalProcessed} imágenes convertidas a WebP en el servidor`, 'success')
+      setBatchSelected({})
+      fetchMediaList()
+    } catch (err: any) {
+      console.error('Error en optimización en lote:', err)
+      toast(err.response?.data?.message || 'Error durante la optimización en el servidor', 'error')
+    } finally {
+      setIsBatchProcessing(false)
+      setBatchProgress('')
+    }
   }
 
   const toggleSelectBatch = (filename: string) => {
