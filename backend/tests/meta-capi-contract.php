@@ -16,7 +16,7 @@ namespace {
  $service=new \App\Services\MetaCapiService($config);
  $result=$service->sendPurchaseEvent($pedido,[['producto_id'=>116,'cantidad'=>1,'precio_unit'=>100]]);
  check($result['success'],'mocked response');
- check(str_starts_with($GLOBALS['captured_url'],'https://graph.facebook.com/v26.0/123/events?'),'default Graph version');
+ check(str_starts_with($GLOBALS['captured_url'],'https://graph.facebook.com/v26.0/123/events'),'default Graph version');
  $payload=json_decode($GLOBALS['captured_options'][CURLOPT_POSTFIELDS],true);
  check($payload['data'][0]['event_id']==='order_1','stable deduplication');
  check($payload['data'][0]['custom_data']['content_ids']===['3LD_116'],'catalog match');

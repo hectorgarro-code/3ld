@@ -179,7 +179,7 @@ class MetaCapiService
             $requestBody['test_event_code'] = $this->testEventCode;
         }
 
-        $url = "https://graph.facebook.com/{$this->apiVersion}/{$this->pixelId}/events?access_token=" . urlencode($this->accessToken);
+        $url = "https://graph.facebook.com/{$this->apiVersion}/{$this->pixelId}/events";
 
         $ch = curl_init($url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -187,6 +187,7 @@ class MetaCapiService
         curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($requestBody));
         curl_setopt($ch, CURLOPT_HTTPHEADER, [
             'Content-Type: application/json',
+            'Authorization: Bearer ' . $this->accessToken,
         ]);
         curl_setopt($ch, CURLOPT_TIMEOUT, 6);
 
@@ -203,7 +204,7 @@ class MetaCapiService
         }
 
         $decoded = json_decode((string)$response, true);
-        $isSuccess = ($httpCode >= 200 && $httpCode < 300) && (!isset($decoded['error']));
+        $isSuccess = ($httpCode >= 200 && $httpCode < 300) && (!isset($decoded['error'])) && (int)($decoded['events_received'] ?? 0) === 1;
 
         return [
             'success'   => $isSuccess,

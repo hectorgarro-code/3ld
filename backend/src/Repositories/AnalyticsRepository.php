@@ -263,7 +263,7 @@ class AnalyticsRepository
         catch (\Throwable $e) { $funnel=null; error_log('3LD: informe de carrito no disponible.'); }
 
         try { $campaigns=(new \App\Services\CampaignReport($this->db))->report($period); }
-        catch (\Throwable $e) { $campaigns=null; error_log('3LD: informe de campañas no disponible.'); }
+        catch (\Throwable $e) { $campaigns=['version'=>1,'rows'=>[],'unavailable'=>true,'diagnostic'=>substr($e->getMessage(),0,200)]; error_log('3LD: informe de campañas no disponible.'); }
 
         return [
             'campaigns' => $campaigns,

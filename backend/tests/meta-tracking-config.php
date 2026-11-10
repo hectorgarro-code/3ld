@@ -6,7 +6,7 @@ use App\Controllers\MetaTrackingController;
 function check($v,$m){if(!$v)throw new RuntimeException($m);}
 class TestTrackingController extends MetaTrackingController {
     public bool $valid=true;
-    protected function verifyToken(string $token): bool {return $this->valid;}
+    protected function verifyToken(string $token,string $testCode): bool {return $this->valid;}
 }
 $dir=sys_get_temp_dir().'/3ld-meta-test-'.bin2hex(random_bytes(8));mkdir($dir,0700);$path=$dir.'/meta-capi.php';
 try {
@@ -14,7 +14,7 @@ try {
  $factory=new Slim\Psr7\Factory\ServerRequestFactory();$request=$factory->createServerRequest('POST','/config/meta-capi');$response=new Slim\Psr7\Response();
  check($controller->status($request,$response)->getStatusCode()===403,'sin admin no lee estado');
  check($controller->save($request->withAttribute('user',['rol'=>'operario']),$response)->getStatusCode()===403,'operario no guarda secretos');
- $admin=$request->withAttribute('user',['rol'=>'admin']);$body=['access_token'=>str_repeat('testonly',8),'enabled'=>true];
+ $admin=$request->withAttribute('user',['rol'=>'admin']);$body=['access_token'=>str_repeat('testonly',8),'enabled'=>true,'test_event_code'=>'TEST12345'];
  check($controller->save($admin->withParsedBody($body),$response)->getStatusCode()===422,'no activa sin autorización');
  $body['consent']=true;$controller->valid=false;
  check($controller->save($admin->withParsedBody($body),$response)->getStatusCode()===422&&!is_file($path),'token sin acceso no se guarda');
