@@ -12,7 +12,7 @@ class MetaTrackingController {
     public function status(ServerRequestInterface $r,ResponseInterface $res): ResponseInterface {
         if(!$this->admin($r))return Response::error('Sólo administradores',403);
         $data=$this->store->read();
-        return Response::success(['pixel_id'=>MetaTrackingConfig::PIXEL_ID,'has_token'=>!empty($data['access_token']),'enabled'=>!empty($data['enabled']),'authorized_at'=>$data['authorized_at']??null])->withHeader('Cache-Control','private, no-store');
+        return Response::success(['pixel_id'=>MetaTrackingConfig::PIXEL_ID,'shared_installation'=>$this->store->sharedInstallation(),'has_token'=>!empty($data['access_token']),'enabled'=>!empty($data['enabled']),'authorized_at'=>$data['authorized_at']??null])->withHeader('Cache-Control','private, no-store');
     }
     protected function verifyToken(string $token,string $testCode): bool {
         $ch=curl_init('https://graph.facebook.com/v26.0/'.MetaTrackingConfig::PIXEL_ID.'/events');
