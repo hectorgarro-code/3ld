@@ -8,6 +8,8 @@ config.local.php
 .DS_Store
 uploads/
 backend/config/mercadopago.json
+backend/config/meta-capi.json
+backend/config/.meta-*
 mercadopago.json
 
 backend/var/return-requests/*.php

@@ -14,6 +14,11 @@ class MetaCapiService
 
     public function __construct(array $config)
     {
+        $stored=(new MetaTrackingConfig())->read();
+        if ($stored !== []) {
+            $config['meta']=array_replace($config['meta']??[], $stored);
+            if (empty($stored['enabled'])) $config['meta']['access_token']='';
+        }
         $this->config = $config;
         $version = (string)($config['meta']['api_version'] ?? 'v26.0');
         $this->apiVersion = preg_match('/^v[0-9]+\.[0-9]+$/', $version) ? $version : 'v26.0';

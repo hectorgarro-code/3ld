@@ -13,13 +13,13 @@ Pixel existente: 612576675192830. GA4 existente: G-WD1S1HMZGV. No se crean propi
 - Endpoint de seguimiento devuelve tracked:false si falla el almacenamiento.
 - Se conservan Pixel/GA4/CAPI existentes y sus IDs estables de compra order_ID. No se generan compras de prueba en producción.
 
-## Etiquetas propuestas para consultas
+## Etiquetas creadas para consultas
 
 Campaña: 3LD | Egresados 2026, 3LD | Navidad Kawaii.
 Etapas excluyentes: 3LD | Consulta nueva, 3LD | Cotizado, 3LD | Pendiente de pago, 3LD | Pagado, 3LD | Entregado, 3LD | No concretado.
 Aplicar campaña según anuncio/mensaje de origen; marcar Pagado sólo tras verificar acreditación. Etiquetar una conversación no la informa automáticamente como compra al sistema ni a Meta.
 
-Meta exige aceptar Condiciones del servicio de contactos para crear etiquetas: pendiente de aprobación explícita del usuario; no aceptadas automáticamente. El portfolio no tenía cuenta de WhatsApp agregada; enlace iniciado con +54 9 2257 55-9540 y verificación enviada a la app; falta que el usuario complete la verificación.
+Condiciones del servicio de contactos aceptadas con autorización explícita del usuario. Se verificaron las ocho etiquetas creadas en Meta Business Suite para la página 3LD; no se asignaron a conversaciones históricas sin evidencia. El portfolio no tenía cuenta de WhatsApp agregada; enlace iniciado con +54 9 2257 55-9540 y verificación enviada a la app; falta que el usuario complete la verificación.
 
 ## Enlaces de sitio etiquetados
 
@@ -34,10 +34,14 @@ Cambiar utm_source a facebook en enlaces de Facebook. No reutilizar la misma fue
 
 ## Límites y pendientes de Meta
 
-Meta confirmó actividad del Pixel: PageView, ViewContent, AddToCart e InitiateCheckout. La vista revisada no mostró Purchase ni integración CAPI activa. El código local tiene CAPI, pero no un token configurado. No se generó un token ni se activó transmisión nueva de datos de compradores. Para activar CAPI hay que autorizar la creación del acceso persistente y definir expresamente los datos a transmitir a Meta; el servicio actual contempla email/teléfono/nombre con hash. La configuración local no demuestra el estado del secreto del servidor de producción.
+Meta confirmó actividad del Pixel: PageView, ViewContent, AddToCart e InitiateCheckout. La vista revisada no mostró Purchase ni integración CAPI activa. El código local tiene CAPI, pero no un token configurado. El usuario autorizó expresamente generar un token persistente y enviar a Meta importe, productos y email/teléfono/nombre con hash al aprobarse el pago. Se incorporó un panel administrativo para validar el acceso al píxel y guardar el token sólo en el servidor; el estado final de activación debe comprobarse en ese panel. La configuración local no demuestra el estado del secreto del servidor de producción.
 
 El panel no importa gasto, impresiones ni conversaciones directas de Meta y no calcula ROAS. Pedidos por transferencia/WhatsApp sin vínculo al checkout web quedan fuera. No reconstruye datos de campaña ausentes. Una compra real controlada es necesaria para cerrar la validación de extremo a extremo; las pruebas automatizadas no envían eventos ni cobran.
 
 ## Pruebas
 
 Build TypeScript/Vite, campaign-attribution.cjs, campaign-report.php, cart-tracking.cjs, cart-funnel.php, commerce-regression.cjs, commerce-regression.php y meta-capi-contract.php. La fixture antigua de catálogo se actualizó para incluir las columnas de categorías y la condición es_vendible requeridas por el repositorio actual; sin modificar lógica de catálogo.
+
+## Administración privada de CAPI
+
+Configuración → Conversiones de Meta — 3LD. Sólo rol admin: GET/POST /api/v1/config/meta-capi. El secreto no se devuelve y las respuestas llevan private, no-store. El token se valida con una consulta de lectura al píxel correcto antes de habilitarlo; no se crean eventos ni compras para verificar acceso. Guardado atómico en backend/public/uploads/.3ld-private/meta-capi.php (archivo PHP sin salida pública, directorio protegido por .htaccess, ignorado en git y excluido en ambos destinos FTP por la exclusión existente de uploads). CAPI puede desactivarse aunque el token haya sido revocado. El estado configurado no acredita todavía una compra recibida: requiere un pago real y su recepción en Meta. Pruebas adicionales: backend/tests/meta-tracking-config.php.

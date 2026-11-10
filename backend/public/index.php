@@ -559,6 +559,8 @@ $app->group('/api/v1', function (RouteCollectorProxy $api) use ($config, $auth, 
 
     // ── Config / Costos (admin only) ──────────────────────────────────────────
     $api->group('/config', function (RouteCollectorProxy $g) use ($container) {
+        $g->get('/meta-capi', function ($req,$res) { return (new \App\Controllers\MetaTrackingController())->status($req,$res); });
+        $g->post('/meta-capi', function ($req,$res) { return (new \App\Controllers\MetaTrackingController())->save($req,$res); });
         $g->get('/costos',  function ($req, $res) use ($container) {
             return $container->get(CotizadorController::class)->config($req, $res);
         });
