@@ -199,9 +199,102 @@ INSTRUCCIONES SEO ESTRICTAS:
     }
 
     /**
+     * Genera un lote de publicaciones estratégicas para redes sociales (Meta Business Suite / Instagram / TikTok)
+     * a partir de los productos reales de la base de datos de 3LD.
+     */
+    public function generateSocialCalendar(array $products, array $options = []): array
+    {
+        $daysCount   = max(1, min(120, (int)($options['days_count'] ?? 30)));
+        $focus       = $options['focus'] ?? 'balanced'; // balanced, navidad, egresados, promo, tips
+        $tone        = $options['tone'] ?? 'cercano';
+        $customCta   = $options['custom_cta'] ?? 'Envíos a todo el país. Comprá en 3ld.com.ar o escribinos por WhatsApp!';
+        $modelChoice = !empty($options['model']) ? $options['model'] : 'gpt-4o'; // Usamos modelo avanzado si está disponible
+
+        // Reducir la lista de productos al contexto necesario
+        $simplifiedProds = [];
+        foreach ($products as $p) {
+            $simplifiedProds[] = [
+                'id'          => $p['id'] ?? 0,
+                'nombre'      => $p['nombre'] ?? ($p['title'] ?? ''),
+                'categoria'   => $p['categoria_nombre'] ?? ($p['category'] ?? ''),
+                'precio'      => (float)($p['precio_venta'] ?? ($p['price'] ?? 0)),
+                'imagen_url'  => $p['imagen_url'] ?? ($p['image'] ?? ''),
+                'descripcion' => mb_substr(strip_tags((string)($p['descripcion'] ?? '')), 0, 160),
+            ];
+        }
+
+        $prodsJson = json_encode($simplifiedProds, JSON_UNESCAPED_UNICODE);
+
+        $prompt = "Actuá como Director Creativo y Copywriter Senior de Redes Sociales (Instagram, Facebook y TikTok) para 3LD (3ld.com.ar), una fábrica y tienda online argentina de productos impresos en 3D (repostería, cortantes, deco hogar, mates térmicos, kits de graduación / egresados, navidad, etc.).
+
+OBJETIVO:
+Generar una grilla de {$daysCount} publicaciones estratégicas para Meta Business Suite (Feed, Carrusel, Reels o Historias con sticker). Cada publicación DEBE asociarse estrictamente a uno de los productos de la lista provista, utilizando su imagen real y datos de venta.
+
+PARÁMETROS DE LA CAMPAÑA:
+- Enfoque temático: {$focus}
+- Tono de voz: {$tone}
+- Llamado a la acción (CTA) sugerido: {$customCta}
+- Promoción fija vigente de la tienda: Envío gratis local o nacional desde \$30.000. Tienda web: 3ld.com.ar
+
+CATÁLOGO REAL DE PRODUCTOS DISPONIBLES:
+{$prodsJson}
+
+REGLAS DE COPYWRITING & FORMATO:
+1. Variar formatos entre: 'Feed' (foto o carrusel), 'Reel' (video corto / guión dinámico) e 'Historia' (interacción y stickers).
+2. Cada post debe tener:
+   - 'day': número del día (1, 2, ..., {$daysCount}).
+   - 'product_id': el ID exacto del producto seleccionado de la lista.
+   - 'product_name': el nombre del producto.
+   - 'image_url': la URL de la imagen del producto (exactamente como vino en la lista).
+   - 'format': 'Feed', 'Reel' o 'Historia'.
+   - 'hook': Primera línea o gancho irresistible (pregunta, curiosidad, solución a un problema común).
+   - 'caption': Copy completo y persuasivo para Instagram/Facebook con saltos de línea legibles, emojis medidos y CTA claro.
+   - 'hashtags': 5 a 10 hashtags estratégicos relevantes en Argentina (ej. #Impresion3D #DecoNavidad #Cortantes3D #3LD).
+   - 'visual_guide': Indicación visual para la foto/video o guión segundo a segundo si es Reel.
+   - 'suggested_time': Horario óptimo recomendado para publicar (ej. '19:30 hs').
+3. No inventes productos ni enlaces falsos. Todos deben coincidir con la lista.
+
+Responde ÚNICAMENTE con un arreglo JSON de objetos:
+[
+  {
+    \"day\": 1,
+    \"product_id\": 123,
+    \"product_name\": \"Nombre del Producto\",
+    \"image_url\": \"/backend/public/...\",
+    \"format\": \"Feed\",
+    \"hook\": \"Texto gancho\",
+    \"caption\": \"Copywriting completo...\",
+    \"hashtags\": \"#hashtag1 #hashtag2\",
+    \"visual_guide\": \"Instrucción visual...\",
+    \"suggested_time\": \"20:00 hs\"
+  }
+]";
+
+        try {
+            $rawResponse = $this->callOpenAi($prompt, $modelChoice, 0.7);
+        } catch (\Throwable $e) {
+            // Si el modelo avanzado falla (ej. si la cuenta no tiene tier para gpt-4o), fallback a gpt-4o-mini
+            if ($modelChoice !== 'gpt-4o-mini') {
+                $rawResponse = $this->callOpenAi($prompt, 'gpt-4o-mini', 0.7);
+            } else {
+                throw $e;
+            }
+        }
+
+        $cleanJson = preg_replace('/^```(?:json)?\s*|\s*```$/i', '', trim($rawResponse));
+        $calendar = json_decode($cleanJson, true);
+
+        if (!is_array($calendar)) {
+            throw new RuntimeException("La IA no devolvió un formato JSON válido.");
+        }
+
+        return $calendar;
+    }
+
+    /**
      * Realiza la llamada HTTP cURL a la API de OpenAI
      */
-    private function callOpenAi(string $prompt): string
+    public function callOpenAi(string $prompt, ?string $customModel = null, float $temperature = 0.7): string
     {
         if (empty($this->apiKey)) {
             throw new RuntimeException('API Key de OpenAI no configurada.');
@@ -210,12 +303,12 @@ INSTRUCCIONES SEO ESTRICTAS:
         $url = 'https://api.openai.com/v1/chat/completions';
         
         $payload = [
-            'model' => $this->model,
+            'model' => $customModel ?: $this->model,
             'messages' => [
-                ['role' => 'system', 'content' => 'Eres un asistente experto en e-commerce y redacción comercial en español.'],
+                ['role' => 'system', 'content' => 'Eres un director de marketing digital y copywriter senior especializado en E-commerce, Meta Ads, Instagram y TikTok para una fábrica y tienda de productos impresos en 3D en Argentina (3LD).'],
                 ['role' => 'user', 'content' => $prompt]
             ],
-            'temperature' => 0.7,
+            'temperature' => $temperature,
         ];
 
         $ch = curl_init($url);

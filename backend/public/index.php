@@ -73,7 +73,7 @@ $containerBuilder->addDefinitions([
         return new MakerWorldScraper();
     },
     AiController::class => function ($c) {
-        return new AiController($c->get(OpenAiService::class), $c->get(MakerWorldScraper::class));
+        return new AiController($c->get(OpenAiService::class), $c->get(MakerWorldScraper::class), $c->get(ProductoRepository::class));
     },
     ProductoRepository::class => function ($c) {
         return new ProductoRepository($c->get(PDO::class));
@@ -606,6 +606,9 @@ $app->group('/api/v1', function (RouteCollectorProxy $api) use ($config, $auth, 
         });
         $g->post('/generate-seo', function ($req, $res) use ($container) {
             return $container->get(AiController::class)->generateSeo($req, $res);
+        });
+        $g->post('/generate-social-calendar', function ($req, $res) use ($container) {
+            return $container->get(AiController::class)->generateSocialCalendar($req, $res);
         });
     })->add($auth);
 

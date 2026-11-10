@@ -18,7 +18,8 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Image as ImageIcon,
-  Activity
+  Activity,
+  Share2
 } from 'lucide-react'
 
 export interface NavGroup {
@@ -49,6 +50,7 @@ export const navGroups: NavGroup[] = [
       { to: '/tienda-admin', label: 'Gestión Tienda', icon: <Store className="h-5 w-5 shrink-0" /> },
       { to: '/visitas', label: 'Visitas & Métricas', icon: <Activity className="h-5 w-5 shrink-0" /> },
       { to: '/multimedia', label: 'Biblioteca Fotos', icon: <ImageIcon className="h-5 w-5 shrink-0" /> },
+      { to: '/redes', label: 'Planificador Redes', icon: <Share2 className="h-5 w-5 shrink-0 text-indigo-500" /> },
     ],
   },
   {

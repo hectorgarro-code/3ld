@@ -7,6 +7,7 @@ namespace App\Controllers;
 use App\Helpers\Response;
 use App\Services\MakerWorldScraper;
 use App\Services\OpenAiService;
+use App\Repositories\ProductoRepository;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Throwable;
@@ -15,11 +16,13 @@ class AiController
 {
     private OpenAiService $openAiService;
     private MakerWorldScraper $scraper;
+    private ?ProductoRepository $productoRepo;
 
-    public function __construct(OpenAiService $openAiService, MakerWorldScraper $scraper)
+    public function __construct(OpenAiService $openAiService, MakerWorldScraper $scraper, ?ProductoRepository $productoRepo = null)
     {
         $this->openAiService = $openAiService;
         $this->scraper       = $scraper;
+        $this->productoRepo  = $productoRepo;
     }
 
     /**
@@ -205,5 +208,66 @@ class AiController
         }
 
         return $response->withHeader('Location', $imgUrl)->withStatus(302);
+    }
+
+    /**
+     * POST /api/v1/ai/generate-social-calendar
+     * Genera un calendario de publicaciones para Meta Business Suite / Instagram / TikTok
+     */
+    public function generateSocialCalendar(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
+    {
+        try {
+            $data = (array) $request->getParsedBody();
+            $daysCount  = max(1, min(120, (int) ($data['days_count'] ?? 30)));
+            $categoriaId = !empty($data['categoria_id']) ? (int) $data['categoria_id'] : null;
+            $focus      = trim((string) ($data['focus'] ?? 'balanced'));
+            $tone       = trim((string) ($data['tone'] ?? 'cercano'));
+            $customCta  = trim((string) ($data['custom_cta'] ?? ''));
+            $model      = trim((string) ($data['model'] ?? 'gpt-4o'));
+
+            // Obtener productos reales de la base de datos
+            $params = [
+                'per_page' => 80,
+                'activo'   => 1,
+            ];
+            if ($categoriaId) {
+                $params['categoria_id'] = $categoriaId;
+            }
+
+            $products = [];
+            if ($this->productoRepo) {
+                $resData = $this->productoRepo->getAll($params);
+                $products = $resData['data'] ?? [];
+            }
+
+            // Filtrar solo productos con imagen
+            $validProducts = array_filter($products, function ($p) {
+                return !empty($p['imagen_url']) || (!empty($p['imagenes']) && is_array($p['imagenes']) && count($p['imagenes']) > 0);
+            });
+
+            if (empty($validProducts)) {
+                // Si la categoría específica no tiene fotos, buscar en general
+                if ($this->productoRepo) {
+                    $resData = $this->productoRepo->getAll(['per_page' => 60, 'activo' => 1]);
+                    $validProducts = array_filter($resData['data'] ?? [], fn($p) => !empty($p['imagen_url']));
+                }
+            }
+
+            if (empty($validProducts)) {
+                return Response::error('No se encontraron productos con imágenes en la tienda para generar publicaciones', 400);
+            }
+
+            $calendar = $this->openAiService->generateSocialCalendar(array_values($validProducts), [
+                'days_count' => $daysCount,
+                'focus'      => $focus,
+                'tone'       => $tone,
+                'custom_cta' => $customCta,
+                'model'      => $model,
+            ]);
+
+            return Response::success($calendar);
+        } catch (Throwable $e) {
+            return Response::error('Error al generar calendario de redes: ' . $e->getMessage(), 500);
+        }
     }
 }
