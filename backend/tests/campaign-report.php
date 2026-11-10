@@ -13,3 +13,6 @@ foreach($rows as $r){if($r['utm_content']==='b')check($r['compras_confirmadas']=
 $order['mercadopago_status']='pending';check(array_sum(array_column(CampaignReport::summarize($events,[$order])['rows'],'compras_confirmadas'))===0,'pendiente no es compra');
 check(CampaignReport::summarize([['session_id'=>'s','tipo'=>'pageview','created_at'=>'2026-11-09','metadata'=>'{}']],[])['rows']===[],'sin UTM no inventa campaña');
 echo "OK: atribución por campaña, última antes del checkout, pedidos/clics deduplicados y compras sólo aprobadas. Sin red.\n";
+
+$source=file_get_contents(__DIR__.'/../src/Services/CampaignReport.php');
+check(str_contains($source,'BINARY v.session_id=BINARY a.session_id')&&str_contains($source,'BINARY v.session_id=BINARY e.session_id'),'comparación exacta de IDs compatible con collations históricas distintas');

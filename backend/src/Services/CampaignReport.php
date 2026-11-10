@@ -9,8 +9,8 @@ final class CampaignReport {
     public function report(string $period): array {
         $days=match($period){'30d'=>30,'90d'=>90,default=>7};
         $since=$period==='today'?'CURDATE()':"DATE_SUB(NOW(), INTERVAL {$days} DAY)";
-        $events=$this->db->query("SELECT e.session_id,e.tipo,e.metadata,e.created_at,v.landing_page FROM tienda_visitas_eventos e INNER JOIN tienda_visitas v ON v.session_id=e.session_id WHERE e.created_at >= $since AND e.created_at <= NOW() AND v.is_bot=0 AND v.is_staff=0 ORDER BY e.created_at,e.id")->fetchAll(PDO::FETCH_ASSOC);
-        $orders=$this->db->query("SELECT a.session_id,a.pedido_id,a.created_at,p.total,p.mercadopago_status FROM tienda_checkout_sesiones a INNER JOIN pedidos p ON p.id=a.pedido_id INNER JOIN tienda_visitas v ON v.session_id=a.session_id WHERE a.created_at >= $since AND a.created_at <= NOW() AND v.is_bot=0 AND v.is_staff=0")->fetchAll(PDO::FETCH_ASSOC);
+        $events=$this->db->query("SELECT e.session_id,e.tipo,e.metadata,e.created_at,v.landing_page FROM tienda_visitas_eventos e INNER JOIN tienda_visitas v ON BINARY v.session_id=BINARY e.session_id WHERE e.created_at >= $since AND e.created_at <= NOW() AND v.is_bot=0 AND v.is_staff=0 ORDER BY e.created_at,e.id")->fetchAll(PDO::FETCH_ASSOC);
+        $orders=$this->db->query("SELECT a.session_id,a.pedido_id,a.created_at,p.total,p.mercadopago_status FROM tienda_checkout_sesiones a INNER JOIN pedidos p ON p.id=a.pedido_id INNER JOIN tienda_visitas v ON BINARY v.session_id=BINARY a.session_id WHERE a.created_at >= $since AND a.created_at <= NOW() AND v.is_bot=0 AND v.is_staff=0")->fetchAll(PDO::FETCH_ASSOC);
         return self::summarize($events,$orders);
     }
     public static function summarize(array $events,array $orders): array {
