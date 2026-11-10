@@ -81,7 +81,9 @@ class AnalyticsController
             $allowed=['pageview','ver_producto','ver_historia','like_producto','agregar_carrito','whatsapp_click','cotizar_click','carrito_estado','carrito_abierto','iniciar_pago','pago_error','pedido_whatsapp'];
             if (!in_array($parsed['tipo'] ?? 'pageview',$allowed,true)) return Response::success(['tracked'=>false,'reason'=>'unsupported_event']);
 
-            $this->repository->recordTrack($parsed, $ip, $ua);
+            if (!$this->repository->recordTrack($parsed, $ip, $ua)) {
+                return Response::success(['tracked' => false, 'reason' => 'storage_unavailable']);
+            }
 
             $res = Response::success(['tracked' => true]);
             // Encabezados para evitar almacenamiento en caché de analíticas

@@ -30,9 +30,11 @@ import {
   CartesianGrid,
 } from 'recharts'
 import api from '@/lib/api'
+import { CampaignReport, type CampaignData } from '@/components/CampaignReport'
 import { CartFunnelReport, type CartFunnelData } from '@/components/CartFunnelReport'
 
 interface AnalyticsStats {
+  campaigns?: CampaignData | null
   cart_funnel?: CartFunnelData | null
   period: string
   total_sesiones: number
@@ -252,6 +254,7 @@ export default function VisitasPage() {
         </div>
       ) : stats ? (
         <>
+          <CampaignReport data={stats.campaigns} />
           <CartFunnelReport data={stats.cart_funnel} />
           {/* Tarjetas Principales de KPI */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -312,7 +315,7 @@ export default function VisitasPage() {
             {/* Clics en WhatsApp / Cotizaciones */}
             <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs flex flex-col justify-between">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-500">Contactos a WhatsApp</span>
+                <span className="text-xs font-bold text-slate-500">Clics a WhatsApp</span>
                 <div className="p-2 bg-green-50 text-green-600 rounded-xl">
                   <MessageCircle className="w-4 h-4" />
                 </div>
@@ -322,7 +325,7 @@ export default function VisitasPage() {
                   {stats.eventos.whatsapp.toLocaleString('es-AR')}
                 </span>
                 <span className="block text-[11px] text-slate-400 mt-0.5">
-                  Consultas directas por chat
+                  Aperturas del chat; no confirma mensaje ni venta
                 </span>
               </div>
             </div>

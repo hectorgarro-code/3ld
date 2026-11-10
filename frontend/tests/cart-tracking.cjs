@@ -1,7 +1,7 @@
 const fs=require('node:fs'),vm=require('node:vm'),ts=require('typescript'),assert=require('node:assert/strict');
 const source=fs.readFileSync('src/lib/analyticsTracker.ts','utf8');
 const stored=new Map(),queue=[],sent=[];
-const context={exports:{},require:()=>({metaPixel:{},ecommerceTracking:{}}),localStorage:{getItem:k=>stored.get(k)||null,setItem:(k,v)=>stored.set(k,v)},window:{location:{pathname:'/tienda',search:'',href:'https://3ld.com.ar/tienda'},requestIdleCallback:fn=>queue.push(fn)},navigator:{sendBeacon:(url,body)=>{sent.push({url,body});return true}},document:{referrer:''},Blob,setTimeout:()=>0,Date,Math,JSON};
+const context={exports:{},require:()=>({metaPixel:{},ecommerceTracking:{},getCampaignAttribution:()=>null}),localStorage:{getItem:k=>stored.get(k)||null,setItem:(k,v)=>stored.set(k,v)},window:{location:{pathname:'/tienda',search:'',href:'https://3ld.com.ar/tienda'},requestIdleCallback:fn=>queue.push(fn)},navigator:{sendBeacon:(url,body)=>{sent.push({url,body});return true}},document:{referrer:''},Blob,setTimeout:()=>0,Date,Math,JSON};
 vm.createContext(context);vm.runInContext(ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,context);
 const {trackEvent,getCheckoutAnalyticsIdentity}=context.exports;
 const identity=getCheckoutAnalyticsIdentity();assert.ok(identity.session_id.startsWith('s_'));assert.ok(identity.visitor_id.startsWith('v_'));assert.deepEqual(Object.keys(identity).sort(),['session_id','visitor_id']);

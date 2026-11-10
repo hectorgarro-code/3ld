@@ -1,0 +1,11 @@
+const fs=require('node:fs'),vm=require('node:vm'),ts=require('typescript'),assert=require('node:assert/strict');
+const saved=new Map();
+const c={exports:{},window:{location:{search:'?utm_source=instagram&utm_medium=paid_social&utm_campaign=egresados_2026&utm_content=ad_a&email=private@example.invalid'}},localStorage:{getItem:k=>saved.get(k)||null,setItem:(k,v)=>saved.set(k,v)},URLSearchParams,Date,JSON};
+vm.createContext(c);vm.runInContext(ts.transpileModule(fs.readFileSync('src/lib/campaignAttribution.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText,c);
+const get=c.exports.getCampaignAttribution;
+assert.equal(get().utm_campaign,'egresados_2026');assert.ok(!JSON.stringify(get()).includes('private'));
+c.window.location.search='';assert.equal(get().utm_content,'ad_a');
+c.window.location.search='?utm_source=facebook&utm_campaign=navidad_2026';assert.equal(get().utm_source,'facebook');assert.equal(get().utm_content,undefined);
+const entry=JSON.parse(saved.get('3ld_campaign_attribution_v1'));entry.capturedAt=Date.now()-31*86400000;saved.set('3ld_campaign_attribution_v1',JSON.stringify(entry));c.window.location.search='';assert.equal(get(),null);
+c.window.location.search='?utm_source=instagram';saved.set('3ld_analytics_opt_out','true');assert.equal(get(),null);saved.delete('3ld_analytics_opt_out');saved.set('3ld-auth-storage',JSON.stringify({state:{isAuthenticated:true}}));assert.equal(get(),null);
+console.log('OK: atribución persistente, sustitución explícita, caducidad, sin contactos, exclusión staff/opt-out; sin red.');

@@ -6,7 +6,7 @@ const ts = require('typescript');
 function load(name) {
   const stored = new Map();
   const calls = [];
-  const context = { exports: {}, window: {location:{pathname:'/tienda'},fbq:(...args)=>calls.push(args)}, localStorage:{getItem:key=>stored.get(key)||null,setItem:(key,value)=>stored.set(key,value)} };
+  const context = { URLSearchParams, exports: {}, window: {location:{pathname:'/tienda'},fbq:(...args)=>calls.push(args)}, localStorage:{getItem:key=>stored.get(key)||null,setItem:(key,value)=>stored.set(key,value)} };
   vm.createContext(context);
   const source = fs.readFileSync(path.join(__dirname,'../src/lib',name+'.ts'),'utf8');
   vm.runInContext(ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,context);
@@ -52,3 +52,11 @@ direct.exports.ecommerceTracking.purchase({...order,id:22});
 assert.equal(direct.calls[0][0],'event');
 assert.equal(direct.calls[0][1],'purchase');
 console.log('OK: inicialización GA4 válida e idempotente; eventos ecommerce enviados con gtag cuando está disponible.');
+
+const wa=load('metaPixel');
+wa.exports.whatsAppClick(114);
+assert.equal(wa.calls.length,1);assert.equal(wa.calls[0][0],'trackCustom');assert.equal(wa.calls[0][1],'WhatsAppClick');assert.equal(wa.calls[0][2].content_ids[0],'3LD_114');
+wa.stored.set('3ld_analytics_opt_out','true');wa.exports.whatsAppClick(114);wa.exports.init();assert.equal(wa.calls.length,1);
+wa.stored.delete('3ld_analytics_opt_out');wa.context.window.location.pathname='/visitas';wa.exports.whatsAppClick(114);wa.exports.init();assert.equal(wa.calls.length,1);
+wa.context.window.location.pathname='/tienda';wa.context.window.location.search='?preview=1';wa.exports.whatsAppClick(114);wa.exports.init();assert.equal(wa.calls.length,1);
+console.log('OK: WhatsApp es intención personalizada, no compra; Pixel respeta opt-out, panel privado y preview sin inicializarse.');

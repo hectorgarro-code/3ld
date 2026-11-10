@@ -83,7 +83,11 @@ function isStaffUser(): boolean {
         return true;
       }
     }
+    if (localStorage.getItem('3ld_analytics_opt_out') === 'true') return true;
+    const query = new URLSearchParams(window.location.search);
+    if (query.has('preview') || query.get('admin') === 'true' || query.get('mode') === 'builder') return true;
     const path = window.location.pathname.toLowerCase();
+    if (path !== '/' && path !== '/tienda' && !path.startsWith('/tienda/')) return true;
     if (path.startsWith('/pedidos') || path.startsWith('/pos') || path.startsWith('/clientes') || path.startsWith('/produccion')) {
       return true;
     }
@@ -97,7 +101,7 @@ function isStaffUser(): boolean {
  * Inicializa el snippet oficial de Meta Pixel una sola vez
  */
 export function init(pixelId = META_PIXEL_ID): void {
-  if (typeof window === 'undefined') return;
+  if (typeof window === 'undefined' || isStaffUser()) return;
 
   if (isInitialized || window.fbq?.loaded) {
     isInitialized = true;
@@ -366,7 +370,17 @@ export function purchase(order: MetaOrder): void {
   }
 }
 
+/** Intención de abrir WhatsApp; nunca se envía como Lead o Purchase. */
+export function whatsAppClick(productId?: string | number): void {
+  if (isStaffUser()) return;
+  safeFbq('trackCustom', 'WhatsAppClick', {
+    contact_channel: 'whatsapp',
+    ...(productId != null ? { content_ids: [formatCatalogId(productId)], content_type: 'product' } : {}),
+  });
+}
+
 export const metaPixel = {
+  whatsAppClick,
   init,
   pageView,
   viewContent,

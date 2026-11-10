@@ -262,7 +262,11 @@ class AnalyticsRepository
         try { $funnel=(new \App\Services\CartFunnel($this->db))->report($period); }
         catch (\Throwable $e) { $funnel=null; error_log('3LD: informe de carrito no disponible.'); }
 
+        try { $campaigns=(new \App\Services\CampaignReport($this->db))->report($period); }
+        catch (\Throwable $e) { $campaigns=null; error_log('3LD: informe de campañas no disponible.'); }
+
         return [
+            'campaigns' => $campaigns,
             'cart_funnel' => $funnel,
             'period'                    => $period,
             'total_sesiones'            => $totalSesiones,

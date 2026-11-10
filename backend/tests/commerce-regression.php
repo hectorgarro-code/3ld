@@ -54,10 +54,10 @@ foreach (['getXml'=>'in stock','getGoogleXml'=>'in_stock'] as $method=>$availabi
     check($xpath->query('//item')->length === 2 && $xpath->evaluate('string(//item[1]/g:availability)') === $availability && $xpath->evaluate('string(//item[1]/g:mpn)') === '3LD_113', "$method mantiene IDs, disponibilidad y exclusión de productos sin precio");
 }
 $publicDb = new PDO('sqlite::memory:', null, null, [PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,PDO::ATTR_DEFAULT_FETCH_MODE=>PDO::FETCH_ASSOC]);
-$columns = ['id INTEGER','nombre TEXT','subcategoria TEXT','descripcion TEXT','precio_venta REAL','precio_oferta REAL','stock_actual REAL','estado_stock TEXT','imagen_url TEXT','imagenes TEXT','colores TEXT','piezas TEXT','peso_gramos REAL','dimensiones TEXT','alto_mm REAL','ancho_mm REAL','profundidad_mm REAL','es_destacado INTEGER','categoria_id INTEGER','seo_title TEXT','seo_description TEXT','activo INTEGER','es_vendible INTEGER','es_tienda INTEGER','precios_cantidad TEXT'];
-$publicDb->exec('CREATE TABLE productos('.implode(',', $columns).'); CREATE TABLE categorias_producto(id INTEGER,nombre TEXT)');
+$columns = ['id INTEGER','nombre TEXT','subcategoria TEXT','descripcion TEXT','precio_venta REAL','precio_oferta REAL','stock_actual REAL','estado_stock TEXT','imagen_url TEXT','imagenes TEXT','colores TEXT','piezas TEXT','peso_gramos REAL','dimensiones TEXT','alto_mm REAL','ancho_mm REAL','profundidad_mm REAL','es_destacado INTEGER','categoria_id INTEGER','categoria_secundaria_id INTEGER','seo_title TEXT','seo_description TEXT','activo INTEGER','es_vendible INTEGER','es_tienda INTEGER','precios_cantidad TEXT'];
+$publicDb->exec('CREATE TABLE productos('.implode(',', $columns).'); CREATE TABLE categorias_producto(id INTEGER,nombre TEXT,parent_id INTEGER)');
 $pieces = json_encode([['id'=>'x','nombre'=>'Pieza','precio'=>2500,'precio_costo'=>800,'dato_interno'=>'privado']]);
-$publicDb->prepare('INSERT INTO productos(id,nombre,precio_venta,activo,es_tienda,piezas) VALUES(113,?,2500,1,1,?)')->execute(['Producto', $pieces]);
+$publicDb->prepare('INSERT INTO productos(id,nombre,precio_venta,activo,es_tienda,es_vendible,piezas) VALUES(113,?,2500,1,1,1,?)')->execute(['Producto', $pieces]);
 $public = (new App\Repositories\TiendaRepository($publicDb))->getProductosPublicos()[0];
 check($public['piezas'][0]['precio'] === 2500 && !array_key_exists('precio_costo',$public['piezas'][0]) && !array_key_exists('dato_interno',$public['piezas'][0]), 'API pública conserva precio y oculta campos internos de piezas');
 check(str_contains($publicDb->query('SELECT piezas FROM productos')->fetchColumn(),'precio_costo'), 'Sanitización no altera los costos administrativos guardados');

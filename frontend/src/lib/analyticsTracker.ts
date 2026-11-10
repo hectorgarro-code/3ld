@@ -11,6 +11,7 @@
 
 import { metaPixel } from '@/lib/metaPixel';
 import { ecommerceTracking } from '@/lib/ecommerceTracking';
+import { getCampaignAttribution } from '@/lib/campaignAttribution';
 
 const VISITOR_KEY = '3ld_analytics_vid';
 const SESSION_KEY = '3ld_analytics_session_data';
@@ -149,6 +150,10 @@ export function trackEvent(options: TrackOptions): void {
   recentEventsCache.add(dedupeKey);
   setTimeout(() => recentEventsCache.delete(dedupeKey), 2500);
 
+  // Capturar antes de la tarea diferida: la navegación puede cambiar la URL.
+  const attribution = getCampaignAttribution();
+  const eventUrl = options.url || window.location.href;
+
   // Ejecución fuera del hilo crítico (requestIdleCallback o setTimeout)
   const dispatch = () => {
     try {
@@ -159,9 +164,9 @@ export function trackEvent(options: TrackOptions): void {
         tipo: options.tipo,
         producto_id: options.producto_id ? String(options.producto_id) : undefined,
         producto_nombre: options.producto_nombre,
-        url: options.url || window.location.href,
+        url: eventUrl,
         referer: document.referrer || '',
-        metadata: options.metadata || {},
+        metadata: { ...options.metadata, ...(attribution ? { attribution } : {}) },
       };
 
       const jsonStr = JSON.stringify(payload);
@@ -239,6 +244,8 @@ export function trackWhatsAppClick(context?: string, product?: { id: string | nu
     producto_nombre: product?.title,
     metadata: { context: context || 'general' },
   });
+  metaPixel.whatsAppClick(product?.id);
+  if (!isSystemOrStaffUser() && window.gtag) window.gtag('event', 'whatsapp_click', { contact_channel: 'whatsapp' });
 }
 
 export function trackQuoteClick(): void {
