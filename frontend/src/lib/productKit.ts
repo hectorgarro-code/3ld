@@ -16,3 +16,13 @@ export function getKitFigureCount(product: {
   const count = match ? Number(match[1]) : 0
   return Number.isSafeInteger(count) && count > 0 && count <= 10000 ? count : null
 }
+
+export function formatWhatsAppCartLine(item: {
+  title: string; qty: number; color: string; price: number;
+  figuras_por_kit?: number | string | null; selectedPieceIds?: string[];
+}): string {
+  const figures = getKitFigureCount(item)
+  const quantity = figures ? `${item.qty} ${item.qty === 1 ? 'kit' : 'kits'}` : `${item.qty}x`
+  const contents = figures ? `  - Kit completo: ${figures} ${figures === 1 ? 'figura' : 'figuras'} por kit\n  - Total: ${item.qty * figures} figuras\n` : ''
+  return `• *${quantity}* ${item.title}\n${contents}  - Color PLA: ${item.color}\n  - Subtotal: $${(item.price * item.qty).toLocaleString('es-AR')}\n`
+}

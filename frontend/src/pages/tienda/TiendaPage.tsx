@@ -39,7 +39,7 @@ import { getThumbnailUrl } from '@/lib/utils';
 import { DeliveryEstimate } from '@/components/tienda/DeliveryEstimate';
 import { FreeShippingProgress } from '@/components/tienda/FreeShippingProgress';
 import { LOCAL_FREE_SHIPPING_THRESHOLD } from '@/lib/freeShipping';
-import { getKitFigureCount } from '@/lib/productKit';
+import { getKitFigureCount, formatWhatsAppCartLine } from '@/lib/productKit';
 const TiendaStoriesModal = React.lazy(() => import('@/components/tienda/TiendaStoriesModal').then(m => ({ default: m.TiendaStoriesModal })));
 import {
   trackPageView,
@@ -1214,7 +1214,7 @@ export default function TiendaPage() {
     let text = `¡Hola 3LD! 👋 Quiero encargar el siguiente pedido desde la tienda:\n\n`;
 
     cart.forEach((item) => {
-      text += `• *${item.qty}x* ${item.title}\n  - Color PLA: ${item.color}\n  - Subtotal: $${(item.price * item.qty).toLocaleString('es-AR')}\n`;
+      text += formatWhatsAppCartLine({ ...item, figuras_por_kit: products.find(p => String(p.id) === String(item.id))?.figuras_por_kit ?? item.figuras_por_kit });
     });
 
     text += `\n📦 *Subtotal:* $${cartSubtotal.toLocaleString('es-AR')}\n`;
