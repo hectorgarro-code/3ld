@@ -153,6 +153,7 @@ class MakerWorldScraper
             'raw_description' => trim($description),
             'tags'            => $tags,
             'images'          => array_values(array_unique($proxyImages)),
+            'raw_image_urls'  => array_values(array_unique($uniqueRaw)),
             'peso_gramos'     => $pesoGramos,
             'horas_impresion' => $horasImpresion,
         ];

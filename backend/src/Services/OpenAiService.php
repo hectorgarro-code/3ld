@@ -21,53 +21,65 @@ class OpenAiService
     {
         $tagsStr = !empty($extraContext['tags']) && is_array($extraContext['tags']) ? implode(', ', $extraContext['tags']) : '';
         $urlStr  = !empty($extraContext['url']) ? $extraContext['url'] : '';
+        $images  = !empty($extraContext['images']) && is_array($extraContext['images']) ? $extraContext['images'] : [];
 
-        $prompt = "Actuá como un copywriter senior especializado en e-commerce, SEO y conversión para productos impresos en 3D.
+        $systemPrompt = "Eres un copywriter senior y especialista en marketing digital y SEO e-commerce para la fábrica y tienda 3LD (3ld.com.ar) en Argentina.
+REGLA N°1 ABSOLUTA E INQUEBRANTABLE: DEBES RESPONDER SIEMPRE Y EXCLUSIVAMENTE EN ESPAÑOL (CASTELLANO). Jamás dejes títulos, descripciones o categorías en inglés u otro idioma. Si la información de origen está en inglés u otro idioma, o es escasa, tradúcela, adáptala y enriquécela al español argentino neutro y persuasivo.";
 
-Tu tarea es analizar una página de MakerWorld y convertir ese modelo en una publicación para vender el OBJETO FÍSICO YA IMPRESO, no el archivo STL.
+        $prompt = "Tu tarea es analizar este modelo 3D y convertirlo en una publicación de venta altamente persuasiva para vender el OBJETO FÍSICO YA IMPRESO (en PLA de alta calidad bajo pedido), nunca el archivo STL ni la descarga digital.
 
-CONTEXTO DE MI NEGOCIO:
-- Marca: 3LD Impresiones
-- Vendo únicamente productos impresos en 3D.
-- Los productos se fabrican bajo pedido.
-- Material habitual: PLA de alta calidad.
-- Público: Mercado Libre, Tienda Nube y redes sociales.
+CONTEXTO DE NUESTRO NEGOCIO:
+- Marca: 3LD Impresiones (3ld.com.ar).
+- Fabricamos y vendemos productos físicos terminados en impresión 3D de alta precisión.
+- Material: PLA premium no tóxico, biodegradable y resistente.
+- Clientes: Hogar, decoración, repostería, regalos empresariales, souvenirs, eventos y colegios.
 
-INFORMACIÓN EXTRAÍDA DE LA PÁGINA MAKERWORLD:
+INFORMACIÓN EXTRAÍDA DEL MODELO:
 - Título original: {$rawTitle}
-- Descripción original del modelo (CONTEXTO PRINCIPAL):
+- Descripción original:
 {$rawDescription}
 " . (!empty($tagsStr) ? "- Etiquetas / Tags: {$tagsStr}\n" : "") . "
-" . (!empty($urlStr) ? "- URL del modelo: {$urlStr}\n" : "") . "
+" . (!empty($urlStr) ? "- URL de origen: {$urlStr}\n" : "") . "
 
-INSTRUCCIONES OBLIGATORIAS:
-1. Analizá toda la información disponible en la página (título, descripción, imágenes, medidas, cantidad de piezas, instrucciones y usos).
-2. Reescribí el contenido pensando en un comprador final del objeto impreso.
-3. NUNCA menciones STL, descarga, MakerWorld, Bambu Studio, impresión casera, slicer o archivos digitales.
-4. No inventes funciones que el producto no tenga.
-5. Si una medida no está disponible, no la inventes.
-6. TÍTULO: Debe tener entre 55 y 70 caracteres, optimizado para SEO, con las palabras clave con mayor intención de compra, natural y atractivo, sin exceso de mayúsculas ni emojis.
-7. DESCRIPCIÓN: Debe tener entre 500 y 1200 caracteres. Empezá con un gancho que despierte interés, explicá qué es, para quién sirve y qué beneficios aporta, convertí las características técnicas en beneficios para el comprador, incorporá naturalmente las palabras clave SEO y terminá con un llamado a la acción para comprar.
-8. TÍTULO SEO (Google): Máximo 60 caracteres. Intención de búsqueda con palabras clave principales + ' | 3LD'.
-9. DESCRIPCIÓN SEO (Meta Google): Entre 135 y 155 caracteres atractiva para CTR en resultados de búsqueda.
-10. Elegí la categoría más adecuada entre: cortantes, ceramica, didacticos, moldes, figuras, personalizados, accesorio.
-11. Sugiere categorías secundarias o etiquetas relevantes separadas por coma en el campo 'subcategoria' (ej. 'Decoración, San Valentín, Llaveros').
-12. Sugiere un precio estimado de venta razonable en pesos ($).
+INSTRUCCIONES ESTRICTAS:
+1. IDIOMA 100% EN ESPAÑOL: Todos los campos ('title', 'description', 'seo_title', 'seo_description', 'subcategoria') deben estar redactados en perfecto español. Está terminantemente prohibido generar texto en inglés.
+2. ANÁLISIS DE FOTOS / MODELO: Si la descripción original es corta, genérica, en otro idioma o no tiene suficiente información, analiza detalladamente la foto del producto para deducir qué objeto es, su forma, utilidad, público objetivo y detalles estéticos (por ejemplo: árbol navideño decorativo, cortante, organizador, etc.).
+3. ENFOQUE COMERCIAL FÍSICO: Hablale al comprador final del objeto terminado. Jamás menciones palabras como STL, descarga, MakerWorld, Bambu Studio, impresión casera, slicer, archivos digitales ni modelos 3D para imprimir.
+4. TÍTULO ('title'): En español, entre 50 y 70 caracteres, atractivo, comercial y con palabras clave SEO de compra directa (ej: 'Árbol Navideño Decorativo Personalizado con Nombres').
+5. DESCRIPCIÓN ('description'): En español, entre 400 y 900 caracteres. Gancho inicial cautivador, explicación de qué es y para qué sirve, beneficios para el comprador, detalles de terminación de alta calidad y un llamado a la acción para comprar.
+6. TÍTULO SEO ('seo_title'): En español, máximo 60 caracteres terminando en ' | 3LD'.
+7. DESCRIPCIÓN SEO ('seo_description'): En español, entre 135 y 155 caracteres optimizada para clics en Google.
+8. CATEGORÍA ('category'): Elegí la categoría más precisa entre: cortantes, ceramica, didacticos, moldes, figuras, personalizados, accesorio, hogar, deco.
+9. SUBCATEGORÍA ('subcategoria'): Sugiere 2 o 3 palabras clave o etiquetas en español separadas por coma (ej: 'Navidad, Decoración, Regalos').
+10. PRECIO SUGERIDO ('suggested_price'): Sugiere un precio estimado razonable en pesos argentinos (ARS).
 
-Entregá ÚNICAMENTE un objeto JSON sintácticamente válido:
+Entregá ÚNICAMENTE un objeto JSON sintácticamente válido (sin texto extra):
 {
-  \"title\": \"Título comercial optimizado entre 55 y 70 caracteres\",
-  \"description\": \"Descripción vendedora entre 500 y 1200 caracteres enfocado en el producto físico ya impreso\",
-  \"seo_title\": \"Título SEO para Google (máx 60 caracteres)\",
-  \"seo_description\": \"Meta descripción atractiva para Google (135 a 155 caracteres)\",
+  \"title\": \"Título comercial en español entre 50 y 70 caracteres\",
+  \"description\": \"Descripción vendedora en español enfocada en el producto físico ya impreso\",
+  \"seo_title\": \"Título SEO en español (máx 60 caracteres) | 3LD\",
+  \"seo_description\": \"Meta descripción en español (135 a 155 caracteres)\",
   \"category\": \"categoría_elegida\",
   \"subcategoria\": \"etiqueta1, etiqueta2\",
-  \"suggested_price\": 9500
+  \"suggested_price\": 8500
 }";
 
-        $jsonResponse = $this->callOpenAi($prompt);
+        // Si tenemos fotos del producto, usamos GPT-4o con soporte de visión para que la IA inspeccione la foto
+        $imageUrlToAnalyze = !empty($images[0]) ? $images[0] : null;
+        if ($imageUrlToAnalyze && str_starts_with($imageUrlToAnalyze, '//')) {
+            $imageUrlToAnalyze = 'https:' . $imageUrlToAnalyze;
+        }
+
+        try {
+            if ($imageUrlToAnalyze && str_starts_with($imageUrlToAnalyze, 'http')) {
+                $jsonResponse = $this->callOpenAiVision($prompt, $imageUrlToAnalyze, $systemPrompt);
+            } else {
+                $jsonResponse = $this->callOpenAiWithSystem($prompt, $systemPrompt);
+            }
+        } catch (\Throwable $e) {
+            $jsonResponse = $this->callOpenAiWithSystem($prompt, $systemPrompt);
+        }
         
-        // Limpiar posible formato markdown triple backticks (```json ... ```)
         $cleanJson = preg_replace('/^```(?:json)?\s*|\s*```$/i', '', trim($jsonResponse));
         $data = json_decode($cleanJson, true);
 
@@ -79,7 +91,7 @@ Entregá ÚNICAMENTE un objeto JSON sintácticamente válido:
                 'seo_title'       => mb_substr($fallbackTitle . ' | 3LD', 0, 60),
                 'seo_description' => mb_substr(strip_tags($rawDescription), 0, 155),
                 'category'        => 'accesorio',
-                'subcategoria'    => !empty($options['tags']) ? implode(', ', array_slice($options['tags'], 0, 3)) : '',
+                'subcategoria'    => !empty($extraContext['tags']) ? implode(', ', array_slice($extraContext['tags'], 0, 3)) : '',
                 'suggested_price' => 8500,
             ];
         }
@@ -99,8 +111,10 @@ Entregá ÚNICAMENTE un objeto JSON sintácticamente válido:
      */
     public function generateSalesCopy(string $title, string $details): array
     {
-        $prompt = "Actuá como un copywriter senior especializado en e-commerce, SEO y conversión para productos impresos en 3D (3LD Impresiones).
-Tu tarea es escribir una publicación para vender el OBJETO FÍSICO YA IMPRESO en PLA de alta calidad bajo pedido.
+        $systemPrompt = "Eres un copywriter senior especializado en e-commerce y conversión para productos impresos en 3D (3LD Impresiones en Argentina).
+REGLA OBLIGATORIA: DEBES RESPONDER 100% EN ESPAÑOL (CASTELLANO). Si el texto base está en inglés, tradúcelo y redacta todo en español.";
+
+        $prompt = "Tu tarea es escribir una publicación para vender el OBJETO FÍSICO YA IMPRESO en PLA de alta calidad bajo pedido.
 
 INFORMACIÓN BASE DEL PRODUCTO:
 - Nombre/Ref: {$title}
@@ -108,20 +122,21 @@ INFORMACIÓN BASE DEL PRODUCTO:
 
 INSTRUCCIONES:
 1. Jamás menciones STL, descargas, archivos digitales, MakerWorld o impresión casera.
-2. TÍTULO: Entre 55 y 70 caracteres. Optimizado para SEO y conversión.
-3. DESCRIPCIÓN: Entre 500 y 1200 caracteres. Gancho inicial, explicá qué es y sus beneficios para el comprador final, llamado a la acción para comprar.
-4. TÍTULO SEO (Google): Máximo 60 caracteres con intención de compra transaccional + ' | 3LD'.
-5. DESCRIPCIÓN SEO (Google): Entre 135 y 155 caracteres atractiva para CTR en buscadores.
+2. TODO EN ESPAÑOL: Título, descripción y campos SEO deben estar en perfecto castellano.
+3. TÍTULO: Entre 50 y 70 caracteres. Optimizado para SEO y conversión.
+4. DESCRIPCIÓN: Entre 400 y 900 caracteres. Gancho inicial, explicá qué es y sus beneficios para el comprador final, llamado a la acción para comprar.
+5. TÍTULO SEO (Google): Máximo 60 caracteres con intención de compra transaccional + ' | 3LD'.
+6. DESCRIPCIÓN SEO (Google): Entre 135 y 155 caracteres atractiva para CTR en buscadores.
 
 Responde ÚNICAMENTE en JSON sintácticamente válido:
 {
-  \"title\": \"Título comercial SEO (55 a 70 caracteres)\",
-  \"description\": \"Descripción de venta (500 a 1200 caracteres)\",
+  \"title\": \"Título comercial SEO en español (50 a 70 caracteres)\",
+  \"description\": \"Descripción de venta en español (400 a 900 caracteres)\",
   \"seo_title\": \"Título SEO Google (máx 60 caracteres)\",
   \"seo_description\": \"Meta descripción Google (135 a 155 caracteres)\"
 }";
 
-        $jsonResponse = $this->callOpenAi($prompt);
+        $jsonResponse = $this->callOpenAiWithSystem($prompt, $systemPrompt);
         $cleanJson = preg_replace('/^```(?:json)?\s*|\s*```$/i', '', trim($jsonResponse));
         $data = json_decode($cleanJson, true);
 
@@ -151,14 +166,16 @@ Responde ÚNICAMENTE en JSON sintácticamente válido:
     {
         $prompt = "Actuá como un experto en SEO técnico y redacción e-commerce para la tienda 3LD (artículos en impresión 3D: cortantes de repostería, sellos y herramientas para cerámica, juguetes didácticos, macetas, organizadores y regalos personalizados en Argentina).
 
+TODO EN ESPAÑOL OBLIGATORIAMENTE.
+
 PRODUCTO:
 - Título actual: {$title}
 - Categoría: " . ($category ?: 'General') . "
 - Descripción: " . mb_substr($description, 0, 600) . "
 
 INSTRUCCIONES SEO ESTRICTAS:
-1. SEO TITLE: Debe tener exactamente entre 45 y 60 caracteres. Incluir la palabra clave principal de búsqueda, beneficio o material y terminar con '| 3LD'.
-2. SEO DESCRIPTION: Debe tener exactamente entre 135 y 155 caracteres. Redactada para maximizar el CTR en Google: qué es, calidad del diseño, envíos a todo el país y llamado a comprar.
+1. SEO TITLE: Debe tener exactamente entre 45 y 60 caracteres en español. Incluir la palabra clave principal de búsqueda, beneficio o material y terminar con '| 3LD'.
+2. SEO DESCRIPTION: Debe tener exactamente entre 135 y 155 caracteres en español. Redactada para maximizar el CTR en Google: qué es, calidad del diseño, envíos a todo el país y llamado a comprar.
 3. No uses mayúsculas sostenidas ni emojis.
 4. Generá solo JSON:
 {
@@ -178,10 +195,9 @@ INSTRUCCIONES SEO ESTRICTAS:
                 ];
             }
         } catch (\Throwable $e) {
-            // Fallback inteligente sin IA si la llamada falla
+            // Fallback heurístico
         }
 
-        // Generador heurístico de alto impacto
         $cleanName = trim($title);
         $seoTitle = mb_substr($cleanName, 0, 48) . ' | 3LD';
         $descPlain = trim(preg_replace('/\s+/', ' ', strip_tags($description)));
@@ -200,17 +216,15 @@ INSTRUCCIONES SEO ESTRICTAS:
 
     /**
      * Genera un lote de publicaciones estratégicas para redes sociales (Meta Business Suite / Instagram / TikTok)
-     * a partir de los productos reales de la base de datos de 3LD.
      */
     public function generateSocialCalendar(array $products, array $options = []): array
     {
         $daysCount   = max(1, min(120, (int)($options['days_count'] ?? 30)));
-        $focus       = $options['focus'] ?? 'balanced'; // balanced, navidad, egresados, promo, tips
+        $focus       = $options['focus'] ?? 'balanced';
         $tone        = $options['tone'] ?? 'cercano';
         $customCta   = $options['custom_cta'] ?? 'Envíos a todo el país. Comprá en 3ld.com.ar o escribinos por WhatsApp!';
-        $modelChoice = !empty($options['model']) ? $options['model'] : 'gpt-4o'; // Usamos modelo avanzado si está disponible
+        $modelChoice = !empty($options['model']) ? $options['model'] : 'gpt-4o';
 
-        // Reducir la lista de productos al contexto necesario
         $simplifiedProds = [];
         foreach ($products as $p) {
             $simplifiedProds[] = [
@@ -247,9 +261,9 @@ REGLAS DE COPYWRITING & FORMATO:
    - 'product_name': el nombre del producto.
    - 'image_url': la URL de la imagen del producto (exactamente como vino en la lista).
    - 'format': 'Feed', 'Reel' o 'Historia'.
-   - 'hook': Primera línea o gancho irresistible (pregunta, curiosidad, solución a un problema común).
-   - 'caption': Copy completo y persuasivo para Instagram/Facebook con saltos de línea legibles, emojis medidos y CTA claro.
-   - 'hashtags': 5 a 10 hashtags estratégicos relevantes en Argentina (ej. #Impresion3D #DecoNavidad #Cortantes3D #3LD).
+   - 'hook': Primera línea o gancho irresistible.
+   - 'caption': Copy completo y persuasivo para Instagram/Facebook en español con saltos de línea legibles, emojis medidos y CTA claro.
+   - 'hashtags': 5 a 10 hashtags estratégicos relevantes en Argentina.
    - 'visual_guide': Indicación visual para la foto/video o guión segundo a segundo si es Reel.
    - 'suggested_time': Horario óptimo recomendado para publicar (ej. '19:30 hs').
 3. No inventes productos ni enlaces falsos. Todos deben coincidir con la lista.
@@ -273,7 +287,6 @@ Responde ÚNICAMENTE con un arreglo JSON de objetos:
         try {
             $rawResponse = $this->callOpenAi($prompt, $modelChoice, 0.7);
         } catch (\Throwable $e) {
-            // Si el modelo avanzado falla (ej. si la cuenta no tiene tier para gpt-4o), fallback a gpt-4o-mini
             if ($modelChoice !== 'gpt-4o-mini') {
                 $rawResponse = $this->callOpenAi($prompt, 'gpt-4o-mini', 0.7);
             } else {
@@ -292,25 +305,82 @@ Responde ÚNICAMENTE con un arreglo JSON de objetos:
     }
 
     /**
-     * Realiza la llamada HTTP cURL a la API de OpenAI
+     * Llamada con prompt de sistema personalizado
      */
-    public function callOpenAi(string $prompt, ?string $customModel = null, float $temperature = 0.7): string
+    public function callOpenAiWithSystem(string $prompt, string $systemPrompt, ?string $customModel = null, float $temperature = 0.7): string
     {
         if (empty($this->apiKey)) {
             throw new RuntimeException('API Key de OpenAI no configurada.');
         }
 
         $url = 'https://api.openai.com/v1/chat/completions';
-        
         $payload = [
             'model' => $customModel ?: $this->model,
             'messages' => [
-                ['role' => 'system', 'content' => 'Eres un director de marketing digital y copywriter senior especializado en E-commerce, Meta Ads, Instagram y TikTok para una fábrica y tienda de productos impresos en 3D en Argentina (3LD).'],
+                ['role' => 'system', 'content' => $systemPrompt],
                 ['role' => 'user', 'content' => $prompt]
             ],
             'temperature' => $temperature,
         ];
 
+        return $this->executeCurl($url, $payload);
+    }
+
+    /**
+     * Llamada con soporte de visión para analizar imágenes reales del producto
+     */
+    public function callOpenAiVision(string $prompt, string $imageUrl, string $systemPrompt): string
+    {
+        if (empty($this->apiKey)) {
+            throw new RuntimeException('API Key de OpenAI no configurada.');
+        }
+
+        $url = 'https://api.openai.com/v1/chat/completions';
+        // Usar gpt-4o o gpt-4o-mini que tienen capacidad de visión multimodal
+        $model = 'gpt-4o-mini';
+
+        $payload = [
+            'model' => $model,
+            'messages' => [
+                ['role' => 'system', 'content' => $systemPrompt],
+                [
+                    'role' => 'user',
+                    'content' => [
+                        [
+                            'type' => 'text',
+                            'text' => $prompt . "\n\nPor favor, inspecciona detalladamente la foto del producto adjunta para extraer la forma, función, temática y detalles visuales para redactar el título y descripción en español.",
+                        ],
+                        [
+                            'type' => 'image_url',
+                            'image_url' => [
+                                'url' => $imageUrl,
+                                'detail' => 'high'
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            'temperature' => 0.5,
+        ];
+
+        return $this->executeCurl($url, $payload);
+    }
+
+    /**
+     * Realiza la llamada HTTP cURL a la API de OpenAI
+     */
+    public function callOpenAi(string $prompt, ?string $customModel = null, float $temperature = 0.7): string
+    {
+        return $this->callOpenAiWithSystem(
+            $prompt,
+            'Eres un director de marketing digital y copywriter senior especializado en E-commerce, Meta Ads, Instagram y TikTok para una fábrica y tienda de productos impresos en 3D en Argentina (3LD). Debes responder siempre en español.',
+            $customModel,
+            $temperature
+        );
+    }
+
+    private function executeCurl(string $url, array $payload): string
+    {
         $ch = curl_init($url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_POST, true);
@@ -319,7 +389,7 @@ Responde ÚNICAMENTE con un arreglo JSON de objetos:
             'Content-Type: application/json',
             'Authorization: Bearer ' . $this->apiKey,
         ]);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 35);
         curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
 
         $response = curl_exec($ch);

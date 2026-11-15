@@ -42,14 +42,16 @@ class AiController
             // 1. Scrape MakerWorld Page
             $scraped = $this->scraper->scrape($url);
 
-            // 2. Process with OpenAI GPT (con fallback en caso de error de API/Red)
+            // 2. Process with OpenAI GPT (con soporte de visión si faltan datos textuales)
             try {
+                $imageUrls = $scraped['raw_image_urls'] ?? [];
                 $aiResult = $this->openAiService->optimizeProductForSales(
                     $scraped['raw_title'],
                     $scraped['raw_description'],
                     [
-                        'tags' => $scraped['tags'] ?? [],
-                        'url'  => $url,
+                        'tags'   => $scraped['tags'] ?? [],
+                        'url'    => $url,
+                        'images' => $imageUrls,
                     ]
                 );
             } catch (Throwable $aiErr) {
