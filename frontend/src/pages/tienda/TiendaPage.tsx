@@ -310,8 +310,25 @@ export default function TiendaPage() {
   // Modals & Notifications
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isWhatsAppReviewOpen, setIsWhatsAppReviewOpen] = useState(false);
-  const [whatsAppNotes, setWhatsAppNotes] = useState('');
-  useEffect(() => { if (cart.length === 0) setWhatsAppNotes(''); }, [cart.length]);
+  const [whatsAppNotes, setWhatsAppNotes] = useState(() => {
+    try {
+      return cart.length > 0 ? (localStorage.getItem('3ld_whatsapp_order_notes') || '').slice(0, 500) : '';
+    } catch {
+      return '';
+    }
+  });
+  useEffect(() => {
+    if (cart.length === 0) setWhatsAppNotes('');
+    try {
+      if (cart.length > 0 && whatsAppNotes) {
+        localStorage.setItem('3ld_whatsapp_order_notes', whatsAppNotes);
+      } else {
+        localStorage.removeItem('3ld_whatsapp_order_notes');
+      }
+    } catch {
+      // El pedido sigue funcionando si el navegador no permite guardar el borrador.
+    }
+  }, [cart.length, whatsAppNotes]);
   const [isStoriesOpen, setIsStoriesOpen] = useState(false);
   const [favorites, setFavorites] = useState<(string | number)[]>(() => {
     try {
