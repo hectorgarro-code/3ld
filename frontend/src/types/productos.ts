@@ -52,6 +52,8 @@ export interface Producto {
   piezas?: ProductoPieza[]
   figuras_por_kit?: number | null
   precios_cantidad?: ProductoPrecioCantidad[]
+  estructura_precio_id?: number | null
+  estructura_precio_nombre?: string | null
   activo: number // 1 o 0
   es_vendible: number
   es_insumo: number

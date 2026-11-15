@@ -30,6 +30,8 @@ import api from '@/lib/api'
 import { ProductoFormModal } from '@/components/productos/ProductoFormModal'
 import { ProductStoreDetailModal } from '@/components/tienda/ProductStoreDetailModal'
 import { MetaSyncModal } from '@/components/tienda/MetaSyncModal'
+import { EstructurasPreciosModal } from '@/components/productos/EstructurasPreciosModal'
+import { useEstructurasPrecio } from '@/hooks/useEstructurasPrecio'
 import { optimizeImagesForPrint } from '@/lib/imageOptimization'
 import { resolveImageUrl, getThumbnailUrl } from '@/lib/utils'
 
@@ -58,6 +60,9 @@ export interface AdminProduct {
   categoria_id?: number
   categoria_nombre?: string
   piezas?: any
+  estructura_precio_id?: number | null
+  estructura_precio_nombre?: string | null
+  precios_cantidad?: any
 }
 
 export interface Categoria {
@@ -83,7 +88,10 @@ export default function TiendaAdminPage() {
   const [metaSyncModalOpen, setMetaSyncModalOpen] = useState(false)
 
   // Bulk Action Modals
-  const [bulkModal, setBulkModal] = useState<'category' | 'prices' | 'offers' | 'stock' | null>(null)
+  const [bulkModal, setBulkModal] = useState<'category' | 'prices' | 'offers' | 'stock' | 'volume_pricing' | null>(null)
+  const [isEstructurasModalOpen, setIsEstructurasModalOpen] = useState(false)
+  const [bulkEstructuraId, setBulkEstructuraId] = useState<string>('')
+  const { estructuras } = useEstructurasPrecio()
   
   // Bulk Form States
   const [bulkCatId, setBulkCatId] = useState<string>('')
@@ -496,6 +504,14 @@ export default function TiendaAdminPage() {
             )}
           </div>
           <button
+            onClick={() => setIsEstructurasModalOpen(true)}
+            className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-extrabold rounded-xl shadow-md transition"
+            title="Gestionar estructuras y escalas de precios por volumen en lote"
+          >
+            <Boxes className="h-4 w-4" />
+            <span>Escalas por Volumen</span>
+          </button>
+          <button
             onClick={() => setMetaSyncModalOpen(true)}
             className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-emerald-600 via-teal-600 to-indigo-600 hover:from-emerald-500 hover:to-indigo-500 text-white text-xs font-extrabold rounded-xl shadow-md transition"
             title="Sincronizar catálogo con WhatsApp Business, Instagram Shopping y Facebook Shop"
@@ -632,6 +648,18 @@ export default function TiendaAdminPage() {
             >
               <Boxes className="h-3.5 w-3.5" />
               <span>Stock</span>
+            </button>
+
+            <button
+              onClick={() => {
+                setBulkEstructuraId('')
+                setBulkModal('volume_pricing')
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-600 hover:bg-teal-500 rounded-xl font-bold transition"
+              title="Asignar escala por cantidad a los seleccionados"
+            >
+              <Tag className="h-3.5 w-3.5" />
+              <span>Asignar Escala Vol.</span>
             </button>
           </div>
         </div>
@@ -773,6 +801,11 @@ export default function TiendaAdminPage() {
                     )}
                   </div>
                 </th>
+                <th className="p-4">
+                  <div className="flex items-center gap-1.5">
+                    <span>Escala Vol.</span>
+                  </div>
+                </th>
                 <th onClick={() => handleSort('es_tienda')} className="p-4 cursor-pointer hover:bg-slate-100 transition">
                   <div className="flex items-center gap-1.5">
                     <span>Estado Tienda</span>
@@ -789,7 +822,7 @@ export default function TiendaAdminPage() {
             <tbody className="divide-y divide-slate-100 font-medium">
               {sortedProducts.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="p-8 text-center text-slate-400">
+                  <td colSpan={10} className="p-8 text-center text-slate-400">
                     No se encontraron productos
                   </td>
                 </tr>
@@ -1007,6 +1040,23 @@ export default function TiendaAdminPage() {
                             </span>
                             <Edit2 className="w-3 h-3 text-slate-400 group-hover:text-cyan-600 transition" />
                           </div>
+                        )}
+                      </td>
+                      <td className="p-4">
+                        {p.estructura_precio_nombre ? (
+                          <span
+                            onClick={() => setIsEstructurasModalOpen(true)}
+                            className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-teal-50 text-teal-700 border border-teal-200 cursor-pointer hover:bg-teal-100 transition"
+                            title="Haz clic para ver y editar esta estructura"
+                          >
+                            📦 {p.estructura_precio_nombre}
+                          </span>
+                        ) : p.precios_cantidad && Array.isArray(p.precios_cantidad) && p.precios_cantidad.length > 0 ? (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                            Personalizada ({p.precios_cantidad.length})
+                          </span>
+                        ) : (
+                          <span className="text-[11px] text-slate-400 italic">Sin escala</span>
                         )}
                       </td>
                       <td className="p-4">
@@ -1384,6 +1434,82 @@ export default function TiendaAdminPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Bulk Volume Pricing Modal */}
+      {bulkModal === 'volume_pricing' && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 animate-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <Boxes className="h-5 w-5 text-teal-600" />
+                <h3 className="font-extrabold text-base text-slate-900">Asignar Escala por Volumen</h3>
+              </div>
+              <button onClick={() => setBulkModal(null)} className="p-1 text-slate-400 hover:text-slate-600">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="mt-4 space-y-4 text-xs">
+              <p className="text-slate-500">
+                Asigna o quita la estructura de precios por cantidad a los <strong>{selectedIds.length}</strong> productos seleccionados.
+              </p>
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Estructura de Precios</label>
+                <select
+                  value={bulkEstructuraId}
+                  onChange={(e) => setBulkEstructuraId(e.target.value)}
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-900"
+                >
+                  <option value="">-- Sin estructura (remover asignación) --</option>
+                  {estructuras.map((e) => (
+                    <option key={e.id} value={e.id}>
+                      {e.nombre} ({e.escalas?.length || 0} escalas)
+                    </option>
+                  ))}
+                </select>
+                {bulkEstructuraId && (
+                  <p className="text-[11px] text-teal-600 font-medium mt-1.5">
+                    Al asignar esta estructura, los {selectedIds.length} productos seleccionados adoptarán sus tramos de descuento y precios calculados.
+                  </p>
+                )}
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-4 border-t border-slate-100">
+                <button
+                  onClick={() => setBulkModal(null)}
+                  className="px-4 py-2 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 transition"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={() => {
+                    const estructuraSel = estructuras.find((e) => String(e.id) === String(bulkEstructuraId))
+                    executeBulkAction('volume_pricing', {
+                      estructura_precio_id: bulkEstructuraId ? parseInt(bulkEstructuraId, 10) : null,
+                      escalas: estructuraSel?.escalas || [],
+                    })
+                  }}
+                  disabled={saving}
+                  className="px-5 py-2 bg-teal-600 text-white font-bold rounded-xl hover:bg-teal-700 transition shadow-md disabled:opacity-50"
+                >
+                  Aplicar Escala
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Estructuras Precios Modal */}
+      {isEstructurasModalOpen && (
+        <EstructurasPreciosModal
+          isOpen={isEstructurasModalOpen}
+          onClose={() => {
+            setIsEstructurasModalOpen(false)
+            fetchProducts()
+          }}
+          onUpdated={fetchProducts}
+        />
       )}
 
       {/* Edit Modal Unificado */}

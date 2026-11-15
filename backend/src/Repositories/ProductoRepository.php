@@ -60,16 +60,18 @@ class ProductoRepository
         try {
             $sql = "SELECT p.id, p.nombre, p.variante, p.sku, p.descripcion, p.tipo,
                            p.precio_venta, p.precio_costo, p.precio_mayorista, p.precio_oferta, p.stock_actual, p.stock_minimo,
-                           p.unidad_medida, p.imagen_url, p.imagenes, p.archivo_url, p.colores, p.piezas, p.figuras_por_kit, p.precios_cantidad, p.activo,
+                           p.unidad_medida, p.imagen_url, p.imagenes, p.archivo_url, p.colores, p.piezas, p.figuras_por_kit, p.precios_cantidad, p.estructura_precio_id, p.activo,
                            p.es_vendible, p.es_insumo, p.es_tienda, p.sync_mercadolibre, p.es_destacado, p.subcategoria,
                            p.horas_impresion, p.peso_gramos,
                            p.alto_mm, p.ancho_mm, p.profundidad_mm, p.dimensiones,
                            p.seo_title, p.seo_description, p.created_at, p.updated_at,
                            c.id AS categoria_id, c.nombre AS categoria_nombre,
-                           p.categoria_secundaria_id, c_sec.nombre AS categoria_secundaria_nombre
+                           p.categoria_secundaria_id, c_sec.nombre AS categoria_secundaria_nombre,
+                           ep.nombre AS estructura_precio_nombre
                     FROM productos p
                     LEFT JOIN categorias_producto c ON c.id = p.categoria_id
                     LEFT JOIN categorias_producto c_sec ON c_sec.id = p.categoria_secundaria_id
+                    LEFT JOIN estructuras_precio_cantidad ep ON ep.id = p.estructura_precio_id
                     {$where}
                     ORDER BY p.nombre ASC
                     LIMIT {$perPage} OFFSET {$offset}";
@@ -370,6 +372,7 @@ class ProductoRepository
             'figuras_por_kit' => 'int',
             'piezas'        => 'json',
             'precios_cantidad' => 'json',
+            'estructura_precio_id' => 'int',
             'seo_title'     => 'string',
             'seo_description' => 'string',
         ];

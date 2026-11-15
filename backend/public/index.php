@@ -29,6 +29,8 @@ use App\Controllers\MediaController;
 use App\Controllers\ThumbnailController;
 use App\Controllers\MercadoPagoController;
 use App\Controllers\MetaCatalogController;
+use App\Controllers\EstructurasPrecioController;
+use App\Repositories\EstructurasPrecioRepository;
 use App\Services\OpenAiService;
 use App\Services\MetaCapiService;
 use App\Services\MakerWorldScraper;
@@ -146,6 +148,12 @@ $containerBuilder->addDefinitions([
     },
     MetaCatalogController::class => function ($c) {
         return new MetaCatalogController($c->get(PDO::class));
+    },
+    EstructurasPrecioRepository::class => function ($c) {
+        return new EstructurasPrecioRepository($c->get(PDO::class));
+    },
+    EstructurasPrecioController::class => function ($c) {
+        return new EstructurasPrecioController($c->get(EstructurasPrecioRepository::class));
     },
 ]);
 $container = $containerBuilder->build();
@@ -627,6 +635,25 @@ $app->group('/api/v1', function (RouteCollectorProxy $api) use ($config, $auth, 
         });
         $g->delete('/delete[/]', function ($req, $res) use ($container) {
             return $container->get(MediaController::class)->delete($req, $res);
+        });
+    })->add($auth);
+
+    // Estructuras de Precio por Cantidad (Escalas por Volumen)
+    $api->group('/estructuras-precio', function (RouteCollectorProxy $g) use ($container) {
+        $g->get('[/]', function ($req, $res) use ($container) {
+            return $container->get(EstructurasPrecioController::class)->index($req, $res);
+        });
+        $g->post('[/]', function ($req, $res) use ($container) {
+            return $container->get(EstructurasPrecioController::class)->store($req, $res);
+        });
+        $g->delete('/{id}[/]', function ($req, $res, $args) use ($container) {
+            return $container->get(EstructurasPrecioController::class)->destroy($req, $res, $args);
+        });
+        $g->get('/{id}/productos[/]', function ($req, $res, $args) use ($container) {
+            return $container->get(EstructurasPrecioController::class)->getProductos($req, $res, $args);
+        });
+        $g->post('/{id}/aplicar[/]', function ($req, $res, $args) use ($container) {
+            return $container->get(EstructurasPrecioController::class)->apply($req, $res, $args);
         });
     })->add($auth);
 

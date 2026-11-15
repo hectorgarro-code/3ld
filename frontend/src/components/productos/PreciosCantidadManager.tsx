@@ -1,44 +1,53 @@
 import React, { useState, useEffect } from 'react'
-import { Plus, Trash2, Bookmark, BookmarkPlus, Check, Sparkles } from 'lucide-react'
-import {
-  getPlantillasPrecios,
-  savePlantillaPrecios,
-  deletePlantillaPrecios,
-  type PlantillaPrecioCantidad,
-} from '@/lib/volumePricingTemplates'
+import { Plus, Trash2, Bookmark, BookmarkPlus, Check, Sparkles, RefreshCw } from 'lucide-react'
+import { useEstructurasPrecio, type EstructuraPrecioCantidad } from '@/hooks/useEstructurasPrecio'
 import { toast } from '@/store/toastStore'
 
 interface PreciosCantidadManagerProps {
   value: { cantidad: number; precio: number }[]
   onChange: (newValue: { cantidad: number; precio: number }[]) => void
+  estructuraPrecioId?: number | null
+  onEstructuraChange?: (estructuraId: number | null) => void
   precioVentaActual?: number
 }
 
 export function PreciosCantidadManager({
   value,
   onChange,
+  estructuraPrecioId = null,
+  onEstructuraChange,
   precioVentaActual = 0,
 }: PreciosCantidadManagerProps) {
-  const [plantillas, setPlantillas] = useState<PlantillaPrecioCantidad[]>([])
-  const [selectedPlantillaId, setSelectedPlantillaId] = useState<string>('')
+  const { estructuras, isLoading, saveMutation, deleteMutation } = useEstructurasPrecio()
+  const [selectedPlantillaId, setSelectedPlantillaId] = useState<string>(
+    estructuraPrecioId ? String(estructuraPrecioId) : ''
+  )
   const [isSavingPlantilla, setIsSavingPlantilla] = useState(false)
   const [nombreNuevaPlantilla, setNombreNuevaPlantilla] = useState('')
 
   useEffect(() => {
-    setPlantillas(getPlantillasPrecios())
-  }, [])
+    if (estructuraPrecioId) {
+      setSelectedPlantillaId(String(estructuraPrecioId))
+    }
+  }, [estructuraPrecioId])
 
-  const handleCargarPlantilla = (id: string) => {
-    setSelectedPlantillaId(id)
-    if (!id) return
-    const encontrada = plantillas.find((p) => p.id === id)
+  const handleCargarPlantilla = (idStr: string) => {
+    setSelectedPlantillaId(idStr)
+    if (!idStr) {
+      if (onEstructuraChange) onEstructuraChange(null)
+      return
+    }
+
+    const idNum = Number(idStr)
+    const encontrada = estructuras.find((p) => p.id === idNum)
     if (encontrada && Array.isArray(encontrada.escalas)) {
       onChange(encontrada.escalas.map((e) => ({ ...e })))
+      if (onEstructuraChange) onEstructuraChange(idNum)
       toast(`Estructura "${encontrada.nombre}" cargada`, 'success')
     }
   }
 
-  const handleGuardarPlantilla = (e: React.FormEvent) => {
+  const handleGuardarPlantilla = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!nombreNuevaPlantilla.trim()) {
       toast('Ingresá un nombre para la estructura (ej: Llaveros)', 'warning')
@@ -49,23 +58,33 @@ export function PreciosCantidadManager({
       return
     }
 
-    const guardada = savePlantillaPrecios(nombreNuevaPlantilla.trim(), value)
-    const actualizadas = getPlantillasPrecios()
-    setPlantillas(actualizadas)
-    setSelectedPlantillaId(guardada.id)
-    setIsSavingPlantilla(false)
-    setNombreNuevaPlantilla('')
-    toast(`Estructura "${guardada.nombre}" guardada con éxito`, 'success')
+    try {
+      const guardada = await saveMutation.mutateAsync({
+        nombre: nombreNuevaPlantilla.trim(),
+        escalas: value,
+      })
+      setSelectedPlantillaId(String(guardada.id))
+      if (onEstructuraChange) onEstructuraChange(guardada.id)
+      setIsSavingPlantilla(false)
+      setNombreNuevaPlantilla('')
+      toast(`Estructura "${guardada.nombre}" guardada con éxito en el servidor`, 'success')
+    } catch (err: any) {
+      toast(err.response?.data?.message || 'Error al guardar estructura', 'error')
+    }
   }
 
-  const handleEliminarPlantilla = (id: string, nombre: string) => {
-    if (confirm(`¿Eliminar la estructura guardada "${nombre}"?`)) {
-      const actualizadas = deletePlantillaPrecios(id)
-      setPlantillas(actualizadas)
-      if (selectedPlantillaId === id) {
-        setSelectedPlantillaId('')
+  const handleEliminarPlantilla = async (idNum: number, nombre: string) => {
+    if (confirm(`¿Eliminar la estructura guardada "${nombre}"? Los productos que la usan mantendrán sus precios.`)) {
+      try {
+        await deleteMutation.mutateAsync(idNum)
+        if (selectedPlantillaId === String(idNum)) {
+          setSelectedPlantillaId('')
+          if (onEstructuraChange) onEstructuraChange(null)
+        }
+        toast('Estructura eliminada del servidor', 'info')
+      } catch (err: any) {
+        toast('Error al eliminar estructura', 'error')
       }
-      toast('Estructura eliminada', 'info')
     }
   }
 
@@ -122,7 +141,7 @@ export function PreciosCantidadManager({
               className="flex-1 bg-white border border-teal-200 rounded-xl px-2.5 py-1.5 text-xs font-bold text-slate-800 outline-none focus:border-teal-500 shadow-2xs"
             >
               <option value="">-- Cargar estructura guardada --</option>
-              {plantillas.map((p) => (
+              {estructuras.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.nombre} ({p.escalas.map((e) => `≥${e.cantidad}: $${e.precio}`).join(' | ')})
                 </option>
@@ -135,9 +154,11 @@ export function PreciosCantidadManager({
           <button
             type="button"
             onClick={() => {
-              const p = plantillas.find((item) => item.id === selectedPlantillaId)
+              const idNum = Number(selectedPlantillaId)
+              const p = estructuras.find((item) => item.id === idNum)
               if (p) handleEliminarPlantilla(p.id, p.nombre)
             }}
+            disabled={deleteMutation.isPending}
             className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 transition"
             title="Eliminar estructura guardada seleccionada"
           >
@@ -151,7 +172,7 @@ export function PreciosCantidadManager({
             onClick={() => setIsSavingPlantilla(true)}
             disabled={value.length === 0}
             className="px-2.5 py-1.5 bg-white border border-teal-300 hover:bg-teal-100/60 text-teal-900 font-bold text-xs rounded-xl flex items-center gap-1 transition shadow-2xs disabled:opacity-50"
-            title="Guardar las escalas actuales para usarlas en otros productos (ej: Llaveros)"
+            title="Guardar las escalas actuales en el servidor para usarlas en otros productos (ej: Llaveros)"
           >
             <BookmarkPlus className="w-3.5 h-3.5 text-teal-700" />
             <span>Guardar como estructura</span>
@@ -163,14 +184,16 @@ export function PreciosCantidadManager({
               autoFocus
               value={nombreNuevaPlantilla}
               onChange={(e) => setNombreNuevaPlantilla(e.target.value)}
-              placeholder="Nombre (ej. Llaveros)"
-              className="w-40 bg-white border border-teal-400 rounded-lg px-2 py-1 text-xs font-bold text-slate-900 outline-none"
+              placeholder="Nombre de la estructura..."
+              className="bg-white border border-teal-300 rounded-xl px-2.5 py-1 text-xs font-bold text-slate-800 outline-none focus:border-teal-600 shadow-2xs w-48"
             />
             <button
               type="submit"
-              className="px-2.5 py-1 bg-teal-600 text-white rounded-lg text-xs font-bold hover:bg-teal-700"
+              disabled={saveMutation.isPending}
+              className="p-1.5 rounded-xl bg-teal-600 text-white hover:bg-teal-700 font-bold text-xs flex items-center gap-1 shadow-xs disabled:opacity-50"
             >
-              Guardar
+              <Check className="w-3.5 h-3.5" />
+              <span>Guardar</span>
             </button>
             <button
               type="button"
@@ -178,7 +201,7 @@ export function PreciosCantidadManager({
                 setIsSavingPlantilla(false)
                 setNombreNuevaPlantilla('')
               }}
-              className="px-2 py-1 bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold hover:bg-slate-300"
+              className="p-1.5 text-slate-500 hover:bg-teal-100/50 rounded-xl text-xs font-semibold"
             >
               Cancelar
             </button>
@@ -186,68 +209,57 @@ export function PreciosCantidadManager({
         )}
       </div>
 
-      {/* Lista de Escalas Actuales */}
+      {/* Escalas actuales */}
       {value.length === 0 ? (
-        <div className="text-center py-3 px-4 border border-dashed border-teal-300/70 rounded-xl bg-white/70 text-xs font-semibold text-teal-800">
-          Sin escalas configuradas. Podés agregar una manualmente o seleccionar una estructura guardada arriba.
+        <div className="text-center py-3 border border-dashed border-teal-200 rounded-xl bg-white/60">
+          <p className="text-[11px] font-bold text-teal-800">
+            Este producto se vende al precio unitario estándar sin escalas de volumen.
+          </p>
+          <p className="text-[10px] text-teal-600">
+            Hacé clic en "+ Agregar Escala" o elegí una estructura guardada arriba.
+          </p>
         </div>
       ) : (
         <div className="space-y-2">
           {value.map((tier, idx) => (
             <div
               key={idx}
-              className="flex items-center gap-2 bg-white/95 p-2.5 rounded-xl border border-teal-100 shadow-2xs"
+              className="flex items-center gap-2 p-2.5 rounded-xl bg-white border border-teal-200/90 shadow-2xs"
             >
-              <div className="flex-1">
-                <label className="block text-[10px] font-bold text-slate-500 uppercase">
-                  A partir de (cantidad)
-                </label>
-                <div className="flex items-center gap-1 mt-0.5">
-                  <span className="text-xs font-extrabold text-slate-400">≥</span>
-                  <input
-                    type="number"
-                    min={2}
-                    value={tier.cantidad || ''}
-                    onChange={(e) =>
-                      handleUpdateTier(idx, 'cantidad', parseInt(e.target.value, 10) || 0)
-                    }
-                    placeholder="Ej: 5"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-800 outline-none focus:border-teal-500 focus:bg-white"
-                  />
-                  <span className="text-xs text-slate-500 font-semibold">unid.</span>
-                </div>
+              <div className="flex-1 flex items-center gap-2">
+                <span className="text-xs font-bold text-teal-900 shrink-0">A partir de</span>
+                <input
+                  type="number"
+                  min="1"
+                  value={tier.cantidad || ''}
+                  onChange={(e) => handleUpdateTier(idx, 'cantidad', parseInt(e.target.value) || 0)}
+                  className="w-20 px-2 py-1 text-xs font-bold border border-slate-200 rounded-lg text-center focus:border-teal-500 focus:outline-none bg-slate-50"
+                  placeholder="Cant"
+                />
+                <span className="text-xs text-slate-500 shrink-0">unid:</span>
               </div>
 
-              <div className="flex-1">
-                <label className="block text-[10px] font-bold text-slate-500 uppercase">
-                  Precio Unitario ($)
-                </label>
-                <div className="flex items-center gap-1 mt-0.5">
-                  <span className="text-xs font-extrabold text-slate-400">$</span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min={0}
-                    value={tier.precio !== undefined ? tier.precio : ''}
-                    onChange={(e) =>
-                      handleUpdateTier(idx, 'precio', parseFloat(e.target.value) || 0)
-                    }
-                    placeholder="Ej: 800"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-800 outline-none focus:border-teal-500 focus:bg-white"
-                  />
-                </div>
+              <div className="flex-1 flex items-center gap-2">
+                <span className="text-xs font-bold text-teal-900 shrink-0">Precio unitario: $</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="any"
+                  value={tier.precio || ''}
+                  onChange={(e) => handleUpdateTier(idx, 'precio', parseFloat(e.target.value) || 0)}
+                  className="w-24 px-2 py-1 text-xs font-bold border border-slate-200 rounded-lg text-right focus:border-teal-500 focus:outline-none bg-slate-50"
+                  placeholder="Precio"
+                />
               </div>
 
-              <div className="pt-4">
-                <button
-                  type="button"
-                  onClick={() => handleRemoveTier(idx)}
-                  className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 transition"
-                  title="Eliminar escala"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => handleRemoveTier(idx)}
+                className="p-1.5 text-slate-400 hover:text-red-500 rounded-lg hover:bg-red-50 transition"
+                title="Eliminar escalón"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
             </div>
           ))}
         </div>

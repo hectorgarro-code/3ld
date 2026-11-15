@@ -74,6 +74,7 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
   const [selectedColors, setSelectedColors] = useState<string[]>([])
   const [piezas, setPiezas] = useState<ProductoPieza[]>([])
   const [preciosCantidad, setPreciosCantidad] = useState<{ cantidad: number; precio: number }[]>([])
+  const [estructuraPrecioId, setEstructuraPrecioId] = useState<number | null>(null)
   const [isCompressing, setIsCompressing] = useState(false)
   const [isGeneratingAi, setIsGeneratingAi] = useState(false)
   const [receta, setReceta] = useState<{insumo_id: number, cantidad: number, insumo_nombre?: string, precio_costo?: number, unidad_medida?: string}[]>([])
@@ -260,10 +261,12 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
         } catch (e) {}
       }
       setPreciosCantidad(existingPreciosCantidad)
+      setEstructuraPrecioId(p.estructura_precio_id ? Number(p.estructura_precio_id) : null)
     } else if (isOpen && !producto) {
       setSelectedColors([])
       setPiezas([])
       setPreciosCantidad([])
+      setEstructuraPrecioId(null)
       const savedCatId = localStorage.getItem('last_categoria_id')
       const savedCatSecId = localStorage.getItem('last_categoria_secundaria_id')
       const savedSubcat = localStorage.getItem('last_subcategoria')
@@ -434,6 +437,7 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
         precios_cantidad: preciosCantidad
           .filter((pc) => Number(pc.cantidad) > 0 && Number(pc.precio) >= 0)
           .sort((a, b) => Number(a.cantidad) - Number(b.cantidad)),
+        estructura_precio_id: estructuraPrecioId || null,
         categoria_id: data.categoria_id || undefined,
         categoria_secundaria_id: data.categoria_secundaria_id || null,
         variante: data.variante || undefined,
@@ -1108,6 +1112,8 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
                   <PreciosCantidadManager
                     value={preciosCantidad}
                     onChange={setPreciosCantidad}
+                    estructuraPrecioId={estructuraPrecioId}
+                    onEstructuraChange={setEstructuraPrecioId}
                     precioVentaActual={Number(watch('precio_venta')) || 0}
                   />
                 </div>

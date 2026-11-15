@@ -291,6 +291,30 @@ class TiendaRepository
                     $stmt = $this->db->prepare($sql);
                     return $stmt->execute(array_merge([$value], $ids));
                 }
+
+            case 'volume_pricing':
+                $estructuraId = isset($params['estructura_precio_id']) && $params['estructura_precio_id'] !== '' ? (int)$params['estructura_precio_id'] : null;
+                $escalas = isset($params['escalas']) && is_array($params['escalas']) ? $params['escalas'] : null;
+                $jsonEscalas = $escalas !== null ? json_encode($escalas, JSON_UNESCAPED_UNICODE) : null;
+
+                if ($estructuraId !== null && $jsonEscalas !== null) {
+                    $sql = "UPDATE productos SET estructura_precio_id = ?, precios_cantidad = ?, updated_at = NOW() WHERE id IN ({$inClause})";
+                    $stmt = $this->db->prepare($sql);
+                    return $stmt->execute(array_merge([$estructuraId, $jsonEscalas], $ids));
+                } elseif ($estructuraId !== null) {
+                    // Cargar escalas desde la estructura
+                    $stEst = $this->db->prepare("SELECT escalas FROM estructuras_precio_cantidad WHERE id = ?");
+                    $stEst->execute([$estructuraId]);
+                    $escJson = $stEst->fetchColumn();
+                    $sql = "UPDATE productos SET estructura_precio_id = ?, precios_cantidad = ?, updated_at = NOW() WHERE id IN ({$inClause})";
+                    $stmt = $this->db->prepare($sql);
+                    return $stmt->execute(array_merge([$estructuraId, $escJson ?: null], $ids));
+                } else {
+                    // Quitar estructura
+                    $sql = "UPDATE productos SET estructura_precio_id = NULL, precios_cantidad = NULL, updated_at = NOW() WHERE id IN ({$inClause})";
+                    $stmt = $this->db->prepare($sql);
+                    return $stmt->execute($ids);
+                }
         }
 
         return false;
@@ -350,6 +374,16 @@ class TiendaRepository
         if (array_key_exists('es_destacado', $data)) {
             $fields[] = "es_destacado = ?";
             $binds[]  = !empty($data['es_destacado']) ? 1 : 0;
+        }
+        if (array_key_exists('estructura_precio_id', $data)) {
+            $fields[] = "estructura_precio_id = ?";
+            $val = $data['estructura_precio_id'];
+            $binds[]  = ($val !== null && $val !== '' && (int)$val > 0) ? (int)$val : null;
+        }
+        if (array_key_exists('precios_cantidad', $data)) {
+            $fields[] = "precios_cantidad = ?";
+            $val = $data['precios_cantidad'];
+            $binds[]  = is_array($val) ? json_encode(array_values($val), JSON_UNESCAPED_UNICODE) : (empty($val) ? null : (string)$val);
         }
 
         if (empty($fields)) {
