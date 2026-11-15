@@ -428,11 +428,11 @@ export function ProductStoreDetailModal({
             </div>
             {unitSaving > 0 && <p className="mt-1 text-sm font-bold text-emerald-700">Ahorrás {money(unitSaving)} {product.piezas?.length ? 'por selección' : kitFigures ? 'por kit completo' : 'por unidad'} con esta cantidad</p>}
 
-            {!!shippingGoal?.existingQuantity && <p className="mt-1 text-xs leading-relaxed text-slate-500">Se suman a las {shippingGoal.existingQuantity} unidades de esta misma opción que ya tenés en el carrito.</p>}
+            {!!shippingGoal?.existingQuantity && <p className="mt-1 text-xs leading-relaxed text-slate-500">Se suman a las {shippingGoal.existingQuantity} {kitFigures ? 'kits' : 'unidades'} de esta misma opción que ya tenés en el carrito.</p>}
             {onAddToCart && shippingGoal && <div className="mt-4">
               <FreeShippingProgress subtotal={shippingGoal.projectedSubtotal} preview>
                 {shippingGoal.targetQuantity !== null && <button type="button" onClick={() => setQuantity(shippingGoal.targetQuantity!)} className="mt-3 min-h-11 w-full rounded-xl border border-cyan-300 bg-white px-3 py-2 text-sm font-bold text-cyan-900 hover:bg-cyan-100 cursor-pointer">
-                  Elegir {shippingGoal.targetQuantity} unidades · Pedido {money(shippingGoal.targetSubtotal!)}
+                  Elegir {shippingGoal.targetQuantity} {kitFigures ? 'kits' : 'unidades'} · Pedido {money(shippingGoal.targetSubtotal!)}
                 </button>}
                 {shippingGoal.targetQuantity !== null && <p className="mt-1.5 text-xs leading-relaxed text-cyan-900">Sumá {shippingGoal.targetQuantity - quantity} más de esta selección. Ya calculamos los descuentos por cantidad{cartItems.length ? ' y lo que tenés en el carrito' : ''}.</p>}
               </FreeShippingProgress>
@@ -446,9 +446,9 @@ export function ProductStoreDetailModal({
                   {quantityTiers.map((tier, index) => {
                     const active = volumeQuantity >= tier.cantidad && !(quantityTiers[index + 1] && volumeQuantity >= quantityTiers[index + 1].cantidad)
                     const saving = Math.max(0, calculatedPrice - tier.precio)
-                    return <button key={`${tier.cantidad}-${index}`} type="button" onClick={() => setQuantity(Math.max(1, tier.cantidad - (shippingGoal?.existingQuantity || 0)))} aria-label={`${shippingGoal?.existingQuantity ? 'Alcanzar' : 'Elegir'} ${tier.cantidad} unidades`} aria-pressed={active}
+                    return <button key={`${tier.cantidad}-${index}`} type="button" onClick={() => setQuantity(Math.max(1, tier.cantidad - (shippingGoal?.existingQuantity || 0)))} aria-label={`${shippingGoal?.existingQuantity ? 'Alcanzar' : 'Elegir'} ${tier.cantidad} ${kitFigures ? 'kits' : 'unidades'}`} aria-pressed={active}
                       className={`min-h-14 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-xl border p-3 text-left cursor-pointer transition ${active ? 'border-teal-600 bg-white ring-1 ring-teal-600' : 'border-teal-200 bg-white/70 hover:bg-white'}`}>
-                      <span className="text-sm font-bold text-teal-950">Desde {tier.cantidad} unidades <span className="font-normal">· {money(tier.precio)} {product.piezas?.length ? 'por selección' : 'c/u'}</span></span>
+                      <span className="text-sm font-bold text-teal-950">Desde {tier.cantidad} {kitFigures ? 'kits' : 'unidades'} <span className="font-normal">· {money(tier.precio)} {product.piezas?.length ? 'por selección' : kitFigures ? 'por kit' : 'c/u'}</span></span>
                       {saving > 0 && <span className="text-xs font-bold text-emerald-700">Ahorrás {money(saving)} {product.piezas?.length ? 'por selección' : kitFigures ? 'por kit completo' : 'por unidad'}</span>}
                     </button>
                   })}
