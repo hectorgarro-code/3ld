@@ -188,3 +188,10 @@ body:has([role="dialog"][aria-modal="true"]) [id="3ld-update-notice"] {
   visibility: hidden;
   pointer-events: none;
 }
+
+/* Keep update actions above the store navigation on phones. */
+@media (max-width: 767px) {
+  body:has([data-testid="store-mobile-navigation"]) [id="3ld-update-notice"] {
+    bottom: calc(80px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+}
