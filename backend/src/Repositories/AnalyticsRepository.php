@@ -265,7 +265,11 @@ class AnalyticsRepository
         try { $campaigns=(new \App\Services\CampaignReport($this->db))->report($period); }
         catch (\Throwable $e) { $campaigns=null; error_log('3LD: informe de campañas no disponible.'); }
 
+        try { $deliveryCoverage=(new \App\Services\DeliveryCoverageReport($this->db))->report($period); }
+        catch (\Throwable $e) { $deliveryCoverage=null; error_log('3LD: informe de cobertura no disponible.'); }
+
         return [
+            'delivery_coverage' => $deliveryCoverage,
             'campaigns' => $campaigns,
             'cart_funnel' => $funnel,
             'period'                    => $period,

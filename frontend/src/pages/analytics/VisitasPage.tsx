@@ -34,6 +34,7 @@ import { CampaignReport, type CampaignData } from '@/components/CampaignReport'
 import { CartFunnelReport, type CartFunnelData } from '@/components/CartFunnelReport'
 
 interface AnalyticsStats {
+  delivery_coverage?: { codigo_postal: string; clics: number; sesiones: number; valor_carritos: number }[] | null
   campaigns?: CampaignData | null
   cart_funnel?: CartFunnelData | null
   period: string
@@ -256,6 +257,11 @@ export default function VisitasPage() {
         <>
           <CampaignReport data={stats.campaigns} />
           <CartFunnelReport data={stats.cart_funnel} />
+          <section className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-6" aria-labelledby="delivery-coverage-title">
+            <h2 id="delivery-coverage-title" className="text-lg font-bold text-slate-900">Consultas fuera de cobertura</h2>
+            <p className="mt-1 text-sm text-slate-500">Clics en la consulta de entrega por WhatsApp durante el período seleccionado. No representan pedidos ni ventas.</p>
+            {stats.delivery_coverage == null ? <p className="mt-4 text-sm text-amber-800">No se pudo cargar el informe. Probá actualizar las estadísticas.</p> : stats.delivery_coverage.length === 0 ? <p className="mt-4 rounded-xl bg-slate-50 p-4 text-sm text-slate-600">Todavía no hay consultas registradas en este período.</p> : <div className="mt-4 overflow-x-auto"><table className="w-full text-left text-sm"><thead className="border-b text-slate-500"><tr><th className="p-3">Código postal</th><th className="p-3 text-right">Clics</th><th className="p-3 text-right">Sesiones</th><th className="p-3 text-right">Valor de carritos</th></tr></thead><tbody>{stats.delivery_coverage.map(row => <tr key={row.codigo_postal} className="border-b border-slate-100"><th scope="row" className="p-3 font-semibold text-slate-900">{row.codigo_postal}</th><td className="p-3 text-right">{row.clics}</td><td className="p-3 text-right">{row.sesiones}</td><td className="whitespace-nowrap p-3 text-right">${row.valor_carritos.toLocaleString('es-AR')}</td></tr>)}</tbody></table><p className="mt-3 text-xs leading-relaxed text-slate-500">El valor suma el último carrito de cada sesión por código postal, para no duplicarlo por clics repetidos. Una persona puede tener varias sesiones o consultar distintos códigos. Se excluyen administradores y bots detectados.</p></div>}
+          </section>
           {/* Tarjetas Principales de KPI */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Total Visitas */}
