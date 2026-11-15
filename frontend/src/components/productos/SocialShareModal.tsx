@@ -94,7 +94,7 @@ DESCRIPCIÓN:
 ${rawDesc}
 
 ✨ Confeccionado en PLA biodegrable de alta calidad y excelente acabado.
-💬 Consultas por mensajes o WhatsApp: +54 9 2257 55-9540
+💬 Consultas por mensajes o WhatsApp: +54 9 2257 51-2597
 🌐 Ver catálogo completo: https://3ld.com.ar/tienda
 
 #3LD #Impresion3D #SanBernardo #LaCosta #${categoryTag}`
@@ -312,7 +312,7 @@ ${rawDesc}
 
         ctx.fillStyle = '#10b981' // Emerald WhatsApp
         ctx.font = '900 36px sans-serif'
-        ctx.fillText('💬 WhatsApp: +54 9 2257 55-9540', 540, 1785)
+        ctx.fillText('💬 WhatsApp: +54 9 2257 51-2597', 540, 1785)
 
         ctx.fillStyle = '#cbd5e1'
         ctx.font = '700 28px sans-serif'

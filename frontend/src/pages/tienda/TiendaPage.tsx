@@ -503,7 +503,7 @@ export default function TiendaPage() {
     content += `TOTAL ABONADO: $${Number(order.total || 0).toLocaleString('es-AR')}\r\n`;
     content += `${border}\r\n\r\n`;
     content += `Taller 3LD: Salta 3169, San Bernardo del Tuyú\r\n`;
-    content += `WhatsApp: +54 9 2257 55-9540\r\n`;
+    content += `WhatsApp: +54 9 2257 51-2597\r\n`;
     content += `Web: https://3ld.com.ar\r\n`;
     content += `¡Muchas gracias por tu compra!\r\n`;
 
@@ -907,7 +907,7 @@ export default function TiendaPage() {
   };
 
   const getAdvisorWhatsAppUrl = () => {
-    const phone = '5492257559540';
+    const phone = '5492257512597';
     let text = '¡Hola! Quisiera comunicarme con un asesor de 3LD.\n\n';
 
     if (activeProductModal) {
@@ -1209,7 +1209,7 @@ export default function TiendaPage() {
       cart,
       cartSubtotal + (deliveryMethod === 'shipping' ? (shippingQuote?.price || 0) : 0)
     );
-    const phone = '5492257559540';
+    const phone = '5492257512597';
     let text = `¡Hola 3LD! 👋 Quiero encargar el siguiente pedido desde la tienda:\n\n`;
 
     cart.forEach((item) => {
@@ -2003,7 +2003,7 @@ export default function TiendaPage() {
             <button
               onClick={() => {
                 const text = encodeURIComponent('¡Hola 3LD! 👋 Quisiera solicitar la cotización de una pieza 3D personalizada.');
-                window.open(`https://wa.me/5492257559540?text=${text}`, '_blank');
+                window.open(`https://wa.me/5492257512597?text=${text}`, '_blank');
               }}
               className="w-full mt-4 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-2xl shadow-md flex items-center justify-center gap-2 transition"
             >
@@ -2203,7 +2203,7 @@ export default function TiendaPage() {
               )}
 
               <a
-                href={`https://wa.me/5492257559540?text=${encodeURIComponent(`¡Hola 3LD! 👋 Acabo de abonar mi pedido ${paymentSuccessModal !== 'OK' ? `#${paymentSuccessModal}` : ''} por la tienda web.`)}`}
+                href={`https://wa.me/5492257512597?text=${encodeURIComponent(`¡Hola 3LD! 👋 Acabo de abonar mi pedido ${paymentSuccessModal !== 'OK' ? `#${paymentSuccessModal}` : ''} por la tienda web.`)}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-full py-2.5 bg-[#25D366] hover:bg-[#20ba5a] text-white font-extrabold text-xs rounded-xl shadow-sm flex items-center justify-center gap-2 transition"
@@ -2273,7 +2273,7 @@ export default function TiendaPage() {
                   </div>
                   <p className="text-[11px] text-slate-500 mt-1">Fabricación Aditiva & Prototipado</p>
                   <p className="text-[11px] text-slate-500">Salta 3169, San Bernardo del Tuyú</p>
-                  <p className="text-[11px] text-slate-500">WhatsApp: +54 9 2257 55-9540</p>
+                  <p className="text-[11px] text-slate-500">WhatsApp: +54 9 2257 51-2597</p>
                 </div>
                 <div className="text-right">
                   <span className="inline-block px-2.5 py-1 bg-emerald-100 text-emerald-800 rounded-lg text-[10px] font-black uppercase mb-1">
@@ -2561,7 +2561,7 @@ export default function TiendaPage() {
             <h1 className="text-2xl font-black text-slate-900 tracking-tight">3LD IMPRESIÓN 3D</h1>
             <p className="text-xs font-bold text-slate-700">Catálogo de Productos & Soluciones 3D</p>
             <p className="text-[10px] text-slate-500 mt-0.5">
-              🌐 sistema.3ld.com.ar | 📱 WhatsApp: +54 9 2257 55-9540 | ✉️ ventas@3ld.com.ar
+              🌐 sistema.3ld.com.ar | 📱 WhatsApp: +54 9 2257 51-2597 | ✉️ ventas@3ld.com.ar
             </p>
           </div>
           <div className="text-right">
@@ -2656,7 +2656,7 @@ export default function TiendaPage() {
         {/* Footer */}
         <div className="mt-6 pt-3 border-t border-slate-300 flex items-center justify-between text-[9px] text-slate-500">
           <p>3LD Impresión 3D - Fabricación Digital & Piezas a Pedido</p>
-          <p>Pedidos y cotizaciones vía WhatsApp (+54 9 2257 55-9540)</p>
+          <p>Pedidos y cotizaciones vía WhatsApp (+54 9 2257 51-2597)</p>
         </div>
       </div>
 

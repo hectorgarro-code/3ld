@@ -25,7 +25,7 @@ final class ReturnController
             return Response::success(['id'=>$entry['id'],'fecha'=>$entry['fecha']])->withHeader('Cache-Control','no-store');
         } catch (\InvalidArgumentException $e) { return Response::error($e->getMessage(),400); }
         catch (\OverflowException $e) { return Response::error($e->getMessage(),429); }
-        catch (\Throwable $e) { return Response::error('No se pudo registrar. Escribí a 3lddidacticos@gmail.com o al WhatsApp 2257559540.',500); }
+        catch (\Throwable $e) { return Response::error('No se pudo registrar. Escribí a 3lddidacticos@gmail.com o al WhatsApp 2257512597.',500); }
     }
     public function index(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface {
         try { return Response::success($this->ledger()->all())->withHeader('Cache-Control','private, no-store'); }

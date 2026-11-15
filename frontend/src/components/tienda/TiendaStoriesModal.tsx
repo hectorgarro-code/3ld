@@ -230,7 +230,7 @@ export function TiendaStoriesModal({
   const handleWhatsAppConsult = () => {
     if (!currentProduct) return;
     trackWhatsAppClick('historia', currentProduct);
-    const phone = '5492257559540';
+    const phone = '5492257512597';
     const text = `¡Hola 3LD! 👋 Vi esta historia en la tienda y me interesa saber más:\n\n*${currentProduct.title}*\nPrecio: $${currentProduct.price.toLocaleString('es-AR')}\nEnlace: ${window.location.origin}/tienda?producto=${currentProduct.id}`;
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(text)}`, '_blank');
   };

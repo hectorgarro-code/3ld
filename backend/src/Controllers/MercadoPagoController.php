@@ -573,7 +573,7 @@ class MercadoPagoController
                     </div>
                     <div style='background:#eef2ff; border-left:4px solid #6B66C8; padding:12px; margin-bottom:20px;'>
                         <p style='margin:0; font-size:13px;'>📍 <strong>Retiro en taller:</strong> Salta 3169, San Bernardo del Tuyú. Te avisaremos en cuanto tu pedido esté terminado.</p>
-                        <p style='margin:5px 0 0 0; font-size:13px;'>💬 ¿Dudas o consultas? Escribinos a nuestro WhatsApp: <a href='https://wa.me/5492257559540'>+54 9 2257 55-9540</a></p>
+                        <p style='margin:5px 0 0 0; font-size:13px;'>💬 ¿Dudas o consultas? Escribinos a nuestro WhatsApp: <a href='https://wa.me/5492257512597'>+54 9 2257 51-2597</a></p>
                     </div>
                 </div>
                 <div style='text-align:center; font-size:12px; color:#999; border-top:1px solid #eee; padding-top:15px;'>
