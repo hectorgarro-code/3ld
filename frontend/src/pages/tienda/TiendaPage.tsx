@@ -1211,23 +1211,23 @@ export default function TiendaPage() {
       cartSubtotal + (deliveryMethod === 'shipping' ? (shippingQuote?.price || 0) : 0)
     );
     const phone = '5492257512597';
-    let text = `¡Hola 3LD! 👋 Quiero encargar el siguiente pedido desde la tienda:\n\n`;
+    let text = `¡Hola 3LD! Quiero encargar el siguiente pedido desde la tienda:\n\n`;
 
     cart.forEach((item) => {
       text += formatWhatsAppCartLine({ ...item, figuras_por_kit: products.find(p => String(p.id) === String(item.id))?.figuras_por_kit ?? item.figuras_por_kit });
     });
 
-    text += `\n📦 *Subtotal:* $${cartSubtotal.toLocaleString('es-AR')}\n`;
+    text += `\n*Subtotal:* $${cartSubtotal.toLocaleString('es-AR')}\n`;
     if (deliveryMethod === 'pickup') {
-      text += `🏪 *Entrega:* Retiro en Taller (Salta 3169, San Bernardo del Tuyú - ¡GRATIS!)\n`;
-      text += `💰 *TOTAL FINAL:* $${cartSubtotal.toLocaleString('es-AR')}\n`;
+      text += `*Entrega:* Retiro en Taller (Salta 3169, San Bernardo del Tuyú - ¡GRATIS!)\n`;
+      text += `*TOTAL FINAL:* $${cartSubtotal.toLocaleString('es-AR')}\n`;
     } else if (shippingQuote) {
-      text += `🚚 *Envío (${shippingQuote.serviceName}):* ${shippingQuote.price === 0 ? '¡GRATIS!' : '$' + shippingQuote.price.toLocaleString('es-AR')}\n`;
-      text += `📍 *CP Destino:* ${postalCode || 'A coordinar'}\n`;
-      text += `💰 *TOTAL FINAL:* $${(cartSubtotal + (shippingQuote.price || 0)).toLocaleString('es-AR')}\n`;
+      text += `*Envío (${shippingQuote.serviceName}):* ${shippingQuote.price === 0 ? '¡GRATIS!' : '$' + shippingQuote.price.toLocaleString('es-AR')}\n`;
+      text += `*CP Destino:* ${postalCode || 'A coordinar'}\n`;
+      text += `*TOTAL FINAL:* $${(cartSubtotal + (shippingQuote.price || 0)).toLocaleString('es-AR')}\n`;
     } else {
-      text += `🚚 *Envío:* A coordinar entrega a domicilio (CP: ${postalCode || 'A confirmar'})\n`;
-      text += `💰 *TOTAL ESTIMADO:* $${cartSubtotal.toLocaleString('es-AR')}\n`;
+      text += `*Envío:* A coordinar entrega a domicilio (CP: ${postalCode || 'A confirmar'})\n`;
+      text += `*TOTAL ESTIMADO:* $${cartSubtotal.toLocaleString('es-AR')}\n`;
     }
 
     text += `\n¿Tienen disponibilidad para coordinar? ¡Muchas gracias!`;
