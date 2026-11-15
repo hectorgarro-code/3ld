@@ -74,7 +74,7 @@ class TiendaRepository
             $sql = "SELECT p.id, p.nombre AS title, p.subcategoria, p.descripcion,
                            CASE WHEN p.precio_oferta > 0 AND p.precio_oferta < p.precio_venta THEN p.precio_oferta ELSE p.precio_venta END AS price,
                            CASE WHEN p.precio_oferta > 0 AND p.precio_oferta < p.precio_venta THEN p.precio_venta ELSE NULL END AS oldPrice,
-                           p.precios_cantidad,
+                           p.precios_cantidad, p.figuras_por_kit,
                            p.stock_actual,
                            CASE WHEN COALESCE(p.stock_actual, 0) > 0 AND p.estado_stock = 'ready' THEN 'ready' ELSE 'custom' END AS stockStatus,
                            p.imagen_url AS image, p.imagenes, p.colores, p.piezas, p.peso_gramos AS weightGrams,

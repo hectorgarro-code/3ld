@@ -80,6 +80,11 @@ class ProductosController
         try {
             $body = $request->getParsedBody() ?? [];
 
+            if (array_key_exists('figuras_por_kit', $body) && $body['figuras_por_kit'] !== null
+                && (is_bool($body['figuras_por_kit']) || filter_var($body['figuras_por_kit'], FILTER_VALIDATE_INT) === false
+                    || (int)$body['figuras_por_kit'] < 0 || (int)$body['figuras_por_kit'] > 10000)) {
+                return Response::error('Figuras por kit debe ser un entero entre 0 y 10000', 422);
+            }
             $this->handleImageUpload($body);
 
             if (empty(trim($body['nombre'] ?? ''))) {
@@ -107,6 +112,11 @@ class ProductosController
                 $body = is_array($decoded) ? $decoded : (is_object($body) ? (array) $body : []);
             }
 
+            if (array_key_exists('figuras_por_kit', $body) && $body['figuras_por_kit'] !== null
+                && (is_bool($body['figuras_por_kit']) || filter_var($body['figuras_por_kit'], FILTER_VALIDATE_INT) === false
+                    || (int)$body['figuras_por_kit'] < 0 || (int)$body['figuras_por_kit'] > 10000)) {
+                return Response::error('Figuras por kit debe ser un entero entre 0 y 10000', 422);
+            }
             if (!empty($body['imagenes']) || !empty($body['imagen_base64']) || !empty($body['imagen_url'])) {
                 $this->handleImageUpload($body);
             }

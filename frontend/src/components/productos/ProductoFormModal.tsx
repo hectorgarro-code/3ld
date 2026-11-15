@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils'
 import { StockHistory } from './StockHistory'
 import { CostoImpresionModal } from './CostoImpresionModal'
 import { MediaLibraryModal } from '@/components/media/MediaLibraryModal'
+import { getKitFigureCount } from '@/lib/productKit'
 import { PreciosCantidadManager } from './PreciosCantidadManager'
 
 const productoSchema = z.object({
@@ -21,6 +22,7 @@ const productoSchema = z.object({
   tipo: z.enum(['impresion_3d', 'ceramica', 'juguete_educativo', 'accesorio', 'comprado', 'fabricado', 'compuesto']),
   categoria_id: z.number().optional().nullable(),
   categoria_secundaria_id: z.number().optional().nullable(),
+  figuras_por_kit: z.number().int('Ingresá un número entero').min(0).max(10000).default(0),
   precio_venta: z.number().min(0, 'El precio no puede ser negativo'),
   precio_costo: z.number().min(0).optional(),
   precio_mayorista: z.number().min(0).optional().nullable(),
@@ -148,6 +150,7 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
       tipo: 'impresion_3d',
       categoria_id: null,
       categoria_secundaria_id: null,
+      figuras_por_kit: 0,
       precio_venta: 0,
       precio_costo: 0,
       precio_oferta: null,
@@ -185,6 +188,7 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
         tipo: producto.tipo || 'impresion_3d',
         categoria_id: producto.categoria_id ? Number(producto.categoria_id) : null,
         categoria_secundaria_id: p.categoria_secundaria_id ? Number(p.categoria_secundaria_id) : null,
+        figuras_por_kit: getKitFigureCount(p) ?? 0,
         precio_venta: Number(producto.precio_venta) || 0,
         precio_costo: Number(p.precio_costo) || 0,
         precio_mayorista: p.precio_mayorista != null && p.precio_mayorista !== '' ? Number(p.precio_mayorista) : null,
@@ -270,7 +274,8 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
         tipo: 'impresion_3d',
         categoria_id: savedCatId ? parseInt(savedCatId, 10) : null,
         categoria_secundaria_id: savedCatSecId ? parseInt(savedCatSecId, 10) : null,
-        precio_venta: 0,
+        figuras_por_kit: 0,
+      precio_venta: 0,
         precio_costo: 0,
         precio_oferta: null,
         subcategoria: savedSubcat || '',
@@ -423,6 +428,7 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
 
       const payload = {
         ...data,
+        figuras_por_kit: piezas.some(p => p.nombre.trim()) ? 0 : data.figuras_por_kit,
         colores: selectedColors,
         piezas: piezas.filter((p) => p.nombre.trim() !== ''),
         precios_cantidad: preciosCantidad
@@ -844,6 +850,15 @@ export function ProductoFormModal({ isOpen, onClose, producto, isDuplicate, init
                   <p className="text-[11px] text-slate-600">
                     Si este producto se compone de varias piezas que el cliente puede seleccionar individualmente (ej. Sets de decoración, juegos con piezas opcionales), agregalas acá con su precio.
                   </p>
+
+                  <div className="my-3 rounded-xl border border-indigo-200 bg-white p-3">
+                    <label htmlFor="figuras-por-kit" className="block text-sm font-bold text-slate-800">Figuras por kit completo</label>
+                    <input id="figuras-por-kit" type="number" min="0" max="10000" step="1" inputMode="numeric"
+                      disabled={piezas.length > 0} {...register('figuras_por_kit', { setValueAs: v => v === '' ? 0 : Number(v) })}
+                      className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-base disabled:bg-slate-100 sm:max-w-40" aria-describedby="figuras-kit-ayuda" />
+                    <p id="figuras-kit-ayuda" className="mt-2 text-xs text-slate-600">Cantidad de figuras incluidas en el precio del kit completo. Usá 0 para un artículo individual. No modifica el precio ni el costo. Si ofrecés piezas a elección, usá el selector de piezas.</p>
+                    {errors.figuras_por_kit && <p role="alert" className="mt-1 text-xs text-red-600">{errors.figuras_por_kit.message}</p>}
+                  </div>
 
                   {piezas.length > 0 && (
                     <div className="space-y-2.5">

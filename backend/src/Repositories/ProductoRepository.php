@@ -60,7 +60,7 @@ class ProductoRepository
         try {
             $sql = "SELECT p.id, p.nombre, p.variante, p.sku, p.descripcion, p.tipo,
                            p.precio_venta, p.precio_costo, p.precio_mayorista, p.precio_oferta, p.stock_actual, p.stock_minimo,
-                           p.unidad_medida, p.imagen_url, p.imagenes, p.archivo_url, p.colores, p.piezas, p.precios_cantidad, p.activo,
+                           p.unidad_medida, p.imagen_url, p.imagenes, p.archivo_url, p.colores, p.piezas, p.figuras_por_kit, p.precios_cantidad, p.activo,
                            p.es_vendible, p.es_insumo, p.es_tienda, p.sync_mercadolibre, p.es_destacado, p.subcategoria,
                            p.horas_impresion, p.peso_gramos,
                            p.alto_mm, p.ancho_mm, p.profundidad_mm, p.dimensiones,
@@ -80,7 +80,7 @@ class ProductoRepository
         } catch (\PDOException $e) {
             $sql = "SELECT p.id, p.nombre, p.variante, p.sku, p.descripcion, p.tipo,
                            p.precio_venta, p.precio_costo, p.precio_mayorista, p.precio_oferta, p.stock_actual, p.stock_minimo,
-                           p.unidad_medida, p.imagen_url, p.imagenes, p.archivo_url, p.piezas, p.activo,
+                           p.unidad_medida, p.imagen_url, p.imagenes, p.archivo_url, p.piezas, p.figuras_por_kit, p.activo,
                            p.es_vendible, p.es_insumo, p.es_tienda, p.sync_mercadolibre, p.es_destacado, p.subcategoria,
                            p.seo_title, p.seo_description, p.created_at, p.updated_at,
                            c.id AS categoria_id, c.nombre AS categoria_nombre,
@@ -253,8 +253,8 @@ class ProductoRepository
                 "INSERT INTO productos
                     (nombre, variante, sku, descripcion, tipo, categoria_id, categoria_secundaria_id, precio_venta, precio_costo, precio_mayorista,
                      stock_actual, stock_minimo, unidad_medida, imagen_url, imagenes, archivo_url,
-                     es_vendible, es_insumo, es_tienda, sync_mercadolibre, subcategoria, precio_oferta, peso_gramos, horas_impresion, alto_mm, ancho_mm, profundidad_mm, dimensiones, estado_stock, es_destacado, piezas, precios_cantidad, seo_title, seo_description, activo, created_at, updated_at)
-                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())"
+                     es_vendible, es_insumo, es_tienda, sync_mercadolibre, subcategoria, precio_oferta, peso_gramos, horas_impresion, alto_mm, ancho_mm, profundidad_mm, dimensiones, estado_stock, es_destacado, piezas, precios_cantidad, figuras_por_kit, seo_title, seo_description, activo, created_at, updated_at)
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())"
             );
 
             $initStock = (int) ($data['stock_actual'] ?? 0);
@@ -298,6 +298,7 @@ class ProductoRepository
                 isset($data['es_destacado']) ? (int)$data['es_destacado'] : 0,
                 $piezasJson,
                 $preciosCantidadJson,
+                isset($data['figuras_por_kit']) ? (int)$data['figuras_por_kit'] : null,
                 $data['seo_title']     ?? null,
                 $data['seo_description'] ?? null,
             ]);
@@ -366,6 +367,7 @@ class ProductoRepository
             'es_destacado'  => 'int',
             'archivo_url'   => 'string',
             'colores'       => 'json',
+            'figuras_por_kit' => 'int',
             'piezas'        => 'json',
             'precios_cantidad' => 'json',
             'seo_title'     => 'string',

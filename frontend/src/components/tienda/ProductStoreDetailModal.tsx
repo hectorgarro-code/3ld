@@ -45,6 +45,7 @@ export interface UnifiedStoreProduct {
     medidas?: string
     filamento_g?: number
   }[]
+  figuras_por_kit?: number | null
   precios_cantidad?: { cantidad: number; precio: number }[]
   raw?: any
 }
@@ -143,6 +144,7 @@ export function normalizeToStoreProduct(raw: any): UnifiedStoreProduct | null {
     precios_cantidad: Array.isArray(raw.precios_cantidad)
       ? raw.precios_cantidad
       : (typeof raw.precios_cantidad === 'string' ? JSON.parse(raw.precios_cantidad || '[]') : []),
+    figuras_por_kit: raw.figuras_por_kit == null ? null : Number(raw.figuras_por_kit),
     archivo_url: raw.archivo_url,
     raw,
   }
@@ -253,6 +255,7 @@ export function ProductStoreDetailModal({
     return {
       ...(product.raw || product),
       id: product.id,
+      figuras_por_kit: getKitFigureCount(product) ?? 0,
       title: pieces.length ? `${product.title} (${pieces.length} pieza${pieces.length > 1 ? 's' : ''}: ${pieces.map(p => p.nombre).join(', ')})` : product.title,
       price: selectionPrice,
       basePrice: calculatedPrice,

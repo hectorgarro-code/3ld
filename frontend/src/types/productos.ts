@@ -50,6 +50,7 @@ export interface Producto {
   imagenes?: string[]
   colores?: string[] | any
   piezas?: ProductoPieza[]
+  figuras_por_kit?: number | null
   precios_cantidad?: ProductoPrecioCantidad[]
   activo: number // 1 o 0
   es_vendible: number

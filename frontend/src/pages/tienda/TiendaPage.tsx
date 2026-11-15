@@ -79,6 +79,7 @@ export interface StoreProduct {
   image: string;
   images?: string[];
   colors?: (string | { name: string; hex: string })[];
+  figuras_por_kit?: number | null;
   piezas?: { id: string; nombre: string; precio: number; precio_costo?: number; medidas?: string; imagen_url?: string }[];
   description: string;
   weightGrams?: number;
@@ -1923,7 +1924,7 @@ export default function TiendaPage() {
                   <div className="py-4"><FreeShippingProgress subtotal={cartSubtotal} /></div>
                   <div aria-label="Productos del carrito" className="divide-y divide-slate-100">
                     {cart.map(item => {
-                      const kitFigures = getKitFigureCount(item);
+                      const kitFigures = getKitFigureCount({ ...item, figuras_por_kit: products.find(p => String(p.id) === String(item.id))?.figuras_por_kit ?? item.figuras_por_kit });
                       return (
                       <article key={`${item.id}-${item.color}-${JSON.stringify(item.selectedPieceIds || [])}`} className="grid grid-cols-[72px_minmax(0,1fr)] gap-4 py-5 sm:grid-cols-[88px_minmax(0,1fr)]">
                         <img src={item.image} alt={item.title} className="h-[88px] w-full rounded-xl bg-slate-50 object-cover sm:h-[104px]" />

@@ -65,6 +65,25 @@ class Database
                         self::$instance->exec("ALTER TABLE productos ADD COLUMN sync_mercadolibre TINYINT(1) NOT NULL DEFAULT 0");
                     }
                 } catch (\Throwable $e) { error_log('3LD: columna sync_mercadolibre pendiente: ' . $e->getMessage()); }
+                try {
+                    $kitColumn = self::$instance->query("SHOW COLUMNS FROM productos LIKE 'figuras_por_kit'")->fetch();
+                    if (!$kitColumn) {
+                        self::$instance->exec("ALTER TABLE productos ADD COLUMN figuras_por_kit INT UNSIGNED NULL DEFAULT NULL");
+                        // Preserve only unambiguous existing kits; never count selectable pieces.
+                        $kits = self::$instance->query("SELECT id, nombre, descripcion, piezas FROM productos")->fetchAll();
+                        $saveKit = self::$instance->prepare("UPDATE productos SET figuras_por_kit = ? WHERE id = ? AND figuras_por_kit IS NULL");
+                        foreach ($kits as $kit) {
+                            $pieces = json_decode((string)($kit['piezas'] ?? ''), true);
+                            if (!empty($pieces)) continue;
+                            $match = [];
+                            if (preg_match('/\bkit\s*[x×]\s*(\d+)\b/iu', (string)$kit['nombre'], $match)
+                                || preg_match('/^\s*kit\s*[x×]\s*(\d+)\b/iu', (string)($kit['descripcion'] ?? ''), $match)) {
+                                $count = (int)$match[1];
+                                if ($count > 0 && $count <= 10000) $saveKit->execute([$count, $kit['id']]);
+                            }
+                        }
+                    }
+                } catch (\Throwable $e) { error_log('3LD: campo de figuras por kit pendiente: ' . $e->getMessage()); }
                 // Cada instalación importa sus archivos antiguos al registro compartido, sin borrarlos.
                 if (glob(__DIR__ . '/../var/return-requests/*.php')) {
                     try { (new \App\Services\ReturnLedger(self::$instance))->importLegacy(new \App\Services\ReturnRequests()); }

@@ -1,11 +1,13 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
+import { getKitFigureCount } from '@/lib/productKit'
 import { obtenerPrecioPorCantidad } from '@/lib/pricing'
 
 export interface CartItem {
   id: string | number
   title: string
   price: number
+  figuras_por_kit?: number | null
   basePrice?: number
   selectedPieceIds?: string[]
   image: string
@@ -22,6 +24,7 @@ interface CartState {
       id: string | number
       title: string
       price: number
+      figuras_por_kit?: number | null
       basePrice?: number
       selectedPieceIds?: string[]
       image: string
@@ -60,7 +63,7 @@ export const useCartStore = create<CartState>()(
             return {
               cart: state.cart.map((item) =>
                 item === existing
-                  ? { ...item, qty: newQty, price: tierPrice }
+                  ? { ...item, qty: newQty, price: tierPrice, figuras_por_kit: getKitFigureCount(product) ?? 0 }
                   : item
               ),
             }
@@ -74,6 +77,7 @@ export const useCartStore = create<CartState>()(
                 id: product.id,
                 selectedPieceIds: product.selectedPieceIds,
                 title: product.title,
+                figuras_por_kit: getKitFigureCount(product) ?? 0,
                 price: tierPrice,
                 basePrice: basePrice,
                 image: product.image,
