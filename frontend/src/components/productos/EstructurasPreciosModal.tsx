@@ -11,12 +11,14 @@ import {
   AlertCircle,
   RefreshCw,
   Search,
-  ArrowRight
+  ArrowRight,
+  Eye
 } from 'lucide-react'
 import { useEstructurasPrecio, type EstructuraPrecioCantidad } from '@/hooks/useEstructurasPrecio'
 import api from '@/lib/api'
 import { toast } from '@/store/toastStore'
 import { resolveImageUrl, getThumbnailUrl } from '@/lib/utils'
+import { ProductStoreDetailModal } from '@/components/tienda/ProductStoreDetailModal'
 
 interface EstructuraModalProduct {
   id: number
@@ -66,6 +68,9 @@ export function EstructurasPreciosModal({
   // Estado para crear nueva estructura
   const [isCreatingNew, setIsCreatingNew] = useState(false)
   const [newNombre, setNewNombre] = useState('')
+
+  // Estado para vista previa de producto (como lo ve el cliente)
+  const [previewProduct, setPreviewProduct] = useState<any | null>(null)
 
   useEffect(() => {
     if (isOpen) {
@@ -566,6 +571,7 @@ export function EstructurasPreciosModal({
                         <th className="p-2.5 text-right">Precio Base</th>
                         <th className="p-2.5">Estado / Escala Actual</th>
                         <th className="p-2.5 text-emerald-700">Nueva Escala a Aplicar</th>
+                        <th className="p-2.5 text-center w-16">Vista</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -590,16 +596,35 @@ export function EstructurasPreciosModal({
                             </td>
                             <td className="p-2.5 font-bold text-slate-800">
                               <div className="flex items-center gap-2">
-                                <img
-                                  src={getThumbnailUrl(p.imagen_url, 80)}
-                                  alt=""
-                                  className="w-8 h-8 rounded-lg object-cover bg-slate-100 border border-slate-200 shrink-0"
-                                  onError={(e) => {
-                                    e.currentTarget.style.display = 'none'
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    setPreviewProduct(p)
                                   }}
-                                />
+                                  className="group/thumb relative shrink-0 cursor-pointer"
+                                  title="Ver vista previa de la tienda"
+                                >
+                                  <img
+                                    src={getThumbnailUrl(p.imagen_url, 80)}
+                                    alt=""
+                                    className="w-8 h-8 rounded-lg object-cover bg-slate-100 border border-slate-200 group-hover/thumb:scale-105 transition"
+                                    onError={(e) => {
+                                      e.currentTarget.style.display = 'none'
+                                    }}
+                                  />
+                                </button>
                                 <div className="min-w-0">
-                                  <p className="truncate max-w-xs">{p.nombre}</p>
+                                  <p
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      setPreviewProduct(p)
+                                    }}
+                                    className="truncate max-w-xs hover:text-teal-700 transition cursor-pointer"
+                                    title="Ver vista previa de la tienda"
+                                  >
+                                    {p.nombre}
+                                  </p>
                                   {p.sku && <span className="text-[10px] text-slate-400 font-mono">{p.sku}</span>}
                                 </div>
                               </div>
@@ -629,6 +654,16 @@ export function EstructurasPreciosModal({
                             </td>
                             <td className="p-2.5 text-[11px] font-black text-emerald-800">
                               {escalasEditadas.map((e) => `≥${e.cantidad}: $${e.precio}`).join(' | ')}
+                            </td>
+                            <td className="p-2.5 text-center" onClick={(e) => e.stopPropagation()}>
+                              <button
+                                type="button"
+                                onClick={() => setPreviewProduct(p)}
+                                className="p-1 text-slate-400 hover:text-teal-700 hover:bg-teal-50 rounded-lg transition"
+                                title="Ver cómo lo ve el cliente en la tienda"
+                              >
+                                <Eye className="w-4 h-4" />
+                              </button>
                             </td>
                           </tr>
                         )
@@ -673,6 +708,16 @@ export function EstructurasPreciosModal({
           )}
         </div>
       </div>
+
+      {/* Modal de Vista Previa de Tienda Unificada */}
+      {previewProduct && (
+        <ProductStoreDetailModal
+          isOpen={!!previewProduct}
+          onClose={() => setPreviewProduct(null)}
+          product={previewProduct}
+          isAdminView={true}
+        />
+      )}
     </div>
   )
 }
