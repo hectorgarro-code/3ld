@@ -41,19 +41,6 @@ class EstructurasPrecioRepository
                 $this->db->exec("ALTER TABLE productos ADD COLUMN estructura_precio_id INT NULL AFTER precios_cantidad");
             }
         } catch (\Throwable $e) {}
-
-        // Sembrar estructura por defecto si la tabla está vacía
-        try {
-            $count = (int)$this->db->query("SELECT COUNT(*) FROM estructuras_precio_cantidad")->fetchColumn();
-            if ($count === 0) {
-                $defaultEscalas = json_encode([
-                    ['cantidad' => 10, 'precio' => 700],
-                    ['cantidad' => 50, 'precio' => 500],
-                ]);
-                $stmt = $this->db->prepare("INSERT INTO estructuras_precio_cantidad (nombre, escalas, created_at, updated_at) VALUES (?, ?, NOW(), NOW())");
-                $stmt->execute(['Llaveros (10+ y 50+)', $defaultEscalas]);
-            }
-        } catch (\Throwable $e) {}
     }
 
     public function getAll(): array

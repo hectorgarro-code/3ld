@@ -19,7 +19,7 @@ export function useEstructurasPrecio() {
       const res = await api.get('/estructuras-precio')
       return (res.data?.data || []) as EstructuraPrecioCantidad[]
     },
-    staleTime: 1000 * 60 * 5,
+    staleTime: 0,
   })
 
   const saveMutation = useMutation({
@@ -30,6 +30,7 @@ export function useEstructurasPrecio() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['estructuras-precio'] })
       queryClient.invalidateQueries({ queryKey: ['productos'] })
+      queryClient.refetchQueries({ queryKey: ['estructuras-precio'] })
     },
   })
 
@@ -41,6 +42,7 @@ export function useEstructurasPrecio() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['estructuras-precio'] })
       queryClient.invalidateQueries({ queryKey: ['productos'] })
+      queryClient.refetchQueries({ queryKey: ['estructuras-precio'] })
     },
   })
 
@@ -59,6 +61,7 @@ export function useEstructurasPrecio() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['estructuras-precio'] })
       queryClient.invalidateQueries({ queryKey: ['productos'] })
+      queryClient.refetchQueries({ queryKey: ['estructuras-precio'] })
     },
   })
 

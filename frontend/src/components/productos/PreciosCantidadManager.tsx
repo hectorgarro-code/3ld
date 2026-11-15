@@ -18,7 +18,7 @@ export function PreciosCantidadManager({
   onEstructuraChange,
   precioVentaActual = 0,
 }: PreciosCantidadManagerProps) {
-  const { estructuras, isLoading, saveMutation, deleteMutation } = useEstructurasPrecio()
+  const { estructuras, isLoading, saveMutation } = useEstructurasPrecio()
   const [selectedPlantillaId, setSelectedPlantillaId] = useState<string>(
     estructuraPrecioId ? String(estructuraPrecioId) : ''
   )
@@ -70,21 +70,6 @@ export function PreciosCantidadManager({
       toast(`Estructura "${guardada.nombre}" guardada con éxito en el servidor`, 'success')
     } catch (err: any) {
       toast(err.response?.data?.message || 'Error al guardar estructura', 'error')
-    }
-  }
-
-  const handleEliminarPlantilla = async (idNum: number, nombre: string) => {
-    if (confirm(`¿Eliminar la estructura guardada "${nombre}"? Los productos que la usan mantendrán sus precios.`)) {
-      try {
-        await deleteMutation.mutateAsync(idNum)
-        if (selectedPlantillaId === String(idNum)) {
-          setSelectedPlantillaId('')
-          if (onEstructuraChange) onEstructuraChange(null)
-        }
-        toast('Estructura eliminada del servidor', 'info')
-      } catch (err: any) {
-        toast('Error al eliminar estructura', 'error')
-      }
     }
   }
 
@@ -149,22 +134,6 @@ export function PreciosCantidadManager({
             </select>
           </div>
         </div>
-
-        {selectedPlantillaId && (
-          <button
-            type="button"
-            onClick={() => {
-              const idNum = Number(selectedPlantillaId)
-              const p = estructuras.find((item) => item.id === idNum)
-              if (p) handleEliminarPlantilla(p.id, p.nombre)
-            }}
-            disabled={deleteMutation.isPending}
-            className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 transition"
-            title="Eliminar estructura guardada seleccionada"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-          </button>
-        )}
 
         {!isSavingPlantilla ? (
           <button
