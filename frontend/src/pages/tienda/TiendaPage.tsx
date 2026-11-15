@@ -451,7 +451,25 @@ export default function TiendaPage() {
       // La selección sigue disponible aunque no se pueda guardar en este navegador.
     }
   }, [cart.length, deliveryMethod]);
-  const [postalCode, setPostalCode] = useState('');
+  const [postalCode, setPostalCode] = useState(() => {
+    try {
+      return cart.length > 0 ? (localStorage.getItem('3ld_delivery_postal_code') || '').slice(0, 10) : '';
+    } catch {
+      return '';
+    }
+  });
+  useEffect(() => {
+    if (cart.length === 0) setPostalCode('');
+    try {
+      if (cart.length > 0 && postalCode.trim()) {
+        localStorage.setItem('3ld_delivery_postal_code', postalCode.trim());
+      } else {
+        localStorage.removeItem('3ld_delivery_postal_code');
+      }
+    } catch {
+      // El cálculo manual sigue disponible sin almacenamiento local.
+    }
+  }, [cart.length, postalCode]);
   const [shippingQuote, setShippingQuote] = useState<{
     serviceName: string;
     price: number;
@@ -1233,14 +1251,15 @@ export default function TiendaPage() {
     }, 350);
   };
 
-  // Recalcular costo de envío si el usuario modifica cantidades en el carrito
+  // Recuperar la cotización con la tarifa actual y actualizarla al cambiar el carrito.
   useEffect(() => {
-    if (postalCode.trim().length >= 4 && shippingQuote && cart.length > 0) {
-      calculateShippingForCp(postalCode.trim());
-    } else if (cart.length === 0) {
+    const cp = postalCode.trim();
+    if (deliveryMethod === 'shipping' && cart.length > 0 && ['7104','7105','7106','7107','7108','7109','7111','7112','7113'].includes(cp)) {
+      calculateShippingForCp(cp);
+    } else {
       setShippingQuote(null);
     }
-  }, [cart, isFreeLocalShipping]);
+  }, [cart, isFreeLocalShipping, postalCode, deliveryMethod]);
 
   const handleWhatsAppCheckout = () => {
     if (cart.length === 0) return;
