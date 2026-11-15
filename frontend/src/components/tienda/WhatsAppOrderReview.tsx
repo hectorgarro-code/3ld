@@ -6,11 +6,13 @@ interface Props {
   items: CartItem[]
   delivery: string
   shippingCost: number | null
+  notes: string
+  onNotesChange: (value: string) => void
   onBack: () => void
   onContinue: () => void
 }
 
-export function WhatsAppOrderReview({ items, delivery, shippingCost, onBack, onContinue }: Props) {
+export function WhatsAppOrderReview({ items, delivery, shippingCost, notes, onNotesChange, onBack, onContinue }: Props) {
   const dialog = useRef<HTMLElement>(null)
   const money = (value: number) => '$' + value.toLocaleString('es-AR')
   const subtotal = items.reduce((sum, item) => sum + item.price * item.qty, 0)
@@ -27,7 +29,7 @@ export function WhatsAppOrderReview({ items, delivery, shippingCost, onBack, onC
       onKeyDown={e => {
         if (e.key === 'Escape') { e.preventDefault(); onBack() }
         if (e.key === 'Tab') {
-          const buttons = dialog.current?.querySelectorAll<HTMLButtonElement>('button')
+          const buttons = dialog.current?.querySelectorAll<HTMLElement>('button, textarea')
           if (!buttons?.length) return
           const first = buttons[0], last = buttons[buttons.length - 1]
           if (e.shiftKey && (document.activeElement === first || document.activeElement === dialog.current)) { e.preventDefault(); last.focus() }
@@ -53,6 +55,14 @@ export function WhatsAppOrderReview({ items, delivery, shippingCost, onBack, onC
         <div className="mt-4 rounded-xl bg-slate-50 p-3">
           <h3 className="text-sm font-bold text-slate-900">Entrega</h3>
           <p className="mt-1 text-sm leading-relaxed text-slate-700">{delivery}</p>
+        </div>
+        <div className="mt-4">
+          <label htmlFor="whatsapp-order-notes" className="block text-sm font-bold text-slate-900">Observaciones del pedido <span className="font-normal text-slate-500">(opcional)</span></label>
+          <textarea id="whatsapp-order-notes" value={notes} onChange={e => onNotesChange(e.target.value.slice(0, 500))} maxLength={500} rows={3}
+            placeholder="Ej.: nombres para personalizar o una aclaración para coordinar la entrega."
+            aria-describedby="whatsapp-order-notes-help"
+            className="mt-2 w-full resize-none rounded-xl border border-slate-300 p-3 text-base text-slate-900 outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100" />
+          <p id="whatsapp-order-notes-help" className="mt-1 flex justify-between gap-3 text-xs text-slate-500"><span>Se incluirán en el mensaje de WhatsApp.</span><span>{notes.length}/500</span></p>
         </div>
         <dl className="mt-4 space-y-2 text-sm text-slate-600">
           <div className="flex justify-between gap-3"><dt>Productos</dt><dd>{money(subtotal)}</dd></div>

@@ -310,6 +310,8 @@ export default function TiendaPage() {
   // Modals & Notifications
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isWhatsAppReviewOpen, setIsWhatsAppReviewOpen] = useState(false);
+  const [whatsAppNotes, setWhatsAppNotes] = useState('');
+  useEffect(() => { if (cart.length === 0) setWhatsAppNotes(''); }, [cart.length]);
   const [isStoriesOpen, setIsStoriesOpen] = useState(false);
   const [favorites, setFavorites] = useState<(string | number)[]>(() => {
     try {
@@ -1232,6 +1234,7 @@ export default function TiendaPage() {
       text += `*TOTAL ESTIMADO:* $${cartSubtotal.toLocaleString('es-AR')}\n`;
     }
 
+    if (whatsAppNotes.trim()) text += `\n*Observaciones del pedido:*\n${whatsAppNotes.trim()}\n`;
     text += `\n¿Tienen disponibilidad para coordinar? ¡Muchas gracias!`;
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(text)}`, '_blank');
   };
@@ -1976,6 +1979,8 @@ export default function TiendaPage() {
       )}
 
       {isWhatsAppReviewOpen && cart.length > 0 && <WhatsAppOrderReview
+        notes={whatsAppNotes}
+        onNotesChange={setWhatsAppNotes}
         items={cart.map(item => ({ ...item, figuras_por_kit: products.find(p => String(p.id) === String(item.id))?.figuras_por_kit ?? item.figuras_por_kit }))}
         delivery={deliveryMethod === 'pickup' ? 'Retiro en taller: Salta 3169, San Bernardo del Tuyú.' : `${shippingQuote?.serviceName || 'Entrega a domicilio a coordinar'}${postalCode ? ` · CP ${postalCode}` : ''}`}
         shippingCost={deliveryMethod === 'pickup' ? 0 : (shippingQuote?.price ?? null)}
