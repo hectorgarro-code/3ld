@@ -432,7 +432,25 @@ export default function TiendaPage() {
   };
 
   // Shipping & Delivery Method
-  const [deliveryMethod, setDeliveryMethod] = useState<'pickup' | 'shipping'>('pickup');
+  const [deliveryMethod, setDeliveryMethod] = useState<'pickup' | 'shipping'>(() => {
+    try {
+      return cart.length > 0 && localStorage.getItem('3ld_delivery_method') === 'shipping' ? 'shipping' : 'pickup';
+    } catch {
+      return 'pickup';
+    }
+  });
+  useEffect(() => {
+    if (cart.length === 0) setDeliveryMethod('pickup');
+    try {
+      if (cart.length > 0) {
+        localStorage.setItem('3ld_delivery_method', deliveryMethod);
+      } else {
+        localStorage.removeItem('3ld_delivery_method');
+      }
+    } catch {
+      // La selección sigue disponible aunque no se pueda guardar en este navegador.
+    }
+  }, [cart.length, deliveryMethod]);
   const [postalCode, setPostalCode] = useState('');
   const [shippingQuote, setShippingQuote] = useState<{
     serviceName: string;
