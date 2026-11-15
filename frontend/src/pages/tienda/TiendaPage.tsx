@@ -451,6 +451,7 @@ export default function TiendaPage() {
       // La selección sigue disponible aunque no se pueda guardar en este navegador.
     }
   }, [cart.length, deliveryMethod]);
+  const localDeliveryPostalCodes = ['7104','7105','7106','7107','7108','7109','7111','7112','7113'];
   const [postalCode, setPostalCode] = useState(() => {
     try {
       return cart.length > 0 ? (localStorage.getItem('3ld_delivery_postal_code') || '').slice(0, 10) : '';
@@ -470,6 +471,7 @@ export default function TiendaPage() {
       // El cálculo manual sigue disponible sin almacenamiento local.
     }
   }, [cart.length, postalCode]);
+  const isOutsideDeliveryArea = postalCode.trim().length >= 4 && !localDeliveryPostalCodes.includes(postalCode.trim());
   const [shippingQuote, setShippingQuote] = useState<{
     serviceName: string;
     price: number;
@@ -1188,7 +1190,7 @@ export default function TiendaPage() {
     }
 
     const cpNum = parseInt(cp) || 0;
-    if (!['7104','7105','7106','7107','7108','7109','7111','7112','7113'].includes(cp)) {
+    if (!localDeliveryPostalCodes.includes(cp)) {
       setShippingQuote(null);
       showToast('Entregamos en localidades de La Costa, excepto Costa Esmeralda. Para otra zona, consultanos por WhatsApp antes de pagar.', 'info');
       return;
@@ -1254,7 +1256,7 @@ export default function TiendaPage() {
   // Recuperar la cotización con la tarifa actual y actualizarla al cambiar el carrito.
   useEffect(() => {
     const cp = postalCode.trim();
-    if (deliveryMethod === 'shipping' && cart.length > 0 && ['7104','7105','7106','7107','7108','7109','7111','7112','7113'].includes(cp)) {
+    if (deliveryMethod === 'shipping' && cart.length > 0 && localDeliveryPostalCodes.includes(cp)) {
       calculateShippingForCp(cp);
     } else {
       setShippingQuote(null);
@@ -2010,7 +2012,8 @@ export default function TiendaPage() {
                     {deliveryMethod === 'pickup' ? <p className="mt-3 text-xs leading-relaxed text-slate-500">Salta 3169, San Bernardo del Tuyú.</p> : (
                       <div className="mt-3 space-y-3">
                         <p className="text-xs text-slate-500">Cobertura en La Costa, excepto Costa Esmeralda.</p>
-                        <form onSubmit={handleCalculateShipping} className="flex gap-2"><label className="min-w-0 flex-1"><span className="sr-only">Código postal de entrega</span><input inputMode="numeric" value={postalCode} onChange={e => { setPostalCode(e.target.value); setShippingQuote(null); }} placeholder="Código postal · ej. 7111" className="w-full rounded-lg border border-slate-200 bg-white px-3 py-3 text-sm focus:outline-cyan-500" /></label><button disabled={isCalculatingShipping} className="rounded-lg bg-slate-900 px-4 text-sm font-bold text-white disabled:opacity-50">{isCalculatingShipping ? 'Calculando…' : 'Calcular'}</button></form>
+                        <form onSubmit={handleCalculateShipping} className="flex gap-2"><label className="min-w-0 flex-1"><span className="sr-only">Código postal de entrega</span><input aria-describedby={isOutsideDeliveryArea ? 'delivery-coverage-notice' : undefined} inputMode="numeric" value={postalCode} onChange={e => { setPostalCode(e.target.value); setShippingQuote(null); }} placeholder="Código postal · ej. 7111" className="w-full rounded-lg border border-slate-200 bg-white px-3 py-3 text-sm focus:outline-cyan-500" /></label><button disabled={isCalculatingShipping} className="rounded-lg bg-slate-900 px-4 text-sm font-bold text-white disabled:opacity-50">{isCalculatingShipping ? 'Calculando…' : 'Calcular'}</button></form>
+                        {isOutsideDeliveryArea && <p id="delivery-coverage-notice" role="status" className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-3 text-sm leading-relaxed text-amber-900">Este código postal está fuera de nuestra zona de entrega. Podés retirar en el taller o consultarnos por WhatsApp antes de pagar.</p>}
                         {shippingQuote && <p className="text-sm text-slate-700">Entrega local: <strong>{shippingQuote.price === 0 ? 'gratis' : `$${shippingQuote.price.toLocaleString('es-AR')}`}</strong></p>}
                       </div>
                     )}
