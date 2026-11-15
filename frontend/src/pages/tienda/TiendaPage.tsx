@@ -39,6 +39,7 @@ import { getThumbnailUrl } from '@/lib/utils';
 import { DeliveryEstimate } from '@/components/tienda/DeliveryEstimate';
 import { FreeShippingProgress } from '@/components/tienda/FreeShippingProgress';
 import { LOCAL_FREE_SHIPPING_THRESHOLD } from '@/lib/freeShipping';
+import { getKitFigureCount } from '@/lib/productKit';
 const TiendaStoriesModal = React.lazy(() => import('@/components/tienda/TiendaStoriesModal').then(m => ({ default: m.TiendaStoriesModal })));
 import {
   trackPageView,
@@ -1921,19 +1922,23 @@ export default function TiendaPage() {
                 <div className="px-5 pb-6 sm:px-7">
                   <div className="py-4"><FreeShippingProgress subtotal={cartSubtotal} /></div>
                   <div aria-label="Productos del carrito" className="divide-y divide-slate-100">
-                    {cart.map(item => (
+                    {cart.map(item => {
+                      const kitFigures = getKitFigureCount(item);
+                      return (
                       <article key={`${item.id}-${item.color}-${JSON.stringify(item.selectedPieceIds || [])}`} className="grid grid-cols-[72px_minmax(0,1fr)] gap-4 py-5 sm:grid-cols-[88px_minmax(0,1fr)]">
                         <img src={item.image} alt={item.title} className="h-[88px] w-full rounded-xl bg-slate-50 object-cover sm:h-[104px]" />
                         <div className="min-w-0">
                           <div className="flex items-start justify-between gap-2"><h3 className="text-sm font-bold leading-snug text-slate-900">{item.title}</h3><button onClick={() => removeCartItem(item.id, item.color, item.selectedPieceIds)} aria-label={`Quitar ${item.title}`} className="-mr-2 -mt-2 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 hover:bg-red-50 hover:text-red-600"><Trash2 className="h-4 w-4" /></button></div>
+                          {kitFigures && <p className="mt-1 text-xs font-bold text-cyan-800" data-testid="cart-kit-label">Kit completo · {kitFigures} {kitFigures === 1 ? 'figura' : 'figuras'}</p>}
                           <p className="mt-1 text-xs text-slate-500">{item.color}</p>
+                          {kitFigures && <p className="mt-2 text-xs text-slate-600">{item.qty} {item.qty === 1 ? 'kit' : 'kits'} · {item.qty * kitFigures} figuras en total · ${item.price.toLocaleString('es-AR')} por kit</p>}
                           <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
                             <div className="inline-flex items-center rounded-lg border border-slate-200"><button aria-label={`Reducir cantidad de ${item.title}`} onClick={() => updateCartQty(item.id, item.color, -1, item.selectedPieceIds)} className="h-8 w-8 text-slate-600 hover:bg-slate-50">−</button><span className="min-w-7 text-center text-sm font-bold">{item.qty}</span><button aria-label={`Aumentar cantidad de ${item.title}`} onClick={() => updateCartQty(item.id, item.color, 1, item.selectedPieceIds)} className="h-8 w-8 text-slate-600 hover:bg-slate-50">+</button></div>
                             <p className="text-sm font-extrabold text-slate-900">${(item.price * item.qty).toLocaleString('es-AR')}</p>
                           </div>
                         </div>
                       </article>
-                    ))}
+                    );})}
                   </div>
 
                   <fieldset className="mt-3 border-t border-slate-200 pt-5">

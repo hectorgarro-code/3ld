@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import { resolveImageUrl } from '@/lib/utils'
 import { obtenerPrecioPorCantidad } from '@/lib/pricing'
+import { getKitFigureCount } from '@/lib/productKit'
 import { projectFreeShipping, type ShippingCartLine } from '@/lib/freeShipping'
 import { FreeShippingProgress } from './FreeShippingProgress'
 import { SocialShareModal } from '@/components/productos/SocialShareModal'
@@ -264,6 +265,7 @@ export function ProductStoreDetailModal({
   const totalPrice = Math.round(unitPrice * quantity * 100) / 100
   const unitSaving = Math.max(0, calculatedPrice - unitPrice)
   const volumeQuantity = shippingGoal?.combinedQuantity ?? quantity
+  const kitFigures = product ? getKitFigureCount(product) : null
 
   if (!isOpen || !product) return null
 
@@ -418,11 +420,13 @@ export function ProductStoreDetailModal({
 
             <h2 id="product-detail-title" className="text-xl sm:text-2xl font-black text-slate-900 mt-3 leading-snug break-words">{product.title}</h2>
 
+            {kitFigures && <p className="mt-3 inline-flex rounded-lg bg-cyan-50 px-3 py-1.5 text-sm font-bold text-cyan-900" data-testid="product-kit-label">Kit completo · {kitFigures} {kitFigures === 1 ? 'figura' : 'figuras'}</p>}
+
             <div className="mt-4 flex flex-wrap items-baseline gap-x-3 gap-y-1" aria-live="polite">
               <strong className="text-3xl font-black tracking-tight text-slate-900">{money(unitPrice)}</strong>
-              <span className="text-sm text-slate-500">{product.piezas?.length ? 'por selección' : 'por unidad'}</span>
+              <span className="text-sm text-slate-500">{product.piezas?.length ? 'por selección' : kitFigures ? 'por kit completo' : 'por unidad'}</span>
             </div>
-            {unitSaving > 0 && <p className="mt-1 text-sm font-bold text-emerald-700">Ahorrás {money(unitSaving)} {product.piezas?.length ? 'por selección' : 'por unidad'} con esta cantidad</p>}
+            {unitSaving > 0 && <p className="mt-1 text-sm font-bold text-emerald-700">Ahorrás {money(unitSaving)} {product.piezas?.length ? 'por selección' : kitFigures ? 'por kit completo' : 'por unidad'} con esta cantidad</p>}
 
             {!!shippingGoal?.existingQuantity && <p className="mt-1 text-xs leading-relaxed text-slate-500">Se suman a las {shippingGoal.existingQuantity} unidades de esta misma opción que ya tenés en el carrito.</p>}
             {onAddToCart && shippingGoal && <div className="mt-4">
@@ -445,7 +449,7 @@ export function ProductStoreDetailModal({
                     return <button key={`${tier.cantidad}-${index}`} type="button" onClick={() => setQuantity(Math.max(1, tier.cantidad - (shippingGoal?.existingQuantity || 0)))} aria-label={`${shippingGoal?.existingQuantity ? 'Alcanzar' : 'Elegir'} ${tier.cantidad} unidades`} aria-pressed={active}
                       className={`min-h-14 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-xl border p-3 text-left cursor-pointer transition ${active ? 'border-teal-600 bg-white ring-1 ring-teal-600' : 'border-teal-200 bg-white/70 hover:bg-white'}`}>
                       <span className="text-sm font-bold text-teal-950">Desde {tier.cantidad} unidades <span className="font-normal">· {money(tier.precio)} {product.piezas?.length ? 'por selección' : 'c/u'}</span></span>
-                      {saving > 0 && <span className="text-xs font-bold text-emerald-700">Ahorrás {money(saving)} {product.piezas?.length ? 'por selección' : 'por unidad'}</span>}
+                      {saving > 0 && <span className="text-xs font-bold text-emerald-700">Ahorrás {money(saving)} {product.piezas?.length ? 'por selección' : kitFigures ? 'por kit completo' : 'por unidad'}</span>}
                     </button>
                   })}
                 </div>
@@ -600,15 +604,16 @@ export function ProductStoreDetailModal({
           <div className="shrink-0 border-t border-slate-200 bg-white px-4 py-3 sm:px-6 shadow-[0_-4px_20px_#0f172a08]" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
             <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-3 sm:flex sm:items-center sm:justify-between">
               <div>
-                <label htmlFor="product-detail-quantity" className="mb-1 block text-xs font-bold text-slate-600">Cantidad</label>
+                <label htmlFor="product-detail-quantity" className="mb-1 block text-xs font-bold text-slate-600">{kitFigures ? 'Cantidad de kits' : 'Cantidad'}</label>
                 <div className="flex h-11 items-center rounded-xl border border-slate-300 bg-white">
-                  <button type="button" aria-label="Restar una unidad" disabled={quantity <= 1} onClick={() => setQuantity(q => Math.max(1, q - 1))} className="h-11 w-11 flex items-center justify-center disabled:opacity-30 cursor-pointer"><Minus className="h-4 w-4" /></button>
+                  <button type="button" aria-label={kitFigures ? 'Restar un kit' : 'Restar una unidad'} disabled={quantity <= 1} onClick={() => setQuantity(q => Math.max(1, q - 1))} className="h-11 w-11 flex items-center justify-center disabled:opacity-30 cursor-pointer"><Minus className="h-4 w-4" /></button>
                   <input id="product-detail-quantity" type="number" min="1" step="1" inputMode="numeric" value={quantity} onChange={e => setQuantity(Number.isFinite(e.target.valueAsNumber) ? Math.max(1, Math.trunc(e.target.valueAsNumber)) : 1)} className="h-10 w-14 min-w-0 appearance-none bg-transparent text-center text-base font-bold text-slate-900 outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
-                  <button type="button" aria-label="Sumar una unidad" onClick={() => setQuantity(q => q + 1)} className="h-11 w-11 flex items-center justify-center cursor-pointer"><Plus className="h-4 w-4" /></button>
+                  <button type="button" aria-label={kitFigures ? 'Sumar un kit' : 'Sumar una unidad'} onClick={() => setQuantity(q => q + 1)} className="h-11 w-11 flex items-center justify-center cursor-pointer"><Plus className="h-4 w-4" /></button>
                 </div>
               </div>
               <div className="min-w-0 text-right sm:text-left" aria-live="polite" data-testid="product-detail-total">
-                <span className="text-xs text-slate-500 block">Total · {quantity} {quantity === 1 ? 'unidad' : 'unidades'}</span>
+                <span className="text-xs text-slate-500 block">Total · {quantity} {kitFigures ? (quantity === 1 ? 'kit' : 'kits') : (quantity === 1 ? 'unidad' : 'unidades')}</span>
+                {kitFigures && <span className="block text-xs text-cyan-800">{quantity * kitFigures} figuras en total</span>}
                 <strong className="text-xl sm:text-2xl font-black text-slate-900 break-words">{money(totalPrice)}</strong>
               </div>
 
