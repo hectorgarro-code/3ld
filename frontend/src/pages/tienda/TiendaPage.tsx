@@ -38,6 +38,7 @@ import { ProductStoreDetailModal } from '@/components/tienda/ProductStoreDetailM
 import { getThumbnailUrl } from '@/lib/utils';
 import { DeliveryEstimate } from '@/components/tienda/DeliveryEstimate';
 import { FreeShippingProgress } from '@/components/tienda/FreeShippingProgress';
+import { WhatsAppOrderReview } from '@/components/tienda/WhatsAppOrderReview';
 import { LOCAL_FREE_SHIPPING_THRESHOLD } from '@/lib/freeShipping';
 import { getKitFigureCount, formatWhatsAppCartLine } from '@/lib/productKit';
 const TiendaStoriesModal = React.lazy(() => import('@/components/tienda/TiendaStoriesModal').then(m => ({ default: m.TiendaStoriesModal })));
@@ -308,6 +309,7 @@ export default function TiendaPage() {
 
   // Modals & Notifications
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [isWhatsAppReviewOpen, setIsWhatsAppReviewOpen] = useState(false);
   const [isStoriesOpen, setIsStoriesOpen] = useState(false);
   const [favorites, setFavorites] = useState<(string | number)[]>(() => {
     try {
@@ -1966,12 +1968,20 @@ export default function TiendaPage() {
               <footer className="max-h-[45dvh] shrink-0 overflow-y-auto border-t border-slate-200 bg-white px-5 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-7" data-testid="cart-checkout-footer">
                 <div className="mb-4 flex items-center justify-between gap-3"><div><p className="text-sm text-slate-500">{deliveryMethod === 'shipping' && !shippingQuote ? 'Subtotal · envío a calcular' : 'Total a pagar'}</p></div><p className="text-2xl font-extrabold tracking-tight text-slate-900">${(cartSubtotal + (deliveryMethod === 'shipping' ? (shippingQuote?.price || 0) : 0)).toLocaleString('es-AR')}</p></div>
                 {isMpEnabled && <button onClick={() => { trackEvent({ tipo: 'iniciar_pago', metadata: { canal: 'mercadopago' } }); if (!buyerInfo.nombre.trim() || !buyerInfo.telefono.trim()) setIsBuyerModalOpen(true); else handleMercadoPagoCheckout(); }} disabled={isProcessingMp} className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#009EE3] px-4 py-3.5 text-sm font-extrabold text-white transition hover:bg-[#0089c7] disabled:opacity-50"><CreditCard className="h-4 w-4" />{isProcessingMp ? 'Conectando…' : 'Continuar con Mercado Pago'}</button>}
-                <button onClick={handleWhatsAppCheckout} className={`flex w-full items-center justify-center gap-2 rounded-xl px-3 py-3 text-sm font-bold ${isMpEnabled ? 'mt-1 text-emerald-800 hover:bg-emerald-50' : 'bg-emerald-600 text-white hover:bg-emerald-700'}`}><MessageCircle className="h-4 w-4" />{isMpEnabled ? 'O coordinar por WhatsApp' : 'Coordinar pedido por WhatsApp'}</button>
+                <button onClick={() => { setIsCartOpen(false); setIsWhatsAppReviewOpen(true); }} className={`flex w-full items-center justify-center gap-2 rounded-xl px-3 py-3 text-sm font-bold ${isMpEnabled ? 'mt-1 text-emerald-800 hover:bg-emerald-50' : 'bg-emerald-600 text-white hover:bg-emerald-700'}`}><MessageCircle className="h-4 w-4" />{isMpEnabled ? 'O coordinar por WhatsApp' : 'Coordinar pedido por WhatsApp'}</button>
               </footer>
             )}
           </section>
         </div>
       )}
+
+      {isWhatsAppReviewOpen && cart.length > 0 && <WhatsAppOrderReview
+        items={cart.map(item => ({ ...item, figuras_por_kit: products.find(p => String(p.id) === String(item.id))?.figuras_por_kit ?? item.figuras_por_kit }))}
+        delivery={deliveryMethod === 'pickup' ? 'Retiro en taller: Salta 3169, San Bernardo del Tuyú.' : `${shippingQuote?.serviceName || 'Entrega a domicilio a coordinar'}${postalCode ? ` · CP ${postalCode}` : ''}`}
+        shippingCost={deliveryMethod === 'pickup' ? 0 : (shippingQuote?.price ?? null)}
+        onBack={() => { setIsWhatsAppReviewOpen(false); setIsCartOpen(true); }}
+        onContinue={() => { handleWhatsAppCheckout(); setIsWhatsAppReviewOpen(false); setIsCartOpen(true); }}
+      />}
 
       {/* Product Detail Modal (Unificado) */}
       <ProductStoreDetailModal
