@@ -24,9 +24,15 @@ interface EstructuraModalProduct {
   sku?: string
   precio_venta: number
   imagen_url?: string
+  categoria_id?: number | null
   categoria_nombre?: string
   estructura_precio_id?: number | null
   precios_cantidad?: { cantidad: number; precio: number }[]
+}
+
+interface CategoriaOption {
+  id: number
+  nombre: string
 }
 
 interface EstructuraPreciosModalProps {
@@ -48,11 +54,14 @@ export function EstructurasPreciosModal({
   const [editingNombre, setEditingNombre] = useState('')
   const [escalasEditadas, setEscalasEditadas] = useState<{ cantidad: number; precio: number }[]>([])
 
-  // Lista de productos asociados a la estructura
+  // Lista de productos y filtros
   const [associatedProducts, setAssociatedProducts] = useState<EstructuraModalProduct[]>([])
+  const [categories, setCategories] = useState<CategoriaOption[]>([])
   const [isLoadingProducts, setIsLoadingProducts] = useState(false)
   const [selectedProductIds, setSelectedProductIds] = useState<Record<number, boolean>>({})
   const [searchTerm, setSearchTerm] = useState('')
+  const [filterEstructuraStatus, setFilterEstructuraStatus] = useState<'all' | 'con_esta' | 'sin_estructura' | 'todas_con'>('all')
+  const [filterCategory, setFilterCategory] = useState<string>('all')
 
   // Estado para crear nueva estructura
   const [isCreatingNew, setIsCreatingNew] = useState(false)
@@ -60,6 +69,7 @@ export function EstructurasPreciosModal({
 
   useEffect(() => {
     if (isOpen) {
+      fetchCategories()
       if (initialEstructuraId && estructuras.some((e) => e.id === initialEstructuraId)) {
         loadEstructura(initialEstructuraId)
       } else if (estructuras.length > 0) {
@@ -73,6 +83,17 @@ export function EstructurasPreciosModal({
     }
   }, [isOpen, initialEstructuraId, estructuras.length])
 
+  const fetchCategories = async () => {
+    try {
+      const res = await api.get('/categorias')
+      if (Array.isArray(res.data?.data)) {
+        setCategories(res.data.data)
+      } else if (Array.isArray(res.data)) {
+        setCategories(res.data)
+      }
+    } catch (e) {}
+  }
+
   const loadEstructura = async (id: number) => {
     setSelectedEstructuraId(id)
     setIsCreatingNew(false)
@@ -84,17 +105,20 @@ export function EstructurasPreciosModal({
 
     setIsLoadingProducts(true)
     try {
-      const res = await api.get(`/estructuras-precio/${id}/productos`)
+      // Pedimos todos los artículos para permitir filtrar y reasignar
+      const res = await api.get('/estructuras-precio/0/productos')
       const list = (res.data?.data || []) as EstructuraModalProduct[]
       setAssociatedProducts(list)
-      // Seleccionar todos por defecto
+      // Seleccionar por defecto los que pertenecen a esta estructura si los hay
       const map: Record<number, boolean> = {}
       list.forEach((p) => {
-        map[p.id] = true
+        if (p.estructura_precio_id === id) {
+          map[p.id] = true
+        }
       })
       setSelectedProductIds(map)
     } catch (err) {
-      toast('Error al cargar artículos asociados', 'error')
+      toast('Error al cargar artículos', 'error')
     } finally {
       setIsLoadingProducts(false)
     }
@@ -185,31 +209,57 @@ export function EstructurasPreciosModal({
     }
   }
 
+  const filteredProducts = useMemo(() => {
+    let list = associatedProducts
+
+    // Filtro por Estado de Estructura
+    if (filterEstructuraStatus === 'con_esta') {
+      list = list.filter((p) => p.estructura_precio_id === selectedEstructuraId)
+    } else if (filterEstructuraStatus === 'sin_estructura') {
+      list = list.filter((p) => !p.estructura_precio_id)
+    } else if (filterEstructuraStatus === 'todas_con') {
+      list = list.filter((p) => Boolean(p.estructura_precio_id))
+    }
+
+    // Filtro por Categoría
+    if (filterCategory !== 'all') {
+      list = list.filter((p) => String(p.categoria_id) === String(filterCategory))
+    }
+
+    // Filtro por Buscador
+    if (searchTerm.trim()) {
+      const q = searchTerm.toLowerCase().trim()
+      list = list.filter(
+        (p) =>
+          p.nombre.toLowerCase().includes(q) ||
+          (p.sku && p.sku.toLowerCase().includes(q)) ||
+          (p.categoria_nombre && p.categoria_nombre.toLowerCase().includes(q))
+      )
+    }
+
+    return list
+  }, [associatedProducts, selectedEstructuraId, filterEstructuraStatus, filterCategory, searchTerm])
+
   const toggleSelectAll = () => {
-    const allSelected = associatedProducts.every((p) => selectedProductIds[p.id])
-    const map: Record<number, boolean> = {}
-    if (!allSelected) {
-      associatedProducts.forEach((p) => {
-        map[p.id] = true
+    const allFilteredSelected =
+      filteredProducts.length > 0 && filteredProducts.every((p) => selectedProductIds[p.id])
+    const nextMap = { ...selectedProductIds }
+
+    if (allFilteredSelected) {
+      filteredProducts.forEach((p) => {
+        delete nextMap[p.id]
+      })
+    } else {
+      filteredProducts.forEach((p) => {
+        nextMap[p.id] = true
       })
     }
-    setSelectedProductIds(map)
+    setSelectedProductIds(nextMap)
   }
 
   const toggleSelectProduct = (id: number) => {
     setSelectedProductIds((prev) => ({ ...prev, [id]: !prev[id] }))
   }
-
-  const filteredAssociatedProducts = useMemo(() => {
-    if (!searchTerm.trim()) return associatedProducts
-    const q = searchTerm.toLowerCase().trim()
-    return associatedProducts.filter(
-      (p) =>
-        p.nombre.toLowerCase().includes(q) ||
-        (p.sku && p.sku.toLowerCase().includes(q)) ||
-        (p.categoria_nombre && p.categoria_nombre.toLowerCase().includes(q))
-    )
-  }, [associatedProducts, searchTerm])
 
   const selectedCount = Object.values(selectedProductIds).filter(Boolean).length
 
@@ -364,55 +414,135 @@ export function EstructurasPreciosModal({
             </div>
           </div>
 
-          {/* Tabla de Artículos que tienen esta Estructura Asignada */}
+          {/* Tabla de Artículos para Asignar / Actualizar */}
           {!isCreatingNew && (
             <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-2xs space-y-3 p-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
-                <div>
-                  <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                    📦 Artículos con esta Estructura ({associatedProducts.length})
-                  </h3>
-                  <p className="text-[11px] text-slate-500 font-medium">
-                    Marcá los artículos en los que querés aplicar los nuevos valores de escala.
-                  </p>
+              <div className="flex flex-col gap-2.5 pb-3 border-b border-slate-100">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                      📦 Artículos ({filteredProducts.length} de {associatedProducts.length})
+                    </h3>
+                    <p className="text-[11px] text-slate-500 font-medium">
+                      Filtrá y seleccioná los artículos para aplicarles esta estructura de precios por volumen.
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={toggleSelectAll}
+                      className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition"
+                    >
+                      {filteredProducts.length > 0 && filteredProducts.every((p) => selectedProductIds[p.id])
+                        ? 'Desmarcar lista filtrada'
+                        : `Marcar lista filtrada (${filteredProducts.length})`}
+                    </button>
+                    {selectedCount > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setSelectedProductIds({})}
+                        className="px-2 py-1 text-[11px] text-red-600 hover:underline font-bold transition"
+                      >
+                        Limpiar selección ({selectedCount})
+                      </button>
+                    )}
+                  </div>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <div className="relative">
+                {/* Filtros: Estado Estructura, Categoría y Buscador */}
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  {/* Selector de Estado Estructura */}
+                  <div className="flex bg-slate-100 p-0.5 rounded-xl text-[11px] font-bold">
+                    <button
+                      type="button"
+                      onClick={() => setFilterEstructuraStatus('all')}
+                      className={`px-2.5 py-1 rounded-lg transition ${
+                        filterEstructuraStatus === 'all'
+                          ? 'bg-white text-slate-900 shadow-2xs'
+                          : 'text-slate-500 hover:text-slate-800'
+                      }`}
+                    >
+                      Todos
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFilterEstructuraStatus('con_esta')}
+                      className={`px-2.5 py-1 rounded-lg transition ${
+                        filterEstructuraStatus === 'con_esta'
+                          ? 'bg-teal-600 text-white shadow-2xs'
+                          : 'text-slate-500 hover:text-slate-800'
+                      }`}
+                      title="Solo artículos que ya tienen asignada esta estructura"
+                    >
+                      Con esta estructura ({associatedProducts.filter((p) => p.estructura_precio_id === selectedEstructuraId).length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFilterEstructuraStatus('sin_estructura')}
+                      className={`px-2.5 py-1 rounded-lg transition ${
+                        filterEstructuraStatus === 'sin_estructura'
+                          ? 'bg-amber-600 text-white shadow-2xs'
+                          : 'text-slate-500 hover:text-slate-800'
+                      }`}
+                      title="Solo artículos que no tienen ninguna estructura asignada"
+                    >
+                      Sin estructura ({associatedProducts.filter((p) => !p.estructura_precio_id).length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFilterEstructuraStatus('todas_con')}
+                      className={`px-2.5 py-1 rounded-lg transition ${
+                        filterEstructuraStatus === 'todas_con'
+                          ? 'bg-slate-800 text-white shadow-2xs'
+                          : 'text-slate-500 hover:text-slate-800'
+                      }`}
+                      title="Artículos con cualquier estructura"
+                    >
+                      Con alguna estructura
+                    </button>
+                  </div>
+
+                  {/* Selector de Categoría */}
+                  <select
+                    value={filterCategory}
+                    onChange={(e) => setFilterCategory(e.target.value)}
+                    className="px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 outline-none focus:border-teal-500"
+                  >
+                    <option value="all">Todas las categorías</option>
+                    {categories.map((c) => (
+                      <option key={c.id} value={String(c.id)}>
+                        {c.nombre}
+                      </option>
+                    ))}
+                  </select>
+
+                  {/* Buscador */}
+                  <div className="relative flex-1 min-w-[180px]">
                     <Search className="w-3.5 h-3.5 absolute left-2.5 top-2 text-slate-400" />
                     <input
                       type="text"
-                      placeholder="Buscar artículo..."
+                      placeholder="Buscar por nombre, SKU o categoría..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-8 pr-3 py-1 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:bg-white outline-none w-48"
+                      className="w-full pl-8 pr-3 py-1 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:bg-white focus:border-teal-500 outline-none"
                     />
                   </div>
-
-                  <button
-                    type="button"
-                    onClick={toggleSelectAll}
-                    className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition"
-                  >
-                    {associatedProducts.every((p) => selectedProductIds[p.id])
-                      ? 'Desmarcar todos'
-                      : 'Marcar todos'}
-                  </button>
                 </div>
               </div>
 
               {isLoadingProducts ? (
                 <div className="py-12 flex flex-col items-center justify-center gap-2 text-slate-400">
                   <RefreshCw className="w-6 h-6 animate-spin text-teal-600" />
-                  <span className="text-xs font-bold">Cargando artículos asociados...</span>
+                  <span className="text-xs font-bold">Cargando catálogo de artículos...</span>
                 </div>
-              ) : associatedProducts.length === 0 ? (
+              ) : filteredProducts.length === 0 ? (
                 <div className="text-center py-8 bg-slate-50 rounded-xl border border-dashed border-slate-200 text-slate-400">
                   <p className="text-xs font-bold text-slate-600">
-                    Ningún producto tiene asignada esta estructura todavía.
+                    No se encontraron artículos con los filtros aplicados.
                   </p>
                   <p className="text-[11px] text-slate-400 mt-1">
-                    Podés asignarla desde el formulario de producto o en lote desde la Gestión de Tienda.
+                    Probá cambiando el filtro de estructura, categoría o el texto del buscador.
                   </p>
                 </div>
               ) : (
@@ -424,28 +554,30 @@ export function EstructurasPreciosModal({
                           <input
                             type="checkbox"
                             checked={
-                              associatedProducts.length > 0 &&
-                              associatedProducts.every((p) => selectedProductIds[p.id])
+                              filteredProducts.length > 0 &&
+                              filteredProducts.every((p) => selectedProductIds[p.id])
                             }
                             onChange={toggleSelectAll}
                             className="rounded accent-teal-600 cursor-pointer"
                           />
                         </th>
                         <th className="p-2.5">Producto</th>
+                        <th className="p-2.5">Categoría</th>
                         <th className="p-2.5 text-right">Precio Base</th>
-                        <th className="p-2.5">Escalas Actuales</th>
-                        <th className="p-2.5 text-emerald-700">Nuevas Escalas a Aplicar</th>
+                        <th className="p-2.5">Estado / Escala Actual</th>
+                        <th className="p-2.5 text-emerald-700">Nueva Escala a Aplicar</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {filteredAssociatedProducts.map((p) => {
+                      {filteredProducts.map((p) => {
                         const isChecked = Boolean(selectedProductIds[p.id])
+                        const tieneEsta = p.estructura_precio_id === selectedEstructuraId
                         return (
                           <tr
                             key={p.id}
                             onClick={() => toggleSelectProduct(p.id)}
                             className={`hover:bg-slate-50 cursor-pointer transition ${
-                              isChecked ? 'bg-teal-50/20' : ''
+                              isChecked ? 'bg-teal-50/30' : ''
                             }`}
                           >
                             <td className="p-2.5 text-center" onClick={(e) => e.stopPropagation()}>
@@ -472,14 +604,27 @@ export function EstructurasPreciosModal({
                                 </div>
                               </div>
                             </td>
+                            <td className="p-2.5 text-slate-600 font-medium">
+                              {p.categoria_nombre || 'General'}
+                            </td>
                             <td className="p-2.5 text-right font-black text-slate-900">
                               ${Number(p.precio_venta).toLocaleString('es-AR')}
                             </td>
-                            <td className="p-2.5 text-[11px] text-slate-500 font-medium">
-                              {p.precios_cantidad && p.precios_cantidad.length > 0 ? (
-                                p.precios_cantidad.map((e) => `≥${e.cantidad}: $${e.precio}`).join(' | ')
+                            <td className="p-2.5 text-[11px] font-medium">
+                              {tieneEsta ? (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-teal-50 text-teal-700 border border-teal-200">
+                                  ✓ Tiene esta estructura
+                                </span>
+                              ) : p.estructura_precio_id ? (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                                  Otra estructura (#{p.estructura_precio_id})
+                                </span>
+                              ) : p.precios_cantidad && p.precios_cantidad.length > 0 ? (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                                  Personalizada ({p.precios_cantidad.length})
+                                </span>
                               ) : (
-                                <span className="text-slate-300 italic">Sin escala</span>
+                                <span className="text-slate-400 italic">Sin estructura</span>
                               )}
                             </td>
                             <td className="p-2.5 text-[11px] font-black text-emerald-800">

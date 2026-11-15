@@ -153,24 +153,37 @@ class EstructurasPrecioRepository
     }
 
     /**
-     * Devuelve los productos asociados a una estructura
+     * Devuelve los productos asociados a una estructura, o todos los productos si estructuraId <= 0
      */
     public function getProductosByEstructura(int $estructuraId): array
     {
-        $stmt = $this->db->prepare("
-            SELECT p.id, p.nombre, p.sku, p.precio_venta, p.precio_costo, p.imagen_url, p.imagenes, 
-                   p.precios_cantidad, p.estructura_precio_id, c.nombre AS categoria_nombre
-            FROM productos p
-            LEFT JOIN categorias_producto c ON c.id = p.categoria_id
-            WHERE p.estructura_precio_id = ? AND p.activo = 1
-            ORDER BY p.nombre ASC
-        ");
-        $stmt->execute([$estructuraId]);
+        if ($estructuraId > 0) {
+            $stmt = $this->db->prepare("
+                SELECT p.id, p.nombre, p.sku, p.precio_venta, p.precio_costo, p.imagen_url, p.imagenes, 
+                       p.precios_cantidad, p.estructura_precio_id, p.categoria_id, c.nombre AS categoria_nombre
+                FROM productos p
+                LEFT JOIN categorias_producto c ON c.id = p.categoria_id
+                WHERE p.estructura_precio_id = ? AND p.activo = 1
+                ORDER BY p.nombre ASC
+            ");
+            $stmt->execute([$estructuraId]);
+        } else {
+            $stmt = $this->db->prepare("
+                SELECT p.id, p.nombre, p.sku, p.precio_venta, p.precio_costo, p.imagen_url, p.imagenes, 
+                       p.precios_cantidad, p.estructura_precio_id, p.categoria_id, c.nombre AS categoria_nombre
+                FROM productos p
+                LEFT JOIN categorias_producto c ON c.id = p.categoria_id
+                WHERE p.activo = 1
+                ORDER BY p.nombre ASC
+            ");
+            $stmt->execute();
+        }
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
         foreach ($rows as &$r) {
             $r['id'] = (int)$r['id'];
             $r['precio_venta'] = (float)$r['precio_venta'];
+            $r['categoria_id'] = $r['categoria_id'] !== null ? (int)$r['categoria_id'] : null;
             $r['estructura_precio_id'] = $r['estructura_precio_id'] !== null ? (int)$r['estructura_precio_id'] : null;
             $dec = is_string($r['precios_cantidad']) ? json_decode($r['precios_cantidad'], true) : $r['precios_cantidad'];
             $r['precios_cantidad'] = is_array($dec) ? array_values($dec) : [];
@@ -211,3 +224,4 @@ class EstructurasPrecioRepository
         return $stmt->rowCount();
     }
 }
+

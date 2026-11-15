@@ -413,35 +413,44 @@ export default function TiendaAdminPage() {
     <div className="p-6 space-y-6">
       {/* Screen Web UI (Hidden during window.print()) */}
       <div className="print:hidden space-y-6">
-        {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-xs">
-        <div>
-          <div className="flex items-center gap-2">
-            <Store className="h-6 w-6 text-primary" />
-            <h1 className="text-2xl font-black text-slate-900">Gestión de Tienda Pública</h1>
-            <Link to="/devoluciones" className="text-sm font-bold underline">Solicitudes de devolución</Link>
+      {/* Header Compacto */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-white px-5 py-3.5 rounded-2xl border border-slate-200 shadow-xs">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-xl bg-primary/10 text-primary">
+            <Store className="h-5 w-5" />
           </div>
-          <p className="text-xs text-slate-500 mt-1">
-            Administra los productos del catálogo web, realiza acciones masivas de precios, stock y categorías.
-          </p>
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-lg font-black text-slate-900 leading-tight">Gestión de Tienda</h1>
+              <span className="text-[10px] font-bold bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">
+                {products.length} productos
+              </span>
+              <Link to="/devoluciones" className="text-xs font-bold text-indigo-600 hover:underline ml-2">
+                Devoluciones
+              </Link>
+            </div>
+            <p className="text-[11px] text-slate-500">
+              Catálogo web, escalas de precios por volumen, ofertas y stock.
+            </p>
+          </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2">
           {/* Menu Desplegable de Informes */}
           <div className="relative">
             <button
               onClick={() => setPrintDropdownOpen(!printDropdownOpen)}
               disabled={isPreparingPrint}
-              className="flex items-center gap-2 px-4 py-2.5 bg-[#6B66C8] hover:bg-[#5752B3] text-white text-xs font-bold rounded-xl shadow-md transition active:scale-95 cursor-pointer disabled:opacity-75"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#6B66C8] hover:bg-[#5752B3] text-white text-xs font-bold rounded-xl shadow-xs transition active:scale-95 cursor-pointer disabled:opacity-75"
               title="Seleccionar tipo de informe a imprimir"
             >
               {isPreparingPrint ? (
-                <RefreshCw className="h-4 w-4 animate-spin" />
+                <RefreshCw className="h-3.5 w-3.5 animate-spin" />
               ) : (
-                <Printer className="h-4 w-4" />
+                <Printer className="h-3.5 w-3.5" />
               )}
-              <span>{isPreparingPrint ? 'Comprimiendo PDF...' : 'Imprimir Informe'}</span>
-              <ChevronDown className="h-3.5 w-3.5 ml-0.5" />
+              <span>{isPreparingPrint ? 'Comprimiendo...' : 'Informes'}</span>
+              <ChevronDown className="h-3 w-3" />
             </button>
 
             {printDropdownOpen && (
@@ -503,51 +512,49 @@ export default function TiendaAdminPage() {
               </div>
             )}
           </div>
+
           <button
             onClick={() => setIsEstructurasModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-extrabold rounded-xl shadow-md transition"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-extrabold rounded-xl shadow-xs transition"
             title="Gestionar estructuras y escalas de precios por volumen en lote"
           >
-            <Boxes className="h-4 w-4" />
+            <Boxes className="h-3.5 w-3.5" />
             <span>Escalas por Volumen</span>
           </button>
+
           <button
             onClick={() => setMetaSyncModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-emerald-600 via-teal-600 to-indigo-600 hover:from-emerald-500 hover:to-indigo-500 text-white text-xs font-extrabold rounded-xl shadow-md transition"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-emerald-600 via-teal-600 to-indigo-600 hover:from-emerald-500 hover:to-indigo-500 text-white text-xs font-extrabold rounded-xl shadow-xs transition"
             title="Sincronizar catálogo con WhatsApp Business, Instagram Shopping y Facebook Shop"
           >
-            <Share2 className="h-4 w-4" />
-            <span>Sincronizar Meta (WA / IG / FB)</span>
+            <Share2 className="h-3.5 w-3.5" />
+            <span>Sincronizar Meta</span>
           </button>
+
           <Link
             to="/visitas"
-            className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-extrabold rounded-xl shadow-md transition"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition"
           >
-            <Activity className="h-4 w-4" />
-            <span>Métricas & Visitas</span>
+            <Activity className="h-3.5 w-3.5 text-purple-600" />
+            <span>Métricas</span>
           </Link>
-          <Link
-            to="/tienda-builder"
-            className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-cyan-600 to-cyan-500 hover:from-cyan-500 hover:to-cyan-400 text-white text-xs font-extrabold rounded-xl shadow-md transition"
-          >
-            <Sparkles className="h-4 w-4" />
-            <span>Editor Visual (Elementor)</span>
-          </Link>
+
           <a
             href="/tienda"
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-2 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition"
           >
-            <ExternalLink className="h-4 w-4" />
-            <span>Ver Tienda en Vivo</span>
+            <ExternalLink className="h-3.5 w-3.5" />
+            <span>Ver Tienda</span>
           </a>
+
           <button
             onClick={fetchProducts}
-            className="p-2.5 bg-white border border-slate-200 hover:bg-slate-50 rounded-xl text-slate-600 transition"
+            className="p-1.5 bg-white border border-slate-200 hover:bg-slate-50 rounded-xl text-slate-600 transition"
             title="Recargar catálogo"
           >
-            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
           </button>
         </div>
       </div>
