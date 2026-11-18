@@ -532,6 +532,12 @@ export default function ProductosPage() {
               const sumPiezasVenta = parsedPiezas.reduce((acc, pz) => acc + (Number(pz.precio) || 0), 0)
               const sumPiezasCosto = parsedPiezas.reduce((acc, pz) => acc + (Number(pz.precio_costo) || 0), 0)
 
+              const parsedEscalas: any[] = Array.isArray(p.precios_cantidad)
+                ? p.precios_cantidad
+                : typeof p.precios_cantidad === 'string' && (p.precios_cantidad as string).trim()
+                ? (() => { try { return JSON.parse(p.precios_cantidad as string) } catch { return [] } })()
+                : []
+
               const costoVal = sumPiezasCosto > 0 ? sumPiezasCosto : Number(p.precio_costo || 0)
               const ventaVal = sumPiezasVenta > 0 ? sumPiezasVenta : Number(p.precio_venta || 0)
               const mayoristaVal = (p.precio_mayorista && Number(p.precio_mayorista) > 0)
@@ -548,6 +554,11 @@ export default function ProductosPage() {
                     <td className="p-2 border border-slate-300 font-bold text-slate-900">
                       {p.nombre} {p.variante ? `(${p.variante})` : ''}
                       {p.sku && <span className="text-[9px] text-slate-500 block">SKU: {p.sku}</span>}
+                      {parsedEscalas.length > 0 && (
+                        <span className="inline-block bg-teal-50 text-teal-800 border border-teal-200 text-[9px] font-bold px-1.5 py-0.2 rounded mt-1">
+                          📦 {parsedEscalas.length} escalas de volumen
+                        </span>
+                      )}
                     </td>
                     <td className="p-2 border border-slate-300">{p.categoria_nombre || p.categoria?.nombre || '-'}</td>
                     <td className="p-2 border border-slate-300">{dimStr}</td>
@@ -556,6 +567,20 @@ export default function ProductosPage() {
                     <td className="p-2 border border-slate-300 text-right font-black text-indigo-700">${mayoristaVal.toLocaleString('es-AR')}</td>
                     <td className="p-2 border border-slate-300 text-center">{p.stock_actual}</td>
                   </tr>
+                  {parsedEscalas.length > 0 && (
+                    <tr className="bg-teal-50/50 border-b border-slate-300">
+                      <td colSpan={7} className="p-2 pl-6 border border-slate-300 text-[10px]">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-extrabold text-teal-900 uppercase">📦 Escalas de precios por volumen:</span>
+                          {parsedEscalas.map((esc: any, idx: number) => (
+                            <span key={idx} className="bg-white text-teal-900 font-bold px-2 py-0.5 rounded border border-teal-200 shadow-2xs">
+                              ≥ {esc.cantidad} un: <strong>${Number(esc.precio).toLocaleString('es-AR')}</strong>
+                            </span>
+                          ))}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
                   {parsedPiezas.length > 0 && (
                     <tr className="bg-slate-50/90 border-b border-slate-300">
                       <td colSpan={7} className="p-2 pl-6 border border-slate-300 text-[10px]">

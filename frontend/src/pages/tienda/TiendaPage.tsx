@@ -81,6 +81,7 @@ export interface StoreProduct {
   colors?: (string | { name: string; hex: string })[];
   figuras_por_kit?: number | null;
   piezas?: { id: string; nombre: string; precio: number; precio_costo?: number; medidas?: string; imagen_url?: string }[];
+  precios_cantidad?: { cantidad: number; precio: number }[] | string;
   description: string;
   weightGrams?: number;
   size?: string;
@@ -2699,6 +2700,29 @@ export default function TiendaPage() {
                         ))}
                       </div>
                     )}
+                    {(() => {
+                      const parsedEscalas = Array.isArray(p.precios_cantidad)
+                        ? p.precios_cantidad
+                        : (typeof p.precios_cantidad === 'string' && (p.precios_cantidad as string).trim())
+                        ? (() => { try { return JSON.parse(p.precios_cantidad as string) } catch { return [] } })()
+                        : []
+                      if (!parsedEscalas || parsedEscalas.length === 0) return null
+                      return (
+                        <div className="mt-2 pt-1.5 border-t border-slate-100 text-[9px] text-slate-700 space-y-0.5">
+                          <p className="font-extrabold text-teal-800 uppercase flex items-center gap-1">
+                            <span>📦 Precios por cantidad (escalas):</span>
+                          </p>
+                          <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 pt-0.5">
+                            {parsedEscalas.map((esc: any, eIdx: number) => (
+                              <div key={eIdx} className="flex items-center justify-between bg-teal-50/70 px-1.5 py-0.5 rounded border border-teal-200">
+                                <span className="font-bold text-teal-950">≥ {esc.cantidad} un.</span>
+                                <span className="font-black text-teal-800">${Number(esc.precio).toLocaleString('es-AR')}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )
+                    })()}
                   </div>
 
                   <div className="mt-3 pt-2 border-t border-slate-200 flex items-center justify-between">
@@ -2709,10 +2733,34 @@ export default function TiendaPage() {
                         </span>
                       )}
                       <span className="text-xs font-black text-slate-900">
-                        {p.piezas && p.piezas.length > 0 && <span className="text-[10px] text-slate-400 font-bold mr-1">Desde</span>}
-                        ${((p.piezas && p.piezas.length > 0)
-                          ? (Math.min(...p.piezas.map(pz => Number(pz.precio) || 0).filter(pr => pr > 0)) || p.price)
-                          : p.price).toLocaleString('es-AR')}
+                        {(() => {
+                          const parsedEscalas = Array.isArray(p.precios_cantidad)
+                            ? p.precios_cantidad
+                            : (typeof p.precios_cantidad === 'string' && (p.precios_cantidad as string).trim())
+                            ? (() => { try { return JSON.parse(p.precios_cantidad as string) } catch { return [] } })()
+                            : []
+                          const hasPiezas = p.piezas && p.piezas.length > 0
+                          const hasEscalas = parsedEscalas && parsedEscalas.length > 0
+                          if (hasPiezas || hasEscalas) {
+                            return <span className="text-[10px] text-slate-400 font-bold mr-1">Desde</span>
+                          }
+                          return null
+                        })()}
+                        ${(() => {
+                          const parsedEscalas = Array.isArray(p.precios_cantidad)
+                            ? p.precios_cantidad
+                            : (typeof p.precios_cantidad === 'string' && (p.precios_cantidad as string).trim())
+                            ? (() => { try { return JSON.parse(p.precios_cantidad as string) } catch { return [] } })()
+                            : []
+                          if (p.piezas && p.piezas.length > 0) {
+                            return (Math.min(...p.piezas.map(pz => Number(pz.precio) || 0).filter(pr => pr > 0)) || p.price).toLocaleString('es-AR')
+                          }
+                          if (parsedEscalas && parsedEscalas.length > 0) {
+                            const minEsc = Math.min(...parsedEscalas.map((e: any) => Number(e.precio) || 0).filter((pr: number) => pr > 0))
+                            return (minEsc && minEsc > 0 ? minEsc : p.price).toLocaleString('es-AR')
+                          }
+                          return p.price.toLocaleString('es-AR')
+                        })()}
                       </span>
                     </div>
                     <span className="text-[9px] font-bold text-slate-400">3LD Taller 3D</span>

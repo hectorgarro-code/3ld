@@ -1627,6 +1627,12 @@ export default function TiendaAdminPage() {
               const sumPiezasVenta = parsedPiezas.reduce((acc, pz) => acc + (Number(pz.precio) || 0), 0)
               const sumPiezasCosto = parsedPiezas.reduce((acc, pz) => acc + (Number(pz.precio_costo) || 0), 0)
 
+              const parsedEscalas: any[] = Array.isArray(p.precios_cantidad)
+                ? p.precios_cantidad
+                : typeof p.precios_cantidad === 'string' && p.precios_cantidad.trim()
+                ? (() => { try { return JSON.parse(p.precios_cantidad) } catch { return [] } })()
+                : []
+
               const costo = sumPiezasCosto > 0 ? sumPiezasCosto : (p.precio_costo || 0)
               const venta = sumPiezasVenta > 0 ? sumPiezasVenta : (p.precio_venta || 0)
               const mayorista = (p.precio_mayorista && Number(p.precio_mayorista) > 0)
@@ -1660,6 +1666,15 @@ export default function TiendaAdminPage() {
                       <p className="text-xs text-slate-500 font-mono mt-1">
                         SKU: {p.sku || '-'} · {p.categoria_nombre || 'Sin cat.'} {p.subcategoria ? '(' + p.subcategoria + ')' : ''}
                       </p>
+                      {p.estructura_precio_nombre ? (
+                        <span className="inline-block bg-teal-50 text-teal-800 border border-teal-200 text-[10px] font-black px-2 py-0.5 rounded-md mt-1">
+                          📦 Escala: {p.estructura_precio_nombre}
+                        </span>
+                      ) : parsedEscalas.length > 0 ? (
+                        <span className="inline-block bg-teal-50 text-teal-800 border border-teal-200 text-[10px] font-black px-2 py-0.5 rounded-md mt-1">
+                          📦 {parsedEscalas.length} escalas de volumen
+                        </span>
+                      ) : null}
                     </td>
                     <td className="p-2 align-middle text-xs">
                       <p className="font-bold text-slate-800 text-sm">{dimensionsStr}</p>
@@ -1685,11 +1700,38 @@ export default function TiendaAdminPage() {
                               Margen: +{margenPct}%
                             </p>
                           )}
+                          {parsedEscalas.length > 0 && (
+                            <div className="mt-1.5 pt-1.5 border-t border-slate-200 text-left bg-teal-50/80 p-1.5 rounded-lg border border-teal-200">
+                              <p className="text-[10px] font-black text-teal-900 uppercase tracking-tight flex items-center gap-1">
+                                <span>📦 Precios por volumen:</span>
+                              </p>
+                              <div className="space-y-0.5 mt-0.5">
+                                {parsedEscalas.map((esc: any, eIdx: number) => (
+                                  <div key={eIdx} className="flex items-center justify-between text-[10px]">
+                                    <span className="font-semibold text-slate-700">≥ {esc.cantidad} un:</span>
+                                    <span className="font-black text-teal-800">
+                                      ${Number(esc.precio).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       ) : (
-                        <p className="font-black text-slate-900 text-base">
-                          {'$' + costo.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </p>
+                        <div className="space-y-1">
+                          <p className="font-black text-slate-900 text-base">
+                            {'$' + costo.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </p>
+                          {parsedEscalas.length > 0 && (
+                            <div className="mt-1 text-left bg-teal-50/80 p-1.5 rounded-lg border border-teal-200 text-[10px]">
+                              <p className="font-black text-teal-900 uppercase tracking-tight">📦 Escalas ({parsedEscalas.length}):</p>
+                              <p className="text-[9px] text-teal-800 font-semibold mt-0.5">
+                                {parsedEscalas.map((e: any) => `≥${e.cantidad} un: $${Number(e.precio).toLocaleString('es-AR')}`).join(' | ')}
+                              </p>
+                            </div>
+                          )}
+                        </div>
                       )}
                     </td>
                   </tr>
