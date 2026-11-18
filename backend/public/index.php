@@ -565,8 +565,22 @@ $app->group('/api/v1', function (RouteCollectorProxy $api) use ($config, $auth, 
         });
     })->add($auth);
 
+    // Cotizaciones de MiCorreo para el punto de venta
+    $api->get('/envios/mi-correo/estado', function ($req, $res) {
+        return (new \App\Controllers\MiCorreoController())->availability();
+    })->add($auth);
+    $api->post('/envios/mi-correo/cotizar', function ($req, $res) {
+        return (new \App\Controllers\MiCorreoController())->quote($req);
+    })->add($auth);
+
     // ── Config / Costos (admin only) ──────────────────────────────────────────
     $api->group('/config', function (RouteCollectorProxy $g) use ($container) {
+        $g->get('/mi-correo', function ($req, $res) {
+            return (new \App\Controllers\MiCorreoController())->status($req);
+        });
+        $g->post('/mi-correo', function ($req, $res) {
+            return (new \App\Controllers\MiCorreoController())->save($req);
+        });
         $g->get('/meta-capi', function ($req,$res) { return (new \App\Controllers\MetaTrackingController())->status($req,$res); });
         $g->post('/meta-capi', function ($req,$res) { return (new \App\Controllers\MetaTrackingController())->save($req,$res); });
         $g->get('/costos',  function ($req, $res) use ($container) {
@@ -685,6 +699,9 @@ $app->get('/api/v1/tienda/mercadopago/status', function ($req, $res) use ($conta
     return $container->get(MercadoPagoController::class)->getPublicStatus($req, $res);
 });
 $app->post('/api/v1/tienda/arrepentimiento', function ($req, $res) { return (new \App\Controllers\ReturnController())->create($req, $res); });
+$app->get('/api/v1/tienda/envios/mi-correo', function ($req, $res) {
+    return (new \App\Controllers\MiCorreoController())->availability();
+});
 $app->post('/api/v1/tienda/checkout/cotizar', function ($req, $res) use ($container) {
     return $container->get(MercadoPagoController::class)->quoteCheckout($req, $res);
 });

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { estimateDelivery } from '@/lib/deliveryEstimate'
 
-type Props = { requiresManufacturing?: boolean; method?: 'pickup' | 'shipping'; compact?: boolean }
+type Props = { requiresManufacturing?: boolean; method?: 'pickup' | 'shipping' | 'courier'; compact?: boolean }
 
 export function DeliveryEstimate({ requiresManufacturing = true, method = 'shipping', compact = false }: Props) {
   const [now, setNow] = useState(() => new Date())
@@ -12,6 +12,9 @@ export function DeliveryEstimate({ requiresManufacturing = true, method = 'shipp
     return () => { window.clearInterval(timer); window.removeEventListener('focus', update) }
   }, [])
   const estimate = estimateDelivery(now, requiresManufacturing)
+  if (method === 'courier') return <p className="my-2 text-xs text-slate-600" data-testid="delivery-estimate">
+    Despacho estimado desde {estimate.readyLabel}. El plazo de Correo Argentino empieza cuando despachamos el pedido.
+  </p>
   const conditions = <>
     Si confirmás el pedido hoy. {requiresManufacturing ? 'Incluye 4 días de fabricación, de lunes a viernes. ' : 'Para la disponibilidad en stock indicada. '}
     {method === 'shipping' ? 'Válida en nuestra zona de La Costa, excepto Costa Esmeralda, con entrega coordinada martes o jueves. ' : 'Te avisamos cuando esté listo para coordinar el retiro. '}

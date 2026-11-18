@@ -186,10 +186,12 @@ class MercadoPagoController
     {
         try {
             $body = (array)$request->getParsedBody();
-            return Response::success((new CheckoutQuote($this->db))->calculate((array)($body['items'] ?? []), (array)($body['envio'] ?? [])))
+            return Response::success((new CheckoutQuote($this->db))->calculate((array)($body['items'] ?? []), (array)($body['envio'] ?? []), false))
                 ->withHeader('Cache-Control', 'no-store');
         } catch (\InvalidArgumentException $e) {
             return Response::error($e->getMessage(), 400);
+        } catch (\RuntimeException $e) {
+            return Response::error('No se pudo obtener una tarifa de Correo Argentino. Intentá nuevamente o consultanos por WhatsApp.', 502);
         } catch (Throwable $e) {
             return Response::error('No se pudo cotizar el carrito. Intentá nuevamente.', 500);
         }
@@ -215,6 +217,8 @@ class MercadoPagoController
                 $quote = (new CheckoutQuote($this->db))->calculate($items, $envio);
             } catch (\InvalidArgumentException $e) {
                 return Response::error($e->getMessage(), 400);
+            } catch (\RuntimeException $e) {
+                return Response::error('No se pudo verificar la tarifa de Correo Argentino. Volvé a cotizar antes de pagar.', 502);
             }
             // El cliente confirma una cotización previa. No crear nada si cambió.
             $expected = $body['expected_total'] ?? null;
@@ -225,6 +229,9 @@ class MercadoPagoController
             $subtotal = $quote['subtotal'];
             $costoEnvio = $quote['shipping']['cost'];
             $envio['tipo'] = $quote['shipping']['service'];
+            if ($quote['shipping']['provider'] !== 'pickup') {
+                $envio['direccion'] = trim((string) $envio['direccion']) . ' · CP ' . trim((string) $envio['postal_code']);
+            }
             $notas = trim((string)($body['notas'] ?? ''));
 
             // 1. Obtener o crear cliente

@@ -32,7 +32,6 @@ import { useQuery } from '@tanstack/react-query';
 import { useCartStore, type CartItem } from '@/store/cartStore';
 import api from '@/lib/api';
 import { optimizeImagesForPrint } from '@/lib/imageOptimization';
-import { calcularTarifaCorreoArgentino } from '@/lib/correoArgentino';
 import { CustomerShareModal } from '@/components/tienda/CustomerShareModal';
 import { ProductStoreDetailModal } from '@/components/tienda/ProductStoreDetailModal';
 import { getThumbnailUrl } from '@/lib/utils';
@@ -471,15 +470,36 @@ export default function TiendaPage() {
       // El cálculo manual sigue disponible sin almacenamiento local.
     }
   }, [cart.length, postalCode]);
-  const isOutsideDeliveryArea = postalCode.trim().length >= 4 && !localDeliveryPostalCodes.includes(postalCode.trim());
-  const [shippingQuote, setShippingQuote] = useState<{
-    serviceName: string;
-    price: number;
-    estimatedDays: string;
-    isFree: boolean;
-    weightKg?: number;
-  } | null>(null);
+  type CheckoutShipping = {
+    cost: number;
+    service: string;
+    provider: 'pickup' | 'local' | 'correo';
+    expires_at?: number;
+    days_min?: number;
+    days_max?: number;
+  };
+  const destination = postalCode.trim();
+  const validPostalCode = /^[0-9]{4}$/.test(destination);
+  const isLocalDestination = localDeliveryPostalCodes.includes(destination);
+  const [correoEnabled, setCorreoEnabled] = useState(false);
+  const [preferCorreo, setPreferCorreo] = useState(false);
+  const shippingProvider = isLocalDestination && !preferCorreo ? 'local' : 'correo';
+  const isOutsideDeliveryArea = validPostalCode && !isLocalDestination && !correoEnabled;
+  const checkoutItems = useMemo(() => cart.map(item => ({
+    id: item.id,
+    quantity: item.qty,
+    color: item.color,
+    selected_piece_ids: item.selectedPieceIds || [],
+  })), [cart]);
+  const shippingKey = JSON.stringify([destination, shippingProvider, checkoutItems]);
+  const [postalQuote, setPostalQuote] = useState<{ key: string; rate: CheckoutShipping } | null>(null);
   const [isCalculatingShipping, setIsCalculatingShipping] = useState(false);
+  const [shippingError, setShippingError] = useState<{ key: string; message: string } | null>(null);
+  useEffect(() => {
+    api.get('/tienda/envios/mi-correo')
+      .then(({ data }) => setCorreoEnabled(data.data?.configured === true))
+      .catch(() => {});
+  }, []);
 
   // Mercado Pago States & Comprobante
   const [isMpEnabled, setIsMpEnabled] = useState(false);
@@ -612,6 +632,12 @@ export default function TiendaPage() {
   const handleMercadoPagoCheckout = async (e?: React.FormEvent) => {
     e?.preventDefault();
     if (cart.length === 0) return;
+    if (deliveryMethod === 'shipping' && (!shippingQuote || (shippingQuote.expiresAt && shippingQuote.expiresAt <= Date.now() / 1000))) {
+      setIsBuyerModalOpen(false);
+      setIsCartOpen(true);
+      showToast('Calculá el envío antes de continuar con el pago.', 'info');
+      return;
+    }
 
     if (!buyerInfo.nombre.trim() || !buyerInfo.telefono.trim()) {
       setIsBuyerModalOpen(true);
@@ -626,46 +652,23 @@ export default function TiendaPage() {
 
     setIsProcessingMp(true);
     try {
-      const itemsPayload = cart.map(item => ({
-        id: item.id,
-        title: item.title,
-        unit_price: item.price,
-        quantity: item.qty,
-        color: item.color,
-        image: item.image,
-        selected_piece_ids: item.selectedPieceIds || [],
-      }));
-
-      const envioPayload = deliveryMethod === 'pickup'
-        ? {
-            costo: 0,
-            tipo: 'Retiro en Taller (Salta 3169, San Bernardo)',
-            direccion: 'Salta 3169, San Bernardo del Tuyú',
-          }
-        : (shippingQuote ? {
-            costo: shippingQuote.price,
-            tipo: shippingQuote.serviceName,
-            direccion: buyerInfo.direccion,
-          } : {
-            costo: 0,
-            tipo: 'Envío a coordinar',
-            direccion: buyerInfo.direccion,
-          });
-
-      const verifiedShipping = { ...envioPayload, method: deliveryMethod, postal_code: postalCode.trim() };
-      const quotation = await api.post('/tienda/checkout/cotizar', { items: itemsPayload, envio: verifiedShipping });
+      const verifiedShipping = deliveryMethod === 'pickup'
+        ? { method: 'pickup', direccion: 'Salta 3169, San Bernardo del Tuyú' }
+        : { method: 'shipping', provider: shippingProvider, postal_code: destination, direccion: buyerInfo.direccion };
+      const quotation = await api.post('/tienda/checkout/cotizar', { items: checkoutItems, envio: verifiedShipping });
       const quote = quotation.data?.data;
       if (!quote || !quotation.data?.success) throw new Error('No se pudo confirmar el importe.');
       const shownTotal = cartSubtotal + (deliveryMethod === 'shipping' ? (shippingQuote?.price || 0) : 0);
-      if (Math.round(shownTotal * 100) !== Math.round(Number(quote.total) * 100)
+      if ((deliveryMethod === 'shipping' && shippingQuote?.serviceName !== quote.shipping.service)
+        || Math.round(shownTotal * 100) !== Math.round(Number(quote.total) * 100)
         || cart.some((item, index) => Math.round(item.price * 100) !== Math.round(Number(quote.items[index]?.unit_price) * 100))) {
         applyQuote(quote.items.map((item: { unit_price: number }) => Number(item.unit_price)));
-        if (deliveryMethod === 'shipping') setShippingQuote({ serviceName: quote.shipping.service, price: quote.shipping.cost, estimatedDays: 'Según destino', isFree: quote.shipping.cost === 0 });
+        if (quote.shipping.provider === 'correo') setPostalQuote({ key: shippingKey, rate: quote.shipping });
         showToast('Actualizamos los precios y el envío. Revisá el total y volvé a confirmar el pago.', 'info');
         return;
       }
       const res = await api.post('/tienda/mercadopago/crear-preferencia', {
-        items: itemsPayload,
+        items: checkoutItems,
         envio: verifiedShipping,
         expected_total: quote.total,
         analytics: getCheckoutAnalyticsIdentity(),
@@ -690,6 +693,11 @@ export default function TiendaPage() {
       }
     } catch (err: any) {
       trackEvent({ tipo: 'pago_error', metadata: { etapa: 'checkout' } });
+      if (err?.response?.status === 409) {
+        setPostalQuote(null);
+        setIsBuyerModalOpen(false);
+        setIsCartOpen(true);
+      }
       showToast(err?.response?.data?.error || err?.response?.data?.message || 'Error al conectar con Mercado Pago', 'error');
     } finally {
       setIsProcessingMp(false);
@@ -1058,6 +1066,19 @@ export default function TiendaPage() {
   }, [isCartOpen, cartItemsCount]);
 
   const isFreeLocalShipping = cartSubtotal >= freeShippingThreshold;
+  const liveRate = postalQuote?.key === shippingKey && (postalQuote.rate.expires_at ?? 0) > Date.now() / 1000
+    ? postalQuote.rate
+    : null;
+  const shippingQuote = deliveryMethod !== 'shipping' || !validPostalCode ? null : shippingProvider === 'local'
+    ? { serviceName: 'Envío Local La Costa / San Bernardo', price: isFreeLocalShipping ? 0 : 2500, estimatedDays: null, expiresAt: null }
+    : liveRate ? {
+      serviceName: liveRate.service,
+      price: liveRate.cost,
+      estimatedDays: liveRate.days_min && liveRate.days_max
+        ? `${liveRate.days_min} a ${liveRate.days_max} días hábiles desde el despacho`
+        : null,
+      expiresAt: liveRate.expires_at,
+    } : null;
 
   const mobileFeaturedCategories = useMemo(() => {
     const nonAll = categories.filter((c) => c.id !== 'all');
@@ -1181,87 +1202,29 @@ export default function TiendaPage() {
     };
   }, [filteredProducts, categories]);
 
-  const calculateShippingForCp = (rawCp: string) => {
-    const cp = rawCp.trim();
-    if (!cp || cp.length < 4) return;
-    if (cart.length === 0) {
-      setShippingQuote(null);
+  const handleCalculateShipping = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!validPostalCode) {
+      showToast('Ingresá los cuatro dígitos del código postal de destino.', 'info');
       return;
     }
-
-    const cpNum = parseInt(cp) || 0;
-    if (!localDeliveryPostalCodes.includes(cp)) {
-      setShippingQuote(null);
-      showToast('Entregamos en localidades de La Costa, excepto Costa Esmeralda. Para otra zona, consultanos por WhatsApp antes de pagar.', 'info');
-      return;
-    }
-    const isLocalCost = cp.startsWith('71') || (cpNum >= 7100 && cpNum <= 7119);
-
-    const totalItemsQty = cart.reduce((sum, item) => sum + item.qty, 0);
-    const totalWeightGrams = cart.reduce((sum, item) => {
-      const itemWeight = (item.weightGrams && item.weightGrams > 0) ? item.weightGrams : 120;
-      return sum + itemWeight * item.qty;
-    }, 0);
-
-    // Estimación volumétrica y dimensiones del paquete según unidades
-    const volumeCm3 = Math.max(2250, totalItemsQty * 850);
-    const side = Math.round(Math.cbrt(volumeCm3));
-    const altoCm = Math.max(10, side);
-    const anchoCm = Math.max(15, side);
-    const largoCm = Math.max(15, side);
-
-    if (isLocalCost) {
-      setShippingQuote({
-        serviceName: 'Envío Local La Costa / San Bernardo',
-        price: isFreeLocalShipping ? 0 : 2500,
-        estimatedDays: 'A coordinar: martes y jueves después de las 17 h, una vez listo el pedido',
-        isFree: isFreeLocalShipping
-      });
-    } else {
-      const tarifa = calcularTarifaCorreoArgentino({
-        provinciaCodigo: (cpNum >= 1000 && cpNum <= 1499) ? 'C' : ((cpNum >= 1600 && cpNum <= 1999) || (cpNum >= 6000 && cpNum <= 8999) ? 'B' : ''),
-        codigoPostal: cp,
-        pesoGramos: totalWeightGrams,
-        altoCm,
-        anchoCm,
-        largoCm,
-        deliveryType: 'homeDelivery'
-      });
-
-      setShippingQuote({
-        serviceName: `Correo Argentino a Domicilio (${tarifa.zona})`,
-        price: tarifa.precioFinal,
-        estimatedDays: tarifa.zona === 'Regional (Bs As / CABA)' ? '2 a 4 días hábiles' : '3 a 6 días hábiles',
-        isFree: false,
-        weightKg: tarifa.pesoFacturableKg
-      });
-    }
-  };
-
-  const handleCalculateShipping = (e?: React.FormEvent) => {
-    e?.preventDefault();
-    const cp = postalCode.trim();
-    if (!cp || cp.length < 4) {
-      showToast('Ingresá un código postal local válido (ej: 7111 o 7109)', 'info');
-      return;
-    }
-
+    if (shippingProvider !== 'correo' || !correoEnabled || cart.length === 0) return;
     setIsCalculatingShipping(true);
-    setTimeout(() => {
+    setPostalQuote(null);
+    setShippingError(null);
+    try {
+      const { data } = await api.post('/tienda/checkout/cotizar', {
+        items: checkoutItems,
+        envio: { method: 'shipping', provider: 'correo', postal_code: destination },
+      });
+      setPostalQuote({ key: shippingKey, rate: data.data.shipping });
+    } catch (error: unknown) {
+      const requestError = error as { response?: { data?: { message?: string } } };
+      setShippingError({ key: shippingKey, message: requestError.response?.data?.message || 'No pudimos cotizar el envío. Volvé a intentar.' });
+    } finally {
       setIsCalculatingShipping(false);
-      calculateShippingForCp(cp);
-    }, 350);
-  };
-
-  // Recuperar la cotización con la tarifa actual y actualizarla al cambiar el carrito.
-  useEffect(() => {
-    const cp = postalCode.trim();
-    if (deliveryMethod === 'shipping' && cart.length > 0 && localDeliveryPostalCodes.includes(cp)) {
-      calculateShippingForCp(cp);
-    } else {
-      setShippingQuote(null);
     }
-  }, [cart, isFreeLocalShipping, postalCode, deliveryMethod]);
+  };
 
   const handleWhatsAppCheckout = () => {
     if (cart.length === 0) return;
@@ -2007,17 +1970,51 @@ export default function TiendaPage() {
                     <legend className="float-left mb-3 w-full text-sm font-extrabold text-slate-900">¿Cómo lo recibís?</legend>
                     <div className="clear-both grid grid-cols-2 gap-2 rounded-xl bg-slate-100 p-1">
                       <button type="button" aria-pressed={deliveryMethod === 'pickup'} onClick={() => setDeliveryMethod('pickup')} className={`rounded-lg px-3 py-3 text-sm font-bold transition ${deliveryMethod === 'pickup' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}>Retiro en taller <span className="block text-xs font-normal text-emerald-700">Gratis</span></button>
-                      <button type="button" aria-pressed={deliveryMethod === 'shipping'} onClick={() => setDeliveryMethod('shipping')} className={`rounded-lg px-3 py-3 text-sm font-bold transition ${deliveryMethod === 'shipping' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}>Envío local <span className="block text-xs font-normal">La Costa</span></button>
+                      <button type="button" aria-pressed={deliveryMethod === 'shipping'} onClick={() => setDeliveryMethod('shipping')} className={`rounded-lg px-3 py-3 text-sm font-bold transition ${deliveryMethod === 'shipping' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}>{correoEnabled ? 'Envío a domicilio' : 'Envío local'} <span className="block text-xs font-normal">{correoEnabled ? 'La Costa y todo el país' : 'La Costa'}</span></button>
                     </div>
                     {deliveryMethod === 'pickup' ? <p className="mt-3 text-xs leading-relaxed text-slate-500">Salta 3169, San Bernardo del Tuyú.</p> : (
                       <div className="mt-3 space-y-3">
-                        <p className="text-xs text-slate-500">Cobertura en La Costa, excepto Costa Esmeralda.</p>
-                        <form onSubmit={handleCalculateShipping} className="flex gap-2"><label className="min-w-0 flex-1"><span className="sr-only">Código postal de entrega</span><input aria-describedby={isOutsideDeliveryArea ? 'delivery-coverage-notice' : undefined} inputMode="numeric" value={postalCode} onChange={e => { setPostalCode(e.target.value); setShippingQuote(null); }} placeholder="Código postal · ej. 7111" className="w-full rounded-lg border border-slate-200 bg-white px-3 py-3 text-sm focus:outline-cyan-500" /></label><button disabled={isCalculatingShipping} className="rounded-lg bg-slate-900 px-4 text-sm font-bold text-white disabled:opacity-50">{isCalculatingShipping ? 'Calculando…' : 'Calcular'}</button></form>
+                        <p className="text-xs text-slate-500">
+                          {correoEnabled ? 'Entrega local en La Costa, excepto Costa Esmeralda. Correo Argentino a todo el país.' : 'Cobertura en La Costa, excepto Costa Esmeralda.'}
+                        </p>
+                        <form onSubmit={handleCalculateShipping} className="flex gap-2">
+                          <label className="min-w-0 flex-1">
+                            <span className="sr-only">Código postal de entrega</span>
+                            <input
+                              aria-describedby={isOutsideDeliveryArea ? 'delivery-coverage-notice' : undefined}
+                              inputMode="numeric"
+                              autoComplete="postal-code"
+                              maxLength={4}
+                              value={postalCode}
+                              onChange={event => setPostalCode(event.target.value.replace(/[^0-9]/g, ''))}
+                              placeholder="Código postal · ej. 7111"
+                              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-3 text-sm focus:outline-cyan-500"
+                            />
+                          </label>
+                          {correoEnabled && shippingProvider === 'correo' && (
+                            <button disabled={isCalculatingShipping || !validPostalCode} className="rounded-lg bg-slate-900 px-4 text-sm font-bold text-white disabled:opacity-50">
+                              {isCalculatingShipping ? 'Calculando…' : 'Calcular'}
+                            </button>
+                          )}
+                        </form>
+                        {correoEnabled && isLocalDestination && (
+                          <label className="block text-sm text-slate-700">
+                            Modalidad de entrega
+                            <select value={shippingProvider} onChange={event => setPreferCorreo(event.target.value === 'correo')} className="mt-1 block w-full rounded-lg border border-slate-200 bg-white p-2">
+                              <option value="local">Entrega local en La Costa</option>
+                              <option value="correo">Correo Argentino a domicilio</option>
+                            </select>
+                          </label>
+                        )}
+                        {shippingProvider === 'correo' && shippingError?.key === shippingKey && <p role="alert" className="text-sm text-red-700">{shippingError.message}</p>}
                         {isOutsideDeliveryArea && <p id="delivery-coverage-notice" role="status" className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-3 text-sm leading-relaxed text-amber-900">Este código postal está fuera de nuestra zona de entrega. Podés retirar en el taller o consultarnos por WhatsApp antes de pagar.<a onClick={() => trackEvent({ tipo: 'whatsapp_click', metadata: { origen: 'carrito_fuera_cobertura', motivo: 'consulta_entrega', codigo_postal: postalCode.trim(), articulos: cartItemsCount, valor: cartSubtotal } })} href={`https://wa.me/5492257512597?text=${encodeURIComponent(`¡Hola 3LD! Quisiera consultar si podemos coordinar una entrega al código postal ${postalCode.trim()}. Vi que está fuera de la zona de entrega de la tienda.`)}`} target="_blank" rel="noopener noreferrer" className="mt-3 flex min-h-11 items-center justify-center gap-2 rounded-lg bg-emerald-700 px-4 py-3 font-bold text-white transition hover:bg-emerald-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700"><MessageCircle className="h-4 w-4 shrink-0" />Consultar entrega por WhatsApp</a></p>}
-                        {shippingQuote && <p className="text-sm text-slate-700">Entrega local: <strong>{shippingQuote.price === 0 ? 'gratis' : `$${shippingQuote.price.toLocaleString('es-AR')}`}</strong></p>}
+                        {shippingQuote && <div role="status" className="text-sm text-slate-700">
+                          {shippingQuote.serviceName} · <strong>{shippingQuote.price === 0 ? 'gratis' : `$${shippingQuote.price.toLocaleString('es-AR')}`}</strong>
+                          {shippingQuote.estimatedDays && <p className="text-xs text-slate-500">{shippingQuote.estimatedDays}</p>}
+                        </div>}
                       </div>
                     )}
-                    <div className="mt-3"><DeliveryEstimate compact requiresManufacturing={cart.some(item => !isProductInStock(products.find(p => String(p.id) === String(item.id))))} method={deliveryMethod} /></div>
+                    <div className="mt-3"><DeliveryEstimate compact requiresManufacturing={cart.some(item => !isProductInStock(products.find(p => String(p.id) === String(item.id))))} method={deliveryMethod === 'shipping' && correoEnabled && shippingProvider === 'correo' ? 'courier' : deliveryMethod} /></div>
                   </fieldset>
                   <details className="mt-5 border-t border-slate-100 pt-4 text-sm text-slate-600"><summary className="cursor-pointer">Ver detalle del total</summary><dl className="mt-3 space-y-2"><div className="flex justify-between"><dt>Productos</dt><dd>${cartSubtotal.toLocaleString('es-AR')}</dd></div><div className="flex justify-between"><dt>Entrega</dt><dd>{deliveryMethod === 'pickup' || shippingQuote?.price === 0 ? 'Gratis' : shippingQuote ? `$${shippingQuote.price.toLocaleString('es-AR')}` : 'A calcular'}</dd></div></dl></details>
                 </div>
@@ -2027,7 +2024,7 @@ export default function TiendaPage() {
             {cart.length > 0 && (
               <footer className="max-h-[45dvh] shrink-0 overflow-y-auto border-t border-slate-200 bg-white px-5 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-7" data-testid="cart-checkout-footer">
                 <div className="mb-4 flex items-center justify-between gap-3"><div><p className="text-sm text-slate-500">{deliveryMethod === 'shipping' && !shippingQuote ? 'Subtotal · envío a calcular' : 'Total a pagar'}</p></div><p className="text-2xl font-extrabold tracking-tight text-slate-900">${(cartSubtotal + (deliveryMethod === 'shipping' ? (shippingQuote?.price || 0) : 0)).toLocaleString('es-AR')}</p></div>
-                {isMpEnabled && <button onClick={() => { trackEvent({ tipo: 'iniciar_pago', metadata: { canal: 'mercadopago' } }); if (!buyerInfo.nombre.trim() || !buyerInfo.telefono.trim()) setIsBuyerModalOpen(true); else handleMercadoPagoCheckout(); }} disabled={isProcessingMp} className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#009EE3] px-4 py-3.5 text-sm font-extrabold text-white transition hover:bg-[#0089c7] disabled:opacity-50"><CreditCard className="h-4 w-4" />{isProcessingMp ? 'Conectando…' : 'Continuar con Mercado Pago'}</button>}
+                {isMpEnabled && <button onClick={() => { trackEvent({ tipo: 'iniciar_pago', metadata: { canal: 'mercadopago' } }); if (!buyerInfo.nombre.trim() || !buyerInfo.telefono.trim()) setIsBuyerModalOpen(true); else handleMercadoPagoCheckout(); }} disabled={isProcessingMp || (deliveryMethod === 'shipping' && !shippingQuote)} className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#009EE3] px-4 py-3.5 text-sm font-extrabold text-white transition hover:bg-[#0089c7] disabled:opacity-50"><CreditCard className="h-4 w-4" />{isProcessingMp ? 'Conectando…' : 'Continuar con Mercado Pago'}</button>}
                 <button onClick={() => { setIsCartOpen(false); setIsWhatsAppReviewOpen(true); }} className={`flex w-full items-center justify-center gap-2 rounded-xl px-3 py-3 text-sm font-bold ${isMpEnabled ? 'mt-1 text-emerald-800 hover:bg-emerald-50' : 'bg-emerald-600 text-white hover:bg-emerald-700'}`}><MessageCircle className="h-4 w-4" />{isMpEnabled ? 'O coordinar por WhatsApp' : 'Coordinar pedido por WhatsApp'}</button>
               </footer>
             )}
@@ -2188,7 +2185,7 @@ export default function TiendaPage() {
 
               <DeliveryEstimate
                 requiresManufacturing={cart.some(item => !isProductInStock(products.find(p => String(p.id) === String(item.id))))}
-                method={deliveryMethod}
+                method={deliveryMethod === 'shipping' && correoEnabled && shippingProvider === 'correo' ? 'courier' : deliveryMethod}
               />
 
               <div className="p-3 bg-sky-50 rounded-2xl border border-sky-100 flex items-center justify-between text-xs">

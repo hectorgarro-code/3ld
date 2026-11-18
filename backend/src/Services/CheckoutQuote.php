@@ -12,10 +12,11 @@ final class CheckoutQuote
         if (is_string($value)) $value = json_decode($value, true);
         return is_array($value) ? array_values($value) : [];
     }
-    public function calculate(array $items, array $shipping): array {
+    public function calculate(array $items, array $shipping, bool $requireAddress = true): array {
         if (!$items || count($items) > 100) throw new InvalidArgumentException('Revisá los artículos del carrito.');
         $query = $this->db->prepare('SELECT * FROM productos WHERE id = ? LIMIT 1');
-        $validated = []; $subtotal = 0; $weight = 0; $units = 0;
+        $validated = []; $subtotal = 0; $weight = 0;
+        $volume = 0; $longest = 0; $widest = 0; $tallest = 0;
         foreach ($items as $item) {
             if (!is_array($item)) throw new InvalidArgumentException('Artículo inválido.');
             $id = filter_var($item['id'] ?? null, FILTER_VALIDATE_INT);
@@ -66,32 +67,73 @@ final class CheckoutQuote
                 'quantity'=>$qty,'unit_price'=>$price,'image'=>empty($product['imagen_url']) ? null : (str_starts_with($product['imagen_url'], 'https://') ? $product['imagen_url'] : 'https://3ld.com.ar/' . ltrim($product['imagen_url'], '/')),'selected_piece_ids'=>$selection];
             $subtotal += (int)round($price * 100) * $qty;
             $weight += max(0, (float)($product['peso_gramos'] ?? 0)) > 0 ? (float)$product['peso_gramos'] * $qty : 120 * $qty;
-            $units += $qty;
+            $sides = array_map(
+                static fn (string $field): float => max(0, (float) ($product[$field] ?? 0)) / 10,
+                ['alto_mm', 'ancho_mm', 'profundidad_mm']
+            );
+            sort($sides, SORT_NUMERIC);
+            [$height, $width, $length] = $sides;
+            $longest = max($longest, $length);
+            $widest = max($widest, $width);
+            $tallest = max($tallest, $height);
+            $volume += ($height > 0 ? $height * $width * $length : 850) * $qty;
         }
         $subtotal = $subtotal / 100;
         $delivery = $shipping['method'] ?? '';
         if (!in_array($delivery,['pickup','shipping'],true)) throw new InvalidArgumentException('Elegí retiro o envío.');
-        $cost = 0; $service = 'Retiro en Taller (Salta 3169, San Bernardo)';
+        $quote = ['cost' => 0, 'service' => 'Retiro en Taller (Salta 3169, San Bernardo)', 'provider' => 'pickup'];
         if ($delivery === 'shipping') {
-            $cp = trim((string)($shipping['postal_code'] ?? ''));
-            if (!preg_match('/^[0-9]{4}$/D',$cp)) throw new InvalidArgumentException('Ingresá un código postal argentino de cuatro dígitos.');
-            if (empty(trim((string)($shipping['direccion'] ?? '')))) throw new InvalidArgumentException('Completá la dirección de entrega.');
-            $cpNumber = (int)$cp;
-            if (!in_array($cp, ['7104','7105','7106','7107','7108','7109','7111','7112','7113'], true)) throw new InvalidArgumentException('Entregamos en localidades de La Costa, excepto Costa Esmeralda. Para ese código postal consultá al WhatsApp 2257512597 antes de pagar, o elegí retiro.');
-            if (preg_match('/costa[\s\p{Z}-]*esmeralda/iu', (string)$shipping['direccion'])) throw new InvalidArgumentException('Costa Esmeralda está fuera de nuestra cobertura de entrega. Podés elegir retiro en el taller.');
-            if (str_starts_with($cp,'71')) {
-                $cost = $subtotal >= 30000 ? 0 : 2500; $service = 'Envío Local La Costa / San Bernardo';
+            $cp = trim((string) ($shipping['postal_code'] ?? ''));
+            if (!preg_match('/^[0-9]{4}$/D', $cp)) {
+                throw new InvalidArgumentException('Ingresá un código postal argentino de cuatro dígitos.');
+            }
+            $address = trim((string) ($shipping['direccion'] ?? ''));
+            if ($requireAddress && $address === '') {
+                throw new InvalidArgumentException('Completá la dirección de entrega.');
+            }
+            $isLocal = in_array($cp, ['7104','7105','7106','7107','7108','7109','7111','7112','7113'], true);
+            $isCostaEsmeralda = preg_match('/costa[\s\p{Z}-]*esmeralda/iu', $address);
+            $useCorreo = ($shipping['provider'] ?? '') === 'correo' || !$isLocal;
+            if (!$useCorreo && $isCostaEsmeralda) {
+                throw new InvalidArgumentException('Elegí Correo Argentino o retiro para una entrega en Costa Esmeralda.');
+            }
+
+            if ($useCorreo) {
+                $config = MiCorreo::configuration();
+                if (!$config) {
+                    throw new InvalidArgumentException('Consultanos por WhatsApp para coordinar el envío a ese código postal.');
+                }
+                $side = (int) ceil(pow(max(2250, $volume), 1/3));
+                $length = max(15, $side, (int) ceil($longest + 2));
+                $width = max(15, $side, (int) ceil($widest + 2));
+                $height = max(10, (int) ceil($volume / ($width * $length)) + 2, (int) ceil($tallest + 2));
+                $postalQuote = MiCorreo::quote($config, [
+                    'postal_code' => $cp,
+                    'delivery' => 'D',
+                    'weight' => max(100, (int) ceil($weight)),
+                    'height' => $height,
+                    'width' => $width,
+                    'length' => $length,
+                ]);
+                $rates = $postalQuote['rates'];
+                usort($rates, static fn (array $a, array $b) => [$a['product_type'] !== 'CP', $a['price']] <=> [$b['product_type'] !== 'CP', $b['price']]);
+                $rate = $rates[0];
+                $quote = [
+                    'cost' => $rate['price'],
+                    'service' => $rate['service'] . ' a domicilio',
+                    'provider' => 'correo',
+                    'expires_at' => $postalQuote['expires_at'],
+                    'days_min' => $rate['days_min'],
+                    'days_max' => $rate['days_max'],
+                ];
             } else {
-                $regional = ($cpNumber >= 1000 && $cpNumber <= 2999) || ($cpNumber >= 6000 && $cpNumber <= 8999);
-                $side = (int)round(pow(max(2250,$units * 850),1/3));
-                $billable = max(max($weight,100)/1000, max(10,$side)*max(15,$side)*max(15,$side)/4000);
-                $cost = $regional ? 5200 : 6900;
-                if ($billable > 1 && $billable <= 2) $cost += 1200;
-                elseif ($billable > 2 && $billable <= 5) $cost += 2800;
-                elseif ($billable > 5) $cost += 2800 + ceil($billable - 5) * 900;
-                $service = 'Correo Argentino a Domicilio (' . ($regional ? 'Regional (Bs As / CABA)' : 'Nacional') . ')';
+                $quote = [
+                    'cost' => $subtotal >= 30000 ? 0 : 2500,
+                    'service' => 'Envío Local La Costa / San Bernardo',
+                    'provider' => 'local',
+                ];
             }
         }
-        return ['items'=>$validated,'subtotal'=>$subtotal,'shipping'=>['cost'=>$cost,'service'=>$service], 'total'=>round($subtotal+$cost,2)];
+        return ['items' => $validated, 'subtotal' => $subtotal, 'shipping' => $quote, 'total' => round($subtotal + $quote['cost'], 2)];
     }
 }

@@ -5,6 +5,7 @@ import { useClientes, useCreateCliente } from '@/hooks/useClientes'
 import { useCreatePedido } from '@/hooks/usePedidos'
 import { toast } from '@/store/toastStore'
 import { formatARS } from '@/lib/cost-calculator'
+import api from '@/lib/api'
 import { ProductoFormModal } from '@/components/productos/ProductoFormModal'
 import {
   Search,
@@ -41,6 +42,19 @@ import {
   esClienteMayorista,
 } from '@/lib/pricing'
 
+interface PostalRate {
+  service: string
+  price: number
+  days_min: number
+  days_max: number
+}
+
+interface PostalQuote {
+  key: string
+  expires_at: number
+  rates: PostalRate[]
+}
+
 export interface PosCartItem {
   producto_id: number
   nombre: string
@@ -75,6 +89,11 @@ export default function PosPage() {
 
   // Shipping (Correo Argentino) State
   const [includeShipping, setIncludeShipping] = useState<boolean>(false)
+  const [shippingQuote, setShippingQuote] = useState<PostalQuote | null>(null)
+  const [shippingError, setShippingError] = useState<{ key: string; message: string } | null>(null)
+  const [shippingLoading, setShippingLoading] = useState(false)
+  const [shippingMode, setShippingMode] = useState<'live' | 'estimate' | 'error' | null>(null)
+  const [rateIndex, setRateIndex] = useState(0)
   const [showShippingDetails, setShowShippingDetails] = useState<boolean>(false)
   const [isShippingLabelModalOpen, setIsShippingLabelModalOpen] = useState<boolean>(false)
   const [lastOrderTracking, setLastOrderTracking] = useState<string>('')
@@ -465,19 +484,50 @@ export default function PosPage() {
     }
   }, [totalCartWeightGrams])
 
-  // Shipping rate calculation
-  const shippingCalculation = useMemo(() => {
-    if (!includeShipping) return { precioFinal: 0, pesoFacturableKg: 0, zona: 'Nacional' as const }
-    return calcularTarifaCorreoArgentino({
-      provinciaCodigo: shippingConfig.provinciaCodigo,
-      codigoPostal: shippingConfig.codigoPostal,
-      pesoGramos: shippingConfig.pesoGramos || 350,
-      altoCm: shippingConfig.altoCm || 15,
-      anchoCm: shippingConfig.anchoCm || 20,
-      largoCm: shippingConfig.largoCm || 25,
-      deliveryType: shippingConfig.deliveryType,
-    })
-  }, [includeShipping, shippingConfig])
+  const parcel = {
+    postal_code: shippingConfig.codigoPostal.trim(),
+    delivery: shippingConfig.deliveryType === 'homeDelivery' ? 'D' : 'S',
+    weight: Math.ceil(shippingConfig.pesoGramos),
+    height: shippingConfig.altoCm,
+    width: shippingConfig.anchoCm,
+    length: shippingConfig.largoCm,
+  }
+  const parcelKey = JSON.stringify(parcel)
+  const currentQuote = shippingQuote?.key === parcelKey ? shippingQuote : null
+  const selectedRate = currentQuote && currentQuote.expires_at > Date.now() / 1000
+    ? currentQuote.rates[rateIndex]
+    : undefined
+  const estimate = includeShipping && shippingMode === 'estimate'
+    ? calcularTarifaCorreoArgentino(shippingConfig)
+    : null
+  const shippingPrice = includeShipping ? selectedRate?.price ?? estimate?.precioFinal ?? 0 : 0
+
+  useEffect(() => {
+    if (!includeShipping) return
+    const controller = new AbortController()
+    api.get('/envios/mi-correo/estado', { signal: controller.signal })
+      .then(({ data }) => setShippingMode(data.data.configured ? 'live' : 'estimate'))
+      .catch(() => {
+        if (!controller.signal.aborted) setShippingMode('error')
+      })
+    return () => controller.abort()
+  }, [includeShipping])
+
+  async function quoteShipping() {
+    setShippingLoading(true)
+    setShippingQuote(null)
+    setShippingError(null)
+    try {
+      const { data } = await api.post('/envios/mi-correo/cotizar', parcel)
+      setShippingQuote({ ...data.data, key: parcelKey })
+      setRateIndex(0)
+    } catch (error: unknown) {
+      const requestError = error as { response?: { data?: { message?: string } } }
+      setShippingError({ key: parcelKey, message: requestError.response?.data?.message || 'No se pudo cotizar el envío.' })
+    } finally {
+      setShippingLoading(false)
+    }
+  }
 
   // Calculations
   const subtotal = useMemo(() => {
@@ -486,8 +536,8 @@ export default function PosPage() {
 
   const total = useMemo(() => {
     const base = subtotal * (1 - descuentoPct / 100)
-    return base + (includeShipping ? shippingCalculation.precioFinal : 0)
-  }, [subtotal, descuentoPct, includeShipping, shippingCalculation])
+    return base + shippingPrice
+  }, [subtotal, descuentoPct, shippingPrice])
 
   // Submit POS Sale
   const handleCheckout = async () => {
@@ -499,8 +549,12 @@ export default function PosPage() {
       toast('Seleccioná un cliente para continuar', 'error')
       return
     }
-    if (includeShipping && !shippingConfig.codigoPostal.trim()) {
-      toast('Ingresá el Código Postal para cotizar y despachar con Correo Argentino', 'error')
+    if (includeShipping && shippingMode === 'estimate' && !parcel.postal_code) {
+      toast('Ingresá el código postal de destino.', 'error')
+      return
+    }
+    if (includeShipping && shippingMode !== 'estimate' && (!selectedRate || !currentQuote || currentQuote.expires_at <= Date.now() / 1000)) {
+      toast('Cotizá el envío con Correo Argentino antes de registrar la venta.', 'error')
       return
     }
 
@@ -526,13 +580,14 @@ export default function PosPage() {
         archivo_url: item.archivo_url,
       }))
 
-      if (includeShipping && shippingCalculation.precioFinal > 0) {
+      if (includeShipping && shippingPrice > 0) {
+        const shippingService = selectedRate?.service || 'Correo Argentino (estimado)'
         itemsPayload.push({
           producto_id: null,
-          descripcion: `Envío Correo Argentino - ${shippingConfig.deliveryType === 'homeDelivery' ? 'Domicilio' : 'Sucursal'} (CP ${shippingConfig.codigoPostal})`,
+          descripcion: `${shippingService} - ${shippingConfig.deliveryType === 'homeDelivery' ? 'Domicilio' : 'Sucursal'} (CP ${shippingConfig.codigoPostal})`,
           cantidad: 1,
-          precio_unit: shippingCalculation.precioFinal,
-          subtotal: shippingCalculation.precioFinal,
+          precio_unit: shippingPrice,
+          subtotal: shippingPrice,
           notas: `Correo Arg. ${shippingConfig.deliveryType === 'homeDelivery' ? 'Domicilio' : 'Sucursal'} (CP ${shippingConfig.codigoPostal})`,
         })
       }
@@ -565,6 +620,7 @@ export default function PosPage() {
       setNotasGenerales('')
       setDescuentoPct(0)
       setIncludeShipping(false)
+      setShippingQuote(null)
       setEstadoPedido('aprobado')
     } catch (e: any) {
       toast(e?.response?.data?.message || 'Error al procesar la venta', 'error')
@@ -967,7 +1023,11 @@ export default function PosPage() {
                   checked={includeShipping}
                   onChange={(e) => {
                     setIncludeShipping(e.target.checked)
-                    if (e.target.checked) setShowShippingDetails(true)
+                    if (e.target.checked) {
+                      setShippingMode(null)
+                      setShippingQuote(null)
+                      setShowShippingDetails(true)
+                    }
                   }}
                   className="h-4 w-4 rounded border-slate-300 text-teal-600 focus:ring-teal-500"
                 />
@@ -1157,15 +1217,37 @@ export default function PosPage() {
                   </div>
                 )}
 
-                {/* Rate Summary */}
-                <div className="flex items-center justify-between bg-amber-50/70 border border-amber-200/80 px-2.5 py-1.5 rounded-xl font-bold text-amber-900 text-[11px]">
-                  <span>
-                    Zona: {shippingCalculation.zona} ({shippingCalculation.pesoFacturableKg} kg)
-                  </span>
-                  <span className="text-xs font-black text-amber-800">
-                    +${shippingCalculation.precioFinal.toLocaleString('es-AR')}
-                  </span>
-                </div>
+                {shippingMode === 'estimate' && estimate && (
+                  <p className="rounded-lg bg-amber-50 p-2 text-xs font-bold text-amber-900">
+                    Tarifa estimada · {estimate.zona} · {formatARS(estimate.precioFinal)}
+                  </p>
+                )}
+                {shippingMode === 'error' && <p role="alert" className="text-xs text-red-700">No se pudo consultar MiCorreo. Volvé a activar el envío para reintentar.</p>}
+                {shippingMode === null && <p role="status" className="text-xs text-slate-600">Comprobando conexión con MiCorreo…</p>}
+                {shippingMode === 'live' && <div className="space-y-2">
+                  <button
+                    type="button"
+                    onClick={quoteShipping}
+                    disabled={shippingLoading || !/^[0-9]{4}$/.test(parcel.postal_code)}
+                    className="rounded-lg bg-amber-100 px-3 py-2 text-xs font-bold text-amber-900 disabled:opacity-50"
+                  >
+                    {shippingLoading ? 'Consultando a Correo Argentino…' : 'Cotizar con Correo Argentino'}
+                  </button>
+                  {shippingError?.key === parcelKey && <p role="alert" className="text-xs text-red-700">{shippingError.message}</p>}
+                  {selectedRate && currentQuote && (
+                    <label className="block text-xs font-bold text-slate-700">
+                      Servicio de Correo Argentino
+                      <select value={rateIndex} onChange={event => setRateIndex(Number(event.target.value))} className="mt-1 w-full rounded-lg border p-2">
+                        {currentQuote.rates.map((rate, index) => (
+                          <option key={index} value={index}>
+                            {rate.service} · {formatARS(rate.price)}
+                            {rate.days_min > 0 && rate.days_max >= rate.days_min ? ` · ${rate.days_min}–${rate.days_max} días hábiles` : ''}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  )}
+                </div>}
               </div>
             )}
           </div>
@@ -1178,10 +1260,10 @@ export default function PosPage() {
                 <span>{formatARS(subtotal)}</span>
               </div>
             )}
-            {includeShipping && shippingCalculation.precioFinal > 0 && (
+            {shippingPrice > 0 && (
               <div className="flex justify-between text-xs text-amber-700 font-bold">
                 <span>Envío Correo Argentino</span>
-                <span>+{formatARS(shippingCalculation.precioFinal)}</span>
+                <span>+{formatARS(shippingPrice)}</span>
               </div>
             )}
             <div className="flex justify-between items-center text-slate-900">

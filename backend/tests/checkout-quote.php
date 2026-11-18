@@ -6,8 +6,8 @@ function rejected(callable $action, string $label): void { try { $action(); } ca
 $db = new PDO('sqlite::memory:',null,null,[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,PDO::ATTR_DEFAULT_FETCH_MODE=>PDO::FETCH_ASSOC]);
 $db->exec('CREATE TABLE productos(id INTEGER, nombre TEXT, activo INTEGER, es_tienda INTEGER, es_vendible INTEGER, precio_venta REAL, precio_oferta REAL, piezas TEXT, precios_cantidad TEXT, peso_gramos REAL, imagen_url TEXT)');
 $insert=$db->prepare('INSERT INTO productos VALUES(?,?,?,?,?,?,?,?,?,?,?)');
-$insert->execute([1,'Oferta',1,1,0,10000,8000,null,json_encode([['cantidad'=>3,'precio'=>7000]]),120,'/test.png']);
-$insert->execute([2,'Piezas',1,1,0,5000,null,json_encode([['id'=>'a','nombre'=>'A','precio'=>2000],['id'=>'b','nombre'=>'B','precio'=>3000]]),null,120,null]);
+$insert->execute([1,'Oferta',1,1,1,10000,8000,null,json_encode([['cantidad'=>3,'precio'=>7000]]),120,'/test.png']);
+$insert->execute([2,'Piezas',1,1,1,5000,null,json_encode([['id'=>'a','nombre'=>'A','precio'=>2000],['id'=>'b','nombre'=>'B','precio'=>3000]]),null,120,null]);
 $insert->execute([3,'Privado',1,0,0,10000,null,null,null,120,null]);
 $insert->execute([4,'Inactivo',0,1,1,10000,null,null,null,120,null]);
 $quote=new App\Services\CheckoutQuote($db);
@@ -27,4 +27,7 @@ verify($quote->calculate([['id'=>1,'quantity'=>1]],array_replace($ship,['postal_
 rejected(fn()=>$quote->calculate([['id'=>1,'quantity'=>1]],array_replace($ship,['postal_code'=>'7167'])),'Excluye CP de Costa Esmeralda');
 rejected(fn()=>$quote->calculate([['id'=>1,'quantity'=>1]],array_replace($ship,['direccion'=>'COSTA ESMERALDA, lote de prueba'])),'Excluye Costa Esmeralda aunque se ingrese un CP local');
 rejected(fn()=>$quote->calculate([['id'=>1,'quantity'=>1]],array_replace($ship,['postal_code'=>'7110'])),'No admite códigos intermedios fuera de la lista de cobertura');
+$withoutAddress = ['method'=>'shipping','provider'=>'local','postal_code'=>'7111'];
+verify($quote->calculate([['id'=>1,'quantity'=>1]],$withoutAddress,false)['shipping']['provider']==='local','Carrito cotiza antes de pedir la dirección');
+rejected(fn()=>$quote->calculate([['id'=>1,'quantity'=>1]],$withoutAddress),'Pago exige la dirección de envío');
 echo "Cotizaciones verificadas sin red, clientes ni pedidos reales.\n";

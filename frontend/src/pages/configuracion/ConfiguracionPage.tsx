@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { Settings, Save, Loader2, DollarSign, Zap, Scale, CheckCircle2, CreditCard, Eye, EyeOff, ExternalLink, ShieldCheck } from 'lucide-react'
 import api from '@/lib/api'
 import { MetaCapiSettings } from '@/components/MetaCapiSettings'
+import { MiCorreoSettings } from '@/components/MiCorreoSettings'
 import { toast } from '@/store/toastStore'
 
 export default function ConfiguracionPage() {
@@ -128,6 +129,7 @@ export default function ConfiguracionPage() {
 
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-6">
+      <MiCorreoSettings />
       <MetaCapiSettings />
       {/* Header */}
       <div className="flex items-center justify-between">
