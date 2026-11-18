@@ -53,6 +53,16 @@ final class CheckoutQuote
             } elseif ($selection) throw new InvalidArgumentException('El producto no tiene esas piezas.');
             if ($all && $sale > 0 && $sale < (float)($product['precio_venta'] ?? 0)) $price = $sale;
             if ($all) {
+                if (!empty($product['estructura_precio_id'])) {
+                    try {
+                        $stEp = $this->db->prepare('SELECT escalas FROM estructuras_precio_cantidad WHERE id = ? LIMIT 1');
+                        $stEp->execute([(int)$product['estructura_precio_id']]);
+                        $epEsc = $stEp->fetchColumn();
+                        if (!empty($epEsc)) {
+                            $product['precios_cantidad'] = $epEsc;
+                        }
+                    } catch (\Throwable $e) {}
+                }
                 $best = 0;
                 foreach (self::decode($product['precios_cantidad'] ?? []) as $tier) {
                     $minimum = (int)($tier['cantidad'] ?? 0); $tierPrice = (float)($tier['precio'] ?? -1);

@@ -41,6 +41,16 @@ class EstructurasPrecioRepository
                 $this->db->exec("ALTER TABLE productos ADD COLUMN estructura_precio_id INT NULL AFTER precios_cantidad");
             }
         } catch (\Throwable $e) {}
+
+        // Sincronización automática: asegurar que todos los productos asociados tengan las escalas vigentes de su estructura
+        try {
+            $this->db->exec("
+                UPDATE productos p
+                INNER JOIN estructuras_precio_cantidad ep ON ep.id = p.estructura_precio_id
+                SET p.precios_cantidad = ep.escalas
+                WHERE p.estructura_precio_id IS NOT NULL AND ep.escalas IS NOT NULL
+            ");
+        } catch (\Throwable $e) {}
     }
 
     public function getAll(): array
@@ -100,6 +110,15 @@ class EstructurasPrecioRepository
                 WHERE id = ?
             ");
             $stmt->execute([trim($nombre), $jsonEscalas, $id]);
+
+            // Actualizar inmediatamente en todos los productos asociados a esta estructura
+            $stProds = $this->db->prepare("
+                UPDATE productos 
+                SET precios_cantidad = ?, updated_at = NOW() 
+                WHERE estructura_precio_id = ?
+            ");
+            $stProds->execute([$jsonEscalas, $id]);
+
             return $this->findById($id);
         } else {
             // Verificar si existe por nombre
@@ -108,13 +127,23 @@ class EstructurasPrecioRepository
             $existingId = $check->fetchColumn();
 
             if ($existingId) {
+                $targetId = (int)$existingId;
                 $stmt = $this->db->prepare("
                     UPDATE estructuras_precio_cantidad 
                     SET escalas = ?, updated_at = NOW() 
                     WHERE id = ?
                 ");
-                $stmt->execute([$jsonEscalas, (int)$existingId]);
-                return $this->findById((int)$existingId);
+                $stmt->execute([$jsonEscalas, $targetId]);
+
+                // Actualizar inmediatamente en todos los productos asociados a esta estructura
+                $stProds = $this->db->prepare("
+                    UPDATE productos 
+                    SET precios_cantidad = ?, updated_at = NOW() 
+                    WHERE estructura_precio_id = ?
+                ");
+                $stProds->execute([$jsonEscalas, $targetId]);
+
+                return $this->findById($targetId);
             }
 
             $stmt = $this->db->prepare("
@@ -147,9 +176,11 @@ class EstructurasPrecioRepository
         if ($estructuraId > 0) {
             $stmt = $this->db->prepare("
                 SELECT p.id, p.nombre, p.sku, p.precio_venta, p.precio_costo, p.imagen_url, p.imagenes, 
-                       p.precios_cantidad, p.estructura_precio_id, p.categoria_id, c.nombre AS categoria_nombre
+                       p.precios_cantidad, p.estructura_precio_id, p.categoria_id, c.nombre AS categoria_nombre,
+                       ep.escalas AS estructura_escalas
                 FROM productos p
                 LEFT JOIN categorias_producto c ON c.id = p.categoria_id
+                LEFT JOIN estructuras_precio_cantidad ep ON ep.id = p.estructura_precio_id
                 WHERE p.estructura_precio_id = ? AND p.activo = 1
                 ORDER BY p.nombre ASC
             ");
@@ -157,9 +188,11 @@ class EstructurasPrecioRepository
         } else {
             $stmt = $this->db->prepare("
                 SELECT p.id, p.nombre, p.sku, p.precio_venta, p.precio_costo, p.imagen_url, p.imagenes, 
-                       p.precios_cantidad, p.estructura_precio_id, p.categoria_id, c.nombre AS categoria_nombre
+                       p.precios_cantidad, p.estructura_precio_id, p.categoria_id, c.nombre AS categoria_nombre,
+                       ep.escalas AS estructura_escalas
                 FROM productos p
                 LEFT JOIN categorias_producto c ON c.id = p.categoria_id
+                LEFT JOIN estructuras_precio_cantidad ep ON ep.id = p.estructura_precio_id
                 WHERE p.activo = 1
                 ORDER BY p.nombre ASC
             ");
@@ -172,8 +205,14 @@ class EstructurasPrecioRepository
             $r['precio_venta'] = (float)$r['precio_venta'];
             $r['categoria_id'] = $r['categoria_id'] !== null ? (int)$r['categoria_id'] : null;
             $r['estructura_precio_id'] = $r['estructura_precio_id'] !== null ? (int)$r['estructura_precio_id'] : null;
-            $dec = is_string($r['precios_cantidad']) ? json_decode($r['precios_cantidad'], true) : $r['precios_cantidad'];
-            $r['precios_cantidad'] = is_array($dec) ? array_values($dec) : [];
+            
+            if (!empty($r['estructura_precio_id']) && !empty($r['estructura_escalas'])) {
+                $dec = is_string($r['estructura_escalas']) ? json_decode($r['estructura_escalas'], true) : $r['estructura_escalas'];
+                $r['precios_cantidad'] = is_array($dec) ? array_values($dec) : [];
+            } else {
+                $dec = is_string($r['precios_cantidad']) ? json_decode($r['precios_cantidad'], true) : $r['precios_cantidad'];
+                $r['precios_cantidad'] = is_array($dec) ? array_values($dec) : [];
+            }
         }
 
         return $rows;

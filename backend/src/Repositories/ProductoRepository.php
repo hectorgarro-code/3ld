@@ -67,7 +67,7 @@ class ProductoRepository
                            p.seo_title, p.seo_description, p.created_at, p.updated_at,
                            c.id AS categoria_id, c.nombre AS categoria_nombre,
                            p.categoria_secundaria_id, c_sec.nombre AS categoria_secundaria_nombre,
-                           ep.nombre AS estructura_precio_nombre
+                           ep.nombre AS estructura_precio_nombre, ep.escalas AS estructura_precio_escalas
                     FROM productos p
                     LEFT JOIN categorias_producto c ON c.id = p.categoria_id
                     LEFT JOIN categorias_producto c_sec ON c_sec.id = p.categoria_secundaria_id
@@ -142,7 +142,10 @@ class ProductoRepository
                 $p['piezas'] = [];
             }
 
-            if (!empty($p['precios_cantidad'])) {
+            if (!empty($p['estructura_precio_id']) && !empty($p['estructura_precio_escalas'])) {
+                $decEP = is_string($p['estructura_precio_escalas']) ? json_decode($p['estructura_precio_escalas'], true) : $p['estructura_precio_escalas'];
+                $p['precios_cantidad'] = is_array($decEP) ? array_values($decEP) : [];
+            } elseif (!empty($p['precios_cantidad'])) {
                 $decPC = is_string($p['precios_cantidad']) ? json_decode($p['precios_cantidad'], true) : $p['precios_cantidad'];
                 $p['precios_cantidad'] = is_array($decPC) ? array_values($decPC) : [];
             } else {
@@ -164,10 +167,12 @@ class ProductoRepository
     public function findById(int $id): ?array
     {
         $stmt = $this->db->prepare(
-            "SELECT p.*, c.nombre AS categoria_nombre, c_sec.nombre AS categoria_secundaria_nombre
+            "SELECT p.*, c.nombre AS categoria_nombre, c_sec.nombre AS categoria_secundaria_nombre,
+                    ep.nombre AS estructura_precio_nombre, ep.escalas AS estructura_precio_escalas
              FROM productos p
              LEFT JOIN categorias_producto c ON c.id = p.categoria_id
              LEFT JOIN categorias_producto c_sec ON c_sec.id = p.categoria_secundaria_id
+             LEFT JOIN estructuras_precio_cantidad ep ON ep.id = p.estructura_precio_id
              WHERE p.id = ? AND p.activo = 1"
         );
         $stmt->execute([$id]);
@@ -204,7 +209,10 @@ class ProductoRepository
             $producto['piezas'] = [];
         }
 
-        if (!empty($producto['precios_cantidad'])) {
+        if (!empty($producto['estructura_precio_id']) && !empty($producto['estructura_precio_escalas'])) {
+            $decEP = is_string($producto['estructura_precio_escalas']) ? json_decode($producto['estructura_precio_escalas'], true) : $producto['estructura_precio_escalas'];
+            $producto['precios_cantidad'] = is_array($decEP) ? array_values($decEP) : [];
+        } elseif (!empty($producto['precios_cantidad'])) {
             $decPC = is_string($producto['precios_cantidad']) ? json_decode($producto['precios_cantidad'], true) : $producto['precios_cantidad'];
             $producto['precios_cantidad'] = is_array($decPC) ? array_values($decPC) : [];
         } else {

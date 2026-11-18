@@ -165,10 +165,12 @@ export function EstructurasPreciosModal({
         nombre: editingNombre.trim(),
         escalas: escalasEditadas,
       })
-      toast('Estructura guardada exitosamente en el servidor', 'success')
+      toast('Estructura y artículos asociados actualizados con éxito', 'success')
       if (isCreatingNew) {
         setIsCreatingNew(false)
         loadEstructura(res.id)
+      } else if (selectedEstructuraId) {
+        loadEstructura(selectedEstructuraId)
       }
     } catch (err: any) {
       toast(err.response?.data?.message || 'Error al guardar estructura', 'error')

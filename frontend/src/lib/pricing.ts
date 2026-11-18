@@ -85,8 +85,10 @@ export function calcularPrecioProductoCliente({
     ? obtenerPrecioPorCantidad(producto.precios_cantidad, cantidad)
     : null
 
+  // Siempre que se cumpla la condición de la escala por volumen, el precio predominante al vender
+  // el artículo es indiscutiblemente el de la escala configurada.
   if (precioPorEscala !== null) {
-    precio = precioPorEscala
+    return Math.max(0, Math.round(precioPorEscala * 100) / 100)
   }
 
   if (!cliente) {

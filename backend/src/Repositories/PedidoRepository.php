@@ -289,12 +289,45 @@ class PedidoRepository
                 $productoId  = !empty($item['producto_id']) ? (int) $item['producto_id'] : null;
 
                 if ($precioUnit <= 0 && $productoId) {
-                    $stmtProd = $this->db->prepare("SELECT precio_venta, precio_mayorista FROM productos WHERE id = ?");
+                    $stmtProd = $this->db->prepare("SELECT precio_venta, precio_mayorista, precios_cantidad, estructura_precio_id FROM productos WHERE id = ?");
                     $stmtProd->execute([$productoId]);
                     $prod = $stmtProd->fetch();
                     if ($prod) {
                         $precioUnit = (float)$prod['precio_venta'];
-                        if (!empty($body['cliente_id'])) {
+
+                        // Verificar si califica para escala de precios por volumen
+                        $escalas = [];
+                        if (!empty($prod['estructura_precio_id'])) {
+                            try {
+                                $stEp = $this->db->prepare('SELECT escalas FROM estructuras_precio_cantidad WHERE id = ? LIMIT 1');
+                                $stEp->execute([(int)$prod['estructura_precio_id']]);
+                                $epEsc = $stEp->fetchColumn();
+                                if (!empty($epEsc)) {
+                                    $escalas = is_string($epEsc) ? json_decode($epEsc, true) : $epEsc;
+                                }
+                            } catch (\Throwable $e) {}
+                        }
+                        if (empty($escalas) && !empty($prod['precios_cantidad'])) {
+                            $escalas = is_string($prod['precios_cantidad']) ? json_decode($prod['precios_cantidad'], true) : $prod['precios_cantidad'];
+                        }
+
+                        $scalePrice = null;
+                        if (is_array($escalas) && !empty($escalas)) {
+                            $bestQty = 0;
+                            foreach ($escalas as $esc) {
+                                $eq = (int)($esc['cantidad'] ?? 0);
+                                $ep = (float)($esc['precio'] ?? -1);
+                                if ($eq > $bestQty && $eq <= $cantidad && $ep >= 0) {
+                                    $bestQty = $eq;
+                                    $scalePrice = $ep;
+                                }
+                            }
+                        }
+
+                        if ($scalePrice !== null) {
+                            // La escala por volumen es predominante
+                            $precioUnit = $scalePrice;
+                        } elseif (!empty($body['cliente_id'])) {
                             $stmtCli = $this->db->prepare("SELECT tipo_cliente, descuento_porcentaje FROM clientes WHERE id = ?");
                             $stmtCli->execute([(int)$body['cliente_id']]);
                             $cli = $stmtCli->fetch();

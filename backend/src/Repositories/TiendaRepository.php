@@ -81,11 +81,13 @@ class TiendaRepository
                            p.dimensiones AS size, p.alto_mm, p.ancho_mm, p.profundidad_mm, p.es_destacado,
                            p.categoria_id, p.categoria_secundaria_id, p.seo_title, p.seo_description,
                            COALESCE(c.nombre, 'Sin categoría') AS category,
-                           c_sec.nombre AS secondaryCategory
+                           c_sec.nombre AS secondaryCategory,
+                           ep.escalas AS estructura_escalas
                     FROM productos p
                     LEFT JOIN categorias_producto c ON c.id = p.categoria_id
                     LEFT JOIN categorias_producto c_parent ON c_parent.id = c.parent_id
                     LEFT JOIN categorias_producto c_sec ON c_sec.id = p.categoria_secundaria_id
+                    LEFT JOIN estructuras_precio_cantidad ep ON ep.id = p.estructura_precio_id
                     {$where}
                     {$orderBy}";
 
@@ -110,6 +112,9 @@ class TiendaRepository
             }
 
             foreach ($items as &$item) {
+                if (!empty($item['estructura_escalas'])) {
+                    $item['precios_cantidad'] = $item['estructura_escalas'];
+                }
                 $tiers = is_string($item['precios_cantidad'] ?? null) ? json_decode($item['precios_cantidad'], true) : ($item['precios_cantidad'] ?? []);
                 $item['precios_cantidad'] = array_values(array_map(static fn($tier) => [
                     'cantidad' => (int)$tier['cantidad'], 'precio' => (float)$tier['precio'],

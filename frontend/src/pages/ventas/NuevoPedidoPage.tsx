@@ -164,6 +164,7 @@ export default function NuevoPedidoPage() {
                     const newPrice = calcularPrecioProductoCliente({
                       producto: prod,
                       cliente: client,
+                      cantidad: Number(it.cantidad) || 1,
                     })
                     setValue(`items.${idx}.precio_unit`, newPrice)
                   }
