@@ -53,6 +53,7 @@ const VentasPage = lazy(() => import('@/pages/ventas/VentasPage'))
 const PosPage = lazy(() => import('@/pages/ventas/PosPage'))
 const PedidoDetailPage = lazy(() => import('@/pages/ventas/PedidoDetailPage'))
 const NuevoPedidoPage = lazy(() => import('@/pages/ventas/NuevoPedidoPage'))
+const ManualShipmentPage = lazy(() => import('@/components/shipping/ShipmentPanel'))
 const ClientesPage = lazy(() => import('@/pages/clientes/ClientesPage'))
 const ClienteDetailPage = lazy(() => import('@/pages/clientes/ClienteDetailPage'))
 const ProductosPage = lazy(() => import('@/pages/productos/ProductosPage'))
@@ -162,6 +163,10 @@ export const router = createBrowserRouter([
         ),
       },
 
+      {
+        path: 'pedidos/envios/:ref?',
+        element: <Suspense fallback={<PageLoader />}><ManualShipmentPage /></Suspense>,
+      },
       {
         path: 'pedidos/:id',
         element: (

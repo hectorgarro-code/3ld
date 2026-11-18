@@ -38,6 +38,8 @@ import { getThumbnailUrl } from '@/lib/utils';
 import { DeliveryEstimate } from '@/components/tienda/DeliveryEstimate';
 import { FreeShippingProgress } from '@/components/tienda/FreeShippingProgress';
 import { WhatsAppOrderReview } from '@/components/tienda/WhatsAppOrderReview';
+import type { DeliveryData } from '@/components/shipping/DeliveryFields';
+import { PROVINCIAS_CORREO_ARG } from '@/lib/correoArgentino';
 import { LOCAL_FREE_SHIPPING_THRESHOLD } from '@/lib/freeShipping';
 import { getKitFigureCount, formatWhatsAppCartLine } from '@/lib/productKit';
 const TiendaStoriesModal = React.lazy(() => import('@/components/tienda/TiendaStoriesModal').then(m => ({ default: m.TiendaStoriesModal })));
@@ -1227,8 +1229,20 @@ export default function TiendaPage() {
     }
   };
 
-  const handleWhatsAppCheckout = () => {
+  const handleWhatsAppCheckout = async (deliveryData: DeliveryData | null) => {
     if (cart.length === 0) return;
+    const whatsappTab = window.open('about:blank', '_blank');
+    if (whatsappTab) whatsappTab.opener = null;
+    const delivery = deliveryData ? { ...deliveryData, postal_code: deliveryData.postal_code.trim().toUpperCase() } : null;
+    let deliveryRef = '';
+    if (delivery) {
+      try {
+        const { data } = await api.post('/tienda/envios/borrador-whatsapp', delivery, { timeout: 4500 });
+        deliveryRef = data.data.ref;
+      } catch {
+        // The address remains in the WhatsApp message if a reference could not be generated.
+      }
+    }
     trackEvent({ tipo: 'pedido_whatsapp', metadata: { articulos: cartItemsCount, valor: cartSubtotal } });
     metaPixel.initiateCheckout(
       cart,
@@ -1247,16 +1261,32 @@ export default function TiendaPage() {
       text += `*TOTAL FINAL:* $${cartSubtotal.toLocaleString('es-AR')}\n`;
     } else if (shippingQuote) {
       text += `*Envío (${shippingQuote.serviceName}):* ${shippingQuote.price === 0 ? '¡GRATIS!' : '$' + shippingQuote.price.toLocaleString('es-AR')}\n`;
-      text += `*CP Destino:* ${postalCode || 'A coordinar'}\n`;
+      text += `*CP Destino:* ${delivery?.postal_code || postalCode || 'A coordinar'}\n`;
       text += `*TOTAL FINAL:* $${(cartSubtotal + (shippingQuote.price || 0)).toLocaleString('es-AR')}\n`;
     } else {
-      text += `*Envío:* A coordinar entrega a domicilio (CP: ${postalCode || 'A confirmar'})\n`;
+      text += `*Envío:* A coordinar entrega a domicilio (CP: ${delivery?.postal_code || postalCode || 'A confirmar'})\n`;
       text += `*TOTAL ESTIMADO:* $${cartSubtotal.toLocaleString('es-AR')}\n`;
     }
 
+    if (delivery) {
+      const province = PROVINCIAS_CORREO_ARG.find(item => item.codigo === delivery.province)?.nombre || delivery.province;
+      const address = [
+        delivery.street.trim() + ' ' + delivery.number.trim(),
+        delivery.floor.trim() ? 'piso ' + delivery.floor.trim() : '',
+        delivery.apartment.trim() ? 'depto. ' + delivery.apartment.trim() : '',
+      ].filter(Boolean).join(', ');
+      text += '\n*Datos de entrega*\n';
+      text += 'Destinatario: ' + delivery.name.trim() + '\n';
+      text += 'Domicilio: ' + address + ' · ' + delivery.city.trim() + ', ' + province + ' · CP ' + delivery.postal_code + '\n';
+      text += 'Email: ' + delivery.email.trim() + '\nCelular: ' + delivery.phone.trim() + '\n';
+      if (delivery.reference.trim()) text += 'Referencia de entrega: ' + delivery.reference.trim() + '\n';
+      if (deliveryRef) text += 'Referencia de envío 3LD: ' + deliveryRef + '\n';
+    }
     if (whatsAppNotes.trim()) text += `\n*Observaciones del pedido:*\n${whatsAppNotes.trim()}\n`;
     text += `\n¿Tienen disponibilidad para coordinar? ¡Muchas gracias!`;
-    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(text)}`, '_blank');
+    const link = 'https://wa.me/' + phone + '?text=' + encodeURIComponent(text);
+    if (whatsappTab && !whatsappTab.closed) whatsappTab.location.replace(link);
+    else window.location.assign(link);
   };
 
   const modalImages = (activeProductModal?.images && activeProductModal.images.length > 0)
@@ -2040,7 +2070,8 @@ export default function TiendaPage() {
         delivery={deliveryMethod === 'pickup' ? 'Retiro en taller: Salta 3169, San Bernardo del Tuyú.' : `${shippingQuote?.serviceName || 'Entrega a domicilio a coordinar'}${postalCode ? ` · CP ${postalCode}` : ''}`}
         shippingCost={deliveryMethod === 'pickup' ? 0 : (shippingQuote?.price ?? null)}
         onBack={() => { setIsWhatsAppReviewOpen(false); setIsCartOpen(true); }}
-        onContinue={() => { handleWhatsAppCheckout(); setIsWhatsAppReviewOpen(false); setIsCartOpen(true); }}
+        postalCode={deliveryMethod === 'shipping' ? destination : null}
+        onContinue={async data => { await handleWhatsAppCheckout(data); setIsWhatsAppReviewOpen(false); setIsCartOpen(true); }}
       />}
 
       {/* Product Detail Modal (Unificado) */}

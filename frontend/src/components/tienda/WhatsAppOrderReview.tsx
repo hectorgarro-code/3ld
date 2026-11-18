@@ -1,4 +1,5 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { DeliveryFields, emptyDelivery, type DeliveryData } from '@/components/shipping/DeliveryFields'
 import { getKitFigureCount } from '@/lib/productKit'
 import type { CartItem } from '@/store/cartStore'
 
@@ -9,11 +10,14 @@ interface Props {
   notes: string
   onNotesChange: (value: string) => void
   onBack: () => void
-  onContinue: () => void
+  postalCode: string | null
+  onContinue: (data: DeliveryData | null) => Promise<void>
 }
 
-export function WhatsAppOrderReview({ items, delivery, shippingCost, notes, onNotesChange, onBack, onContinue }: Props) {
+export function WhatsAppOrderReview({ items, delivery, shippingCost, notes, onNotesChange, onBack, postalCode, onContinue }: Props) {
   const dialog = useRef<HTMLElement>(null)
+  const [data, setData] = useState<DeliveryData>(() => ({ ...emptyDelivery, postal_code: postalCode || '' }))
+  const [sending, setSending] = useState(false)
   const money = (value: number) => '$' + value.toLocaleString('es-AR')
   const subtotal = items.reduce((sum, item) => sum + item.price * item.qty, 0)
   useEffect(() => {
@@ -29,7 +33,7 @@ export function WhatsAppOrderReview({ items, delivery, shippingCost, notes, onNo
       onKeyDown={e => {
         if (e.key === 'Escape') { e.preventDefault(); onBack() }
         if (e.key === 'Tab') {
-          const buttons = dialog.current?.querySelectorAll<HTMLElement>('button, textarea')
+          const buttons = dialog.current?.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled)')
           if (!buttons?.length) return
           const first = buttons[0], last = buttons[buttons.length - 1]
           if (e.shiftKey && (document.activeElement === first || document.activeElement === dialog.current)) { e.preventDefault(); last.focus() }
@@ -40,7 +44,13 @@ export function WhatsAppOrderReview({ items, delivery, shippingCost, notes, onNo
         <h2 id="whatsapp-review-title" className="text-xl font-extrabold text-slate-900">Revisá tu pedido</h2>
         <p className="mt-1 text-sm text-slate-600">Comprobá cantidades y entrega antes de abrir WhatsApp.</p>
       </header>
-      <div className="min-h-0 overflow-y-auto overscroll-contain p-4 sm:px-6" data-testid="whatsapp-review-content">
+      <form id="whatsapp-review-form" onSubmit={async event => {
+        event.preventDefault()
+        if (sending) return
+        setSending(true)
+        try { await onContinue(postalCode === null ? null : data) }
+        finally { setSending(false) }
+      }} className="min-h-0 overflow-y-auto overscroll-contain p-4 sm:px-6" data-testid="whatsapp-review-content">
         <ul className="divide-y divide-slate-100">
           {items.map(item => {
             const figures = getKitFigureCount(item)
@@ -56,6 +66,11 @@ export function WhatsAppOrderReview({ items, delivery, shippingCost, notes, onNo
           <h3 className="text-sm font-bold text-slate-900">Entrega</h3>
           <p className="mt-1 text-sm leading-relaxed text-slate-700">{delivery}</p>
         </div>
+        {postalCode !== null && <fieldset className="mt-4 space-y-2" disabled={sending}>
+          <legend className="text-sm font-bold text-slate-900">Datos de entrega a domicilio</legend>
+          <p className="text-xs text-slate-600">Estos datos se incluirán en WhatsApp. La referencia del borrador de entrega estará disponible por siete días.</p>
+          <DeliveryFields value={data} onChange={setData} required lockPostalCode={/^[0-9]{4}$/.test(postalCode)} />
+        </fieldset>}
         <div className="mt-4">
           <label htmlFor="whatsapp-order-notes" className="block text-sm font-bold text-slate-900">Observaciones del pedido <span className="font-normal text-slate-500">(opcional)</span></label>
           <textarea id="whatsapp-order-notes" value={notes} onChange={e => onNotesChange(e.target.value.slice(0, 500))} maxLength={500} rows={3}
@@ -68,13 +83,13 @@ export function WhatsAppOrderReview({ items, delivery, shippingCost, notes, onNo
           <div className="flex justify-between gap-3"><dt>Productos</dt><dd>{money(subtotal)}</dd></div>
           <div className="flex justify-between gap-3"><dt>Entrega</dt><dd>{shippingCost === null ? 'A coordinar' : shippingCost === 0 ? 'Gratis' : money(shippingCost)}</dd></div>
         </dl>
-      </div>
+      </form>
       <footer className="shrink-0 border-t border-slate-200 p-4 sm:p-6">
         <div className="mb-3 flex items-center justify-between gap-3"><span className="text-sm text-slate-600">{shippingCost === null ? 'Total estimado · envío pendiente' : 'Total del pedido'}</span><strong className="text-xl font-extrabold text-slate-900">{money(subtotal + (shippingCost ?? 0))}</strong></div>
         <p className="mb-3 text-xs leading-relaxed text-slate-500">El mensaje quedará preparado en WhatsApp para que lo revises y lo envíes.</p>
         <div className="flex flex-col gap-2 sm:flex-row">
           <button type="button" onClick={onBack} className="min-h-11 rounded-xl border border-slate-300 px-4 py-3 text-sm font-bold text-slate-700 sm:flex-1">Volver al carrito</button>
-          <button type="button" onClick={onContinue} className="min-h-11 rounded-xl bg-emerald-600 px-4 py-3 text-sm font-bold text-white hover:bg-emerald-700 sm:flex-1">Abrir WhatsApp</button>
+          <button type="submit" form="whatsapp-review-form" disabled={sending} className="min-h-11 rounded-xl bg-emerald-600 px-4 py-3 text-sm font-bold text-white hover:bg-emerald-700 disabled:opacity-50 sm:flex-1">{sending ? 'Preparando mensaje…' : 'Abrir WhatsApp'}</button>
         </div>
       </footer>
     </section>

@@ -45,11 +45,7 @@ final class MiCorreo
             $dimensions[$key] = $value;
         }
 
-        $auth = 'Basic ' . base64_encode($config['username'] . ':' . $config['password']);
-        $token = self::request('/token', $auth)['token'] ?? null;
-        if (!is_string($token) || $token === '' || preg_match('/[\r\n]/', $token)) {
-            throw new RuntimeException('MiCorreo no devolvió un token válido.');
-        }
+        $token = self::token($config);
 
         $quote = self::request('/rates', 'Bearer ' . $token, [
             'customerId' => $config['customer_id'],
@@ -87,6 +83,23 @@ final class MiCorreo
         return ['rates' => $rates, 'expires_at' => $expiresAt];
     }
 
+    public static function importShipment(array $config, array $shipment): void
+    {
+        self::request('/shipping/import', 'Bearer ' . self::token($config), [
+            'customerId' => $config['customer_id'],
+        ] + $shipment);
+    }
+
+    private static function token(array $config): string
+    {
+        $auth = 'Basic ' . base64_encode($config['username'] . ':' . $config['password']);
+        $token = self::request('/token', $auth)['token'] ?? null;
+        if (!is_string($token) || $token === '' || preg_match('/[\r\n]/', $token)) {
+            throw new RuntimeException('MiCorreo no devolvió un token válido.');
+        }
+        return $token;
+    }
+
     private static function request(string $route, string $authorization, ?array $payload = null): array
     {
         $context = stream_context_create([
@@ -112,6 +125,14 @@ final class MiCorreo
             throw new RuntimeException('MiCorreo rechazó las credenciales de la API.');
         }
         $data = is_string($body) ? json_decode($body, true) : null;
+        if ($route === '/shipping/import' && $status === 402
+            && preg_match('/^la orden ya fue importada con anterioridad[.]?$/iu', trim((string) ($data['message'] ?? '')))) {
+            // A retried request uses the same external order ID.
+            return [];
+        }
+        if ($route === '/shipping/import' && $status === 402) {
+            throw new InvalidArgumentException('MiCorreo rechazó la carga. Revisá el destino, las medidas y la cuenta de origen.');
+        }
         if ($status < 200 || $status >= 300 || !is_array($data)) {
             throw new RuntimeException('No se pudo consultar MiCorreo (HTTP ' . $status . ').');
         }

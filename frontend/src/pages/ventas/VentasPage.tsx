@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { usePedidos, usePedidoItems } from '@/hooks/usePedidos'
 import { useClientes } from '@/hooks/useClientes'
 import { useFilterStore } from '@/store/filterStore'
@@ -123,6 +124,10 @@ export default function VentasPage() {
             Por Pedido
           </button>
         </div>
+
+        <Link to="/pedidos/envios" className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700">
+          Nuevo envío manual
+        </Link>
 
         {/* Print Button */}
         <button

@@ -34,7 +34,6 @@ import {
   PROVINCIAS_CORREO_ARG,
   type ShippingConfig,
 } from '@/lib/correoArgentino'
-import { ShippingLabelModal } from '@/components/pos/ShippingLabelModal'
 import type { PedidoEstado } from '@/types'
 import {
   calcularPrecioProductoCliente,
@@ -45,6 +44,7 @@ import {
 interface PostalRate {
   service: string
   price: number
+  product_type: string
   days_min: number
   days_max: number
 }
@@ -95,10 +95,6 @@ export default function PosPage() {
   const [shippingMode, setShippingMode] = useState<'live' | 'estimate' | 'error' | null>(null)
   const [rateIndex, setRateIndex] = useState(0)
   const [showShippingDetails, setShowShippingDetails] = useState<boolean>(false)
-  const [isShippingLabelModalOpen, setIsShippingLabelModalOpen] = useState<boolean>(false)
-  const [lastOrderTracking, setLastOrderTracking] = useState<string>('')
-  const [lastOrderId, setLastOrderId] = useState<string>('')
-
   const [shippingConfig, setShippingConfig] = useState<ShippingConfig>({
     destinatarioNombre: '',
     telefono: '',
@@ -559,8 +555,6 @@ export default function PosPage() {
     }
 
     try {
-      const trackingNumber = `TN-${new Date().getFullYear()}${String(Date.now()).slice(-8)}`
-
       const itemsPayload: Array<{
         producto_id?: number | null
         descripcion?: string
@@ -595,7 +589,7 @@ export default function PosPage() {
 
 
       const shippingNote = includeShipping
-        ? ` | ENVÍO CORREO ARGENTINO [TN: ${trackingNumber} | CP: ${shippingConfig.codigoPostal} | ${shippingConfig.localidad} (${shippingConfig.provinciaCodigo}) | Medidas: ${shippingConfig.altoCm}x${shippingConfig.anchoCm}x${shippingConfig.largoCm}cm - ${shippingConfig.pesoGramos}g | Entrega: ${shippingConfig.deliveryType}]`
+        ? ` | ENVÍO CORREO ARGENTINO [CP: ${shippingConfig.codigoPostal} | ${shippingConfig.localidad} (${shippingConfig.provinciaCodigo}) | Medidas: ${shippingConfig.altoCm}x${shippingConfig.anchoCm}x${shippingConfig.largoCm}cm - ${shippingConfig.pesoGramos}g | Entrega: ${shippingConfig.deliveryType}]`
         : ''
 
       const payload = {
@@ -607,16 +601,35 @@ export default function PosPage() {
         items: itemsPayload,
       }
 
-      const created: any = await createPedido.mutateAsync(payload as any)
+      const created = await createPedido.mutateAsync(payload)
+      setCart([])
       toast('¡Venta realizada con éxito! Reflejada en Pedidos', 'success')
 
-      if (includeShipping) {
-        setLastOrderTracking(trackingNumber)
-        setLastOrderId(created?.numero_pedido || String(created?.id || ''))
-        setIsShippingLabelModalOpen(true)
+      if (includeShipping && created?.id) {
+        try {
+          await api.post('/pedidos/' + created.id + '/envio', { data: {
+            name: shippingConfig.destinatarioNombre,
+            phone: shippingConfig.telefono,
+            email: shippingConfig.email,
+            street: shippingConfig.calle,
+            number: shippingConfig.altura,
+            reference: shippingConfig.pisoDpto,
+            city: shippingConfig.localidad,
+            province: shippingConfig.provinciaCodigo,
+            postal_code: shippingConfig.codigoPostal.trim(),
+            delivery: parcel.delivery,
+            product_type: selectedRate?.product_type === 'EP' ? 'EP' : 'CP',
+            weight: parcel.weight,
+            height: parcel.height,
+            width: parcel.width,
+            length: parcel.length,
+          } })
+        } catch {
+          toast('La venta se guardó. Completá o revisá los datos del envío en el pedido.', 'info')
+        }
+        navigate('/pedidos/' + created.id + '#envio')
       }
 
-      setCart([])
       setNotasGenerales('')
       setDescuentoPct(0)
       setIncludeShipping(false)
@@ -1660,15 +1673,6 @@ export default function PosPage() {
         }}
       />
 
-      {/* MODAL ROTULO DE ENVIO CORREO ARGENTINO */}
-      <ShippingLabelModal
-        isOpen={isShippingLabelModalOpen}
-        onClose={() => setIsShippingLabelModalOpen(false)}
-        trackingNumber={lastOrderTracking}
-        orderNumber={lastOrderId}
-        shippingConfig={shippingConfig}
-        totalOrder={total}
-      />
     </div>
   )
 }

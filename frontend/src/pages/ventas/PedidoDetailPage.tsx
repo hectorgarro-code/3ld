@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { ShipmentPanel } from '@/components/shipping/ShipmentPanel'
 import { useParams, useNavigate } from 'react-router-dom'
 import { usePedido, useCambiarEstadoPedido, useAnularPedido, useDeletePedidoItem } from '@/hooks/usePedidos'
 import api from '@/lib/api'
@@ -239,6 +240,13 @@ export default function PedidoDetailPage() {
           </p>
         )}
       </div>
+
+      {pedido.estado !== 'anulado' && (
+        <details id="envio" open={window.location.hash === '#envio' || undefined} className="rounded-2xl border border-slate-200 bg-white print:hidden">
+          <summary className="cursor-pointer p-4 font-bold text-slate-800">Datos de envío y rótulo</summary>
+          <ShipmentPanel key={pedido.id} orderId={pedido.id} />
+        </details>
+      )}
 
       {/* Estado stepper */}
       {pedido.estado !== 'anulado' && (

@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '@/lib/api'
-import type { Pedido, PedidoEstado, PaginatedResponse, ApiResponse, PedidoItemFlattened } from '@/types'
+import type { Pedido, PedidoEstado, PaginatedResponse, ApiResponse, PedidoItem, PedidoItemFlattened } from '@/types'
 
 interface PedidosParams {
   q?: string
@@ -40,9 +40,13 @@ export function usePedido(id: number | string | undefined) {
   })
 }
 
+type CreatePedidoPayload = Omit<Partial<Pedido>, 'items'> & {
+  items?: (Omit<Partial<PedidoItem>, 'producto_id'> & { producto_id?: number | null })[]
+}
+
 export function useCreatePedido() {
   const queryClient = useQueryClient()
-  return useMutation<Pedido, Error, Partial<Pedido>>({
+  return useMutation<Pedido, Error, CreatePedidoPayload>({
     mutationFn: async (payload) => {
       const { data } = await api.post<ApiResponse<Pedido>>('/pedidos', payload)
       return data.data

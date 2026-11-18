@@ -565,6 +565,25 @@ $app->group('/api/v1', function (RouteCollectorProxy $api) use ($config, $auth, 
         });
     })->add($auth);
 
+    // Envíos y rótulos de pedidos
+    $api->map(['GET', 'POST'], '/pedidos/{id:[0-9]+}/envio', function ($req, $res, $args) use ($container) {
+        return (new \App\Controllers\ShippingController($container->get(PDO::class)))->order($req, (int) $args['id']);
+    })->add($auth);
+    $api->group('/envios', function (RouteCollectorProxy $g) use ($container) {
+        $g->post('', function ($req, $res) use ($container) {
+            return (new \App\Controllers\ShippingController($container->get(PDO::class)))->manual($req);
+        });
+        $g->map(['GET', 'PUT'], '/{ref}', function ($req, $res, $args) use ($container) {
+            return (new \App\Controllers\ShippingController($container->get(PDO::class)))->shipment($req, $args['ref']);
+        });
+        $g->post('/{ref}/importar', function ($req, $res, $args) use ($container) {
+            return (new \App\Controllers\ShippingController($container->get(PDO::class)))->import($args['ref']);
+        });
+        $g->map(['GET', 'POST'], '/{ref}/rotulo', function ($req, $res, $args) use ($container) {
+            return (new \App\Controllers\ShippingController($container->get(PDO::class)))->label($req, $res, $args['ref']);
+        });
+    })->add($auth);
+
     // Cotizaciones de MiCorreo para el punto de venta
     $api->get('/envios/mi-correo/estado', function ($req, $res) {
         return (new \App\Controllers\MiCorreoController())->availability();
@@ -699,6 +718,9 @@ $app->get('/api/v1/tienda/mercadopago/status', function ($req, $res) use ($conta
     return $container->get(MercadoPagoController::class)->getPublicStatus($req, $res);
 });
 $app->post('/api/v1/tienda/arrepentimiento', function ($req, $res) { return (new \App\Controllers\ReturnController())->create($req, $res); });
+$app->post('/api/v1/tienda/envios/borrador-whatsapp', function ($req, $res) use ($container) {
+    return (new \App\Controllers\ShippingController($container->get(PDO::class)))->whatsapp($req);
+});
 $app->get('/api/v1/tienda/envios/mi-correo', function ($req, $res) {
     return (new \App\Controllers\MiCorreoController())->availability();
 });
