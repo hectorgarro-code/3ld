@@ -43,6 +43,11 @@ class AiController
             $scraped = $this->scraper->scrape($url);
 
             // 2. Process with OpenAI GPT (con soporte de visión si faltan datos textuales)
+            $model = trim((string)($data['model'] ?? 'gpt-4o-mini'));
+            if (!in_array($model, ['gpt-4o-mini', 'gpt-4o'])) {
+                $model = 'gpt-4o-mini';
+            }
+
             try {
                 $imageUrls = $scraped['raw_image_urls'] ?? [];
                 $aiResult = $this->openAiService->optimizeProductForSales(
@@ -52,9 +57,11 @@ class AiController
                         'tags'   => $scraped['tags'] ?? [],
                         'url'    => $url,
                         'images' => $imageUrls,
+                        'model'  => $model,
                     ]
                 );
             } catch (Throwable $aiErr) {
+                error_log("AiController importMakerWorld OpenAI Error: " . $aiErr->getMessage());
                 $aiResult = [
                     'title'           => $scraped['raw_title'],
                     'description'     => $scraped['raw_description'],
@@ -80,6 +87,7 @@ class AiController
                 'images'          => $scraped['images'],
                 'source_url'      => $url,
                 'ai_error'        => $aiResult['ai_error'] ?? null,
+                'model_used'      => $model,
             ]);
         } catch (Throwable $e) {
             return Response::error('Error al importar desde MakerWorld: ' . $e->getMessage(), 500);
@@ -96,13 +104,17 @@ class AiController
             $data    = (array) $request->getParsedBody();
             $title   = trim((string) ($data['title'] ?? ''));
             $details = trim((string) ($data['details'] ?? ''));
+            $model   = trim((string) ($data['model'] ?? 'gpt-4o-mini'));
+            if (!in_array($model, ['gpt-4o-mini', 'gpt-4o'])) {
+                $model = 'gpt-4o-mini';
+            }
 
             if (empty($title) && empty($details)) {
                 return Response::error('Ingresá al menos un título o detalle para generar con IA', 400);
             }
 
             try {
-                $aiResult = $this->openAiService->generateSalesCopy($title, $details);
+                $aiResult = $this->openAiService->generateSalesCopy($title, $details, $model);
             } catch (Throwable $aiErr) {
                 $aiResult = [
                     'title'           => $title,

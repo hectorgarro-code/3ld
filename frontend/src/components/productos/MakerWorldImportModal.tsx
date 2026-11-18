@@ -35,6 +35,7 @@ interface Props {
 
 export function MakerWorldImportModal({ isOpen, onClose, onSuccess }: Props) {
   const [url, setUrl] = useState('')
+  const [aiModel, setAiModel] = useState<'gpt-4o-mini' | 'gpt-4o'>('gpt-4o-mini')
   const [loading, setLoading] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   
@@ -47,6 +48,8 @@ export function MakerWorldImportModal({ isOpen, onClose, onSuccess }: Props) {
     suggested_price: number
     images: string[]
     source_url: string
+    ai_error?: string | null
+    model_used?: string
   } | null>(null)
 
   // Form Editing State for Confirmation
@@ -156,7 +159,7 @@ export function MakerWorldImportModal({ isOpen, onClose, onSuccess }: Props) {
     setPiezas([])
 
     try {
-      const res = await api.post('/ai/import-makerworld', { url: url.trim() })
+      const res = await api.post('/ai/import-makerworld', { url: url.trim(), model: aiModel })
       if (res.data?.success && res.data?.data) {
         const d = res.data.data
         setImportedData(d)
@@ -213,13 +216,13 @@ export function MakerWorldImportModal({ isOpen, onClose, onSuccess }: Props) {
     if (!title && !description) return
     setLoading(true)
     try {
-      const res = await api.post('/ai/generate-text', { title, details: description })
+      const res = await api.post('/ai/generate-text', { title, details: description, model: aiModel })
       if (res.data?.success && res.data?.data) {
         setTitle(res.data.data.title || title)
         setDescription(res.data.data.description || description)
         if (res.data.data.seo_title) setSeoTitle(res.data.data.seo_title)
         if (res.data.data.seo_description) setSeoDescription(res.data.data.seo_description)
-        toast('Texto comercial y SEO regenerados con OpenAI', 'success')
+        toast('Texto comercial y SEO regenerados con OpenAI en español', 'success')
       }
     } catch (err: any) {
       toast('Error al regenerar texto', 'error')
@@ -318,9 +321,37 @@ export function MakerWorldImportModal({ isOpen, onClose, onSuccess }: Props) {
         <div className="p-6 overflow-y-auto flex-1 space-y-5 text-xs">
           {/* URL Input Form */}
           <form onSubmit={handleAnalyzeUrl} className="space-y-3">
-            <label className="font-bold text-slate-700 block">
-              Enlace de MakerWorld (ej: https://makerworld.com/es/models/851050...)
-            </label>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <label className="font-bold text-slate-700 block">
+                Enlace de MakerWorld (ej: https://makerworld.com/es/models/851050...)
+              </label>
+              <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg border border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setAiModel('gpt-4o-mini')}
+                  className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition ${
+                    aiModel === 'gpt-4o-mini'
+                      ? 'bg-cyan-600 text-white shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                  title="Modelo equilibrado, rápido y de costo eficiente con análisis de visión"
+                >
+                  GPT-4o Mini (Equilibrado)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAiModel('gpt-4o')}
+                  className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition ${
+                    aiModel === 'gpt-4o'
+                      ? 'bg-cyan-600 text-white shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                  title="Modelo omnimodal avanzado de OpenAI"
+                >
+                  GPT-4o (Avanzado)
+                </button>
+              </div>
+            </div>
             <div className="flex gap-2">
               <input
                 type="url"
@@ -370,9 +401,11 @@ export function MakerWorldImportModal({ isOpen, onClose, onSuccess }: Props) {
                   <Bot className="h-6 w-6 animate-bounce" />
                 </div>
               </div>
-              <p className="font-bold text-slate-800 text-sm">OpenAI Luna está procesando el modelo...</p>
+              <p className="font-bold text-slate-800 text-sm">
+                OpenAI ({aiModel === 'gpt-4o' ? 'GPT-4o' : 'GPT-4o Mini'}) está analizando el modelo y fotos...
+              </p>
               <p className="text-slate-400 text-xs max-w-sm mx-auto">
-                Extrayendo imágenes de MakerWorld y redactando propuesta comercial de venta.
+                Extrayendo fotos de MakerWorld y redactando propuesta comercial 100% en español.
               </p>
             </div>
           )}
@@ -380,10 +413,23 @@ export function MakerWorldImportModal({ isOpen, onClose, onSuccess }: Props) {
           {/* Preview & Confirmation Form */}
           {importedData && !loading && (
             <div className="space-y-5 pt-2 border-t border-slate-100 animate-in fade-in duration-200">
+              {importedData.ai_error && (
+                <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-2xl flex items-start gap-2.5 text-amber-900 text-xs">
+                  <AlertCircle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-bold">Aviso de OpenAI: {importedData.ai_error}</p>
+                    <p className="text-[11px] text-amber-700 mt-0.5">
+                      Podés pulsar "Re-generar Texto" para reintentar la redacción comercial en español con IA.
+                    </p>
+                  </div>
+                </div>
+              )}
               <div className="flex items-center justify-between bg-cyan-50 p-3 rounded-2xl border border-cyan-200 text-cyan-950">
                 <div className="flex items-center gap-2">
                   <Sparkles className="h-4 w-4 text-cyan-600" />
-                  <span className="font-extrabold">Propuesta generada por OpenAI Luna</span>
+                  <span className="font-extrabold">
+                    Propuesta generada en español por OpenAI ({importedData.model_used || aiModel})
+                  </span>
                 </div>
                 <button
                   type="button"
