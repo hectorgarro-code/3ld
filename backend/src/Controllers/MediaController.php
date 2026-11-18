@@ -99,12 +99,64 @@ class MediaController
             }
         } catch (\Throwable $e) {}
 
+        // Mapear archivos existentes por nombre base para vincular JPG y WebP
+        $fileMap = [];
+        if ($files) {
+            foreach ($files as $filePath) {
+                $bName = basename($filePath);
+                $bExt = strtolower(pathinfo($bName, PATHINFO_EXTENSION));
+                if (!in_array($bExt, ['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg'])) {
+                    continue;
+                }
+                $stem = pathinfo($bName, PATHINFO_FILENAME);
+                if (!isset($fileMap[$stem])) {
+                    $fileMap[$stem] = [];
+                }
+                $fileMap[$stem][$bExt] = [
+                    'basename' => $bName,
+                    'path' => $filePath,
+                    'size' => @filesize($filePath) ?: 0
+                ];
+            }
+        }
+
         if ($files) {
             foreach ($files as $filePath) {
                 $basename = basename($filePath);
                 $ext = strtolower(pathinfo($basename, PATHINFO_EXTENSION));
                 if (!in_array($ext, ['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg'])) {
                     continue;
+                }
+
+                $stem = pathinfo($basename, PATHINFO_FILENAME);
+                $isWebp = ($ext === 'webp');
+
+                $hasWebp = false;
+                $webpFilename = null;
+                $hasOriginal = false;
+                $originalFilename = null;
+                $originalFormat = null;
+
+                if ($isWebp) {
+                    $hasWebp = true;
+                    $webpFilename = $basename;
+                    // Buscar si existe versión original jpg, jpeg o png
+                    foreach (['jpg', 'jpeg', 'png'] as $oe) {
+                        if (isset($fileMap[$stem][$oe])) {
+                            $hasOriginal = true;
+                            $originalFilename = $fileMap[$stem][$oe]['basename'];
+                            $originalFormat = $oe;
+                            break;
+                        }
+                    }
+                } else {
+                    $hasOriginal = in_array($ext, ['jpg', 'jpeg', 'png']);
+                    $originalFilename = $basename;
+                    $originalFormat = $ext;
+                    if (isset($fileMap[$stem]['webp'])) {
+                        $hasWebp = true;
+                        $webpFilename = $fileMap[$stem]['webp']['basename'];
+                    }
                 }
 
                 $sizeBytes = @filesize($filePath) ?: 0;
@@ -121,14 +173,28 @@ class MediaController
                 }
 
                 $cats = $imageCategoryMap[$basename] ?? [];
+                if (empty($cats) && $originalFilename && isset($imageCategoryMap[$originalFilename])) {
+                    $cats = $imageCategoryMap[$originalFilename];
+                }
+                if (empty($cats) && $webpFilename && isset($imageCategoryMap[$webpFilename])) {
+                    $cats = $imageCategoryMap[$webpFilename];
+                }
 
                 $mediaList[] = [
                     'filename' => $basename,
+                    'stem' => $stem,
                     'url' => '/backend/public/uploads/productos/' . $basename,
                     'size_bytes' => $sizeBytes,
                     'size_formatted' => $this->formatSize($sizeBytes),
                     'format' => $ext,
-                    'is_webp' => ($ext === 'webp'),
+                    'is_webp' => $isWebp,
+                    'has_webp' => $hasWebp,
+                    'webp_filename' => $webpFilename,
+                    'webp_url' => $webpFilename ? '/backend/public/uploads/productos/' . $webpFilename : null,
+                    'has_original' => $hasOriginal,
+                    'original_filename' => $originalFilename,
+                    'original_url' => $originalFilename ? '/backend/public/uploads/productos/' . $originalFilename : null,
+                    'original_format' => $originalFormat,
                     'dimensions' => $dimensions,
                     'modified_at' => $modifiedAt,
                     'categories' => $cats,
@@ -416,7 +482,17 @@ class MediaController
                 imagedestroy($srcImg);
                 imagedestroy($dstImg);
 
-                // Actualizar BD: reemplazar $basename por $webpName en productos
+                // Validar que el WebP generado sea válido y no esté vacío
+                $webpPath = $primaryDir . $webpName;
+                if (!file_exists($webpPath) || filesize($webpPath) < 100) {
+                    throw new \RuntimeException("No se pudo generar el archivo WebP");
+                }
+                $checkWp = @getimagesize($webpPath);
+                if (!$checkWp || ($checkWp['mime'] ?? '') !== 'image/webp') {
+                    throw new \RuntimeException("El archivo WebP generado está corrupto o es inválido");
+                }
+
+                // Actualizar BD: vincular productos al .webp para máxima velocidad web
                 if ($basename !== $webpName) {
                     try {
                         $stmt1 = $this->db->prepare("UPDATE productos SET imagen_url = REPLACE(imagen_url, :orig, :new) WHERE imagen_url LIKE :like");

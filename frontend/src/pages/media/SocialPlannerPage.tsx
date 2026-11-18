@@ -129,7 +129,12 @@ export default function SocialPlannerPage() {
       const cleanHook = `"${p.hook.replace(/"/g, '""')}"`
       const cleanVisual = `"${p.visual_guide.replace(/"/g, '""')}"`
       const cleanProd = `"${p.product_name.replace(/"/g, '""')}"`
-      const cleanImg = `"${resolveImageUrl(p.image_url)}"`
+      let metaImgUrl = resolveImageUrl(p.image_url)
+      // Meta (Facebook / Instagram) no admite WebP; usar versión JPG original
+      if (metaImgUrl.endsWith('.webp')) {
+        metaImgUrl = metaImgUrl.replace(/\.webp$/i, '.jpg')
+      }
+      const cleanImg = `"${metaImgUrl}"`
 
       const row = [
         p.day,

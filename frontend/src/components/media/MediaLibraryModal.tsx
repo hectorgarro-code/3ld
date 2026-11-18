@@ -27,11 +27,19 @@ import { resolveImageUrl } from '@/lib/utils'
 
 export interface MediaItem {
   filename: string
+  stem?: string
   url: string
   size_bytes: number
   size_formatted: string
   format: string
   is_webp: boolean
+  has_webp?: boolean
+  webp_filename?: string | null
+  webp_url?: string | null
+  has_original?: boolean
+  original_filename?: string | null
+  original_url?: string | null
+  original_format?: string | null
   dimensions?: { width: number; height: number } | null
   modified_at?: string | null
   categories?: { id: number; nombre: string }[]
@@ -62,6 +70,7 @@ export function MediaLibraryModal({
   const [searchQuery, setSearchQuery] = useState('')
   const [filterFormat, setFilterFormat] = useState<string>('all')
   const [filterCategory, setFilterCategory] = useState<string>('all')
+  const [viewGrouping, setViewGrouping] = useState<'unified' | 'all'>('unified')
   const [copiedUrl, setCopiedUrl] = useState<string | null>(null)
   const [selectedItem, setSelectedItem] = useState<MediaItem | null>(null)
 
@@ -129,9 +138,28 @@ export function MediaLibraryModal({
 
   // Filtrado de Galería
   const filteredMedia = useMemo(() => {
-    return mediaList.filter((item) => {
-      if (filterFormat === 'webp' && !item.is_webp) return false
+    let baseList = mediaList
+
+    if (viewGrouping === 'unified') {
+      const seenStems = new Set<string>()
+      baseList = mediaList.filter((item) => {
+        const stemKey = item.stem || item.filename.replace(/\.[^/.]+$/, '')
+        if (seenStems.has(stemKey)) return false
+        // Si este elemento es JPG/PNG original pero ya existe su versión WebP en la lista,
+        // no mostrarlo como tarjeta duplicada; la tarjeta WebP unificada mostrará ambos formatos
+        if (!item.is_webp && item.has_webp) {
+          const hasWebpCard = mediaList.some((m) => m.is_webp && (m.stem === stemKey || m.filename === `${stemKey}.webp`))
+          if (hasWebpCard) return false
+        }
+        seenStems.add(stemKey)
+        return true
+      })
+    }
+
+    return baseList.filter((item) => {
+      if (filterFormat === 'webp' && !item.is_webp && !item.has_webp) return false
       if (filterFormat === 'legacy' && item.is_webp) return false
+      if (filterFormat === 'pending' && (item.is_webp || item.has_webp)) return false
       if (filterCategory !== 'all') {
         if (!item.category_names || !item.category_names.includes(filterCategory)) {
           return false
@@ -143,7 +171,7 @@ export function MediaLibraryModal({
       }
       return true
     })
-  }, [mediaList, filterFormat, filterCategory, searchQuery])
+  }, [mediaList, viewGrouping, filterFormat, filterCategory, searchQuery])
 
   // Copiar URL
   const handleCopyUrl = (url: string) => {
@@ -539,7 +567,8 @@ export function MediaLibraryModal({
   const selectAllNonWebp = () => {
     const newMap: Record<string, boolean> = {}
     mediaList.forEach((item) => {
-      if (!item.is_webp) {
+      // Solo seleccionar imágenes que no sean WebP y que aún NO tengan su versión WebP generada
+      if (!item.is_webp && !item.has_webp) {
         if (filterCategory === 'all' || (item.category_names && item.category_names.includes(filterCategory))) {
           newMap[item.filename] = true
         }
@@ -652,6 +681,16 @@ export function MediaLibraryModal({
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                  <span className="text-[11px] font-bold text-slate-500 shrink-0">Vista:</span>
+                  <select
+                    value={viewGrouping}
+                    onChange={(e) => setViewGrouping(e.target.value as 'unified' | 'all')}
+                    className="py-1.5 px-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none"
+                  >
+                    <option value="unified">Unificada (1 por foto)</option>
+                    <option value="all">Ver todos los archivos</option>
+                  </select>
+
                   <span className="text-[11px] font-bold text-slate-500 shrink-0">Filtrar:</span>
                   <select
                     value={filterCategory}
@@ -672,8 +711,9 @@ export function MediaLibraryModal({
                     className="py-1.5 px-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none"
                   >
                     <option value="all">Todos los formatos</option>
-                    <option value="webp">Solo formato WebP (Optimizado)</option>
-                    <option value="legacy">Imágenes pesadas (JPG/PNG)</option>
+                    <option value="webp">Con versión WebP (Optimizado)</option>
+                    <option value="pending">Pendientes de WebP</option>
+                    <option value="legacy">Solo originales (JPG/PNG)</option>
                   </select>
                 </div>
               </div>
@@ -714,20 +754,25 @@ export function MediaLibraryModal({
                             : 'border-slate-200 hover:border-slate-300'
                         }`}
                       >
-                        {/* Indicador WebP badge */}
-                        <div className="absolute top-2 left-2 z-10">
-                          {item.is_webp ? (
+                        {/* Indicadores WebP y Original badges */}
+                        <div className="absolute top-2 left-2 z-10 flex flex-wrap gap-1">
+                          {item.is_webp || item.has_webp ? (
                             <span className="bg-emerald-600/90 text-white text-[9px] font-black px-2 py-0.5 rounded-full backdrop-blur-xs flex items-center gap-1 shadow-xs">
                               <Sparkles className="w-2.5 h-2.5" /> WebP
                             </span>
                           ) : (
-                            <span className="bg-slate-800/80 text-slate-200 text-[9px] font-bold px-2 py-0.5 rounded-full backdrop-blur-xs">
-                              {item.format.toUpperCase()}
+                            <span className="bg-amber-600/90 text-white text-[9px] font-black px-2 py-0.5 rounded-full backdrop-blur-xs flex items-center gap-1 shadow-xs">
+                              <Zap className="w-2.5 h-2.5" /> Pendiente
+                            </span>
+                          )}
+                          {item.has_original && (
+                            <span className="bg-purple-700/85 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full backdrop-blur-xs shadow-xs" title="Archivo original conservado para Meta / Redes">
+                              {(item.original_format || item.format).toUpperCase()}
                             </span>
                           )}
                         </div>
 
-                        {!item.is_webp && (
+                        {!item.is_webp && !item.has_webp && (
                           <button
                             title="Optimizar a WebP"
                             onClick={(e) => {
@@ -840,7 +885,42 @@ export function MediaLibraryModal({
                     </button>
                   )}
 
-                  {!selectedItem.is_webp && (
+                  {/* Acceso rápido a versión WebP */}
+                  {(selectedItem.is_webp || selectedItem.has_webp) && (
+                    <button
+                      onClick={() => handleCopyUrl(selectedItem.webp_url || (selectedItem.is_webp ? selectedItem.url : ''))}
+                      className="w-full py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-xl text-xs font-bold flex items-center justify-between px-3 border border-emerald-200 transition"
+                      title="Copiar URL WebP ultraliviana para la web"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>Copiar WebP (Tienda Web)</span>
+                      </div>
+                      <Copy className="w-3.5 h-3.5 text-emerald-600" />
+                    </button>
+                  )}
+
+                  {/* Acceso rápido a versión Original para Meta / Instagram */}
+                  {selectedItem.has_original && (
+                    <a
+                      href={resolveImageUrl(selectedItem.original_url || (!selectedItem.is_webp ? selectedItem.url : ''))}
+                      download={selectedItem.original_filename || selectedItem.filename}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="w-full py-2 bg-purple-50 hover:bg-purple-100 text-purple-800 rounded-xl text-xs font-bold flex items-center justify-between px-3 border border-purple-200 transition"
+                      title="Descargar versión original compatible con Facebook e Instagram"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Download className="w-3.5 h-3.5 text-purple-600" />
+                        <span>Original (Meta / Redes)</span>
+                      </div>
+                      <span className="text-[10px] bg-purple-200 text-purple-900 px-1.5 py-0.5 rounded font-black">
+                        {(selectedItem.original_format || selectedItem.format).toUpperCase()}
+                      </span>
+                    </a>
+                  )}
+
+                  {!selectedItem.is_webp && !selectedItem.has_webp && (
                     <button
                       onClick={() => handleConvertSingleToWebp(selectedItem)}
                       disabled={isConvertingSingle}
@@ -1236,9 +1316,14 @@ export function MediaLibraryModal({
 
                   <button
                     onClick={selectAllNonWebp}
-                    className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold transition"
+                    className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold transition flex items-center gap-1.5"
                   >
-                    {filterCategory === 'all' ? 'Seleccionar todas las JPG/PNG' : `Seleccionar JPG/PNG de "${filterCategory}"`}
+                    <Zap className="w-3.5 h-3.5 text-amber-500" />
+                    <span>
+                      {filterCategory === 'all'
+                        ? `Seleccionar pendientes (${mediaList.filter((m) => !m.is_webp && !m.has_webp).length})`
+                        : `Pendientes de "${filterCategory}" (${mediaList.filter((m) => !m.is_webp && !m.has_webp && m.category_names && m.category_names.includes(filterCategory)).length})`}
+                    </span>
                   </button>
                   <button
                     onClick={handleBatchConvert}
@@ -1272,13 +1357,25 @@ export function MediaLibraryModal({
                       onClick={() => toggleSelectBatch(item.filename)}
                       className={`relative bg-slate-50 rounded-2xl border p-2 cursor-pointer transition ${
                         isChecked ? 'border-amber-500 ring-2 ring-amber-500/20 bg-amber-50/30' : 'border-slate-200'
-                      }`}
+                      } ${item.is_webp || item.has_webp ? 'opacity-70 hover:opacity-100' : ''}`}
                     >
                       <div className="absolute top-3 left-3 z-10">
                         {isChecked ? (
                           <CheckSquare className="w-5 h-5 text-amber-600 bg-white rounded-md" />
                         ) : (
                           <Square className="w-5 h-5 text-slate-400 bg-white rounded-md" />
+                        )}
+                      </div>
+
+                      <div className="absolute top-2 right-2 z-10">
+                        {item.is_webp || item.has_webp ? (
+                          <span className="bg-emerald-600/90 text-white text-[8px] font-black px-1.5 py-0.5 rounded-full backdrop-blur-xs flex items-center gap-0.5 shadow-xs">
+                            <Sparkles className="w-2 h-2" /> WebP Listo
+                          </span>
+                        ) : (
+                          <span className="bg-amber-600/90 text-white text-[8px] font-black px-1.5 py-0.5 rounded-full backdrop-blur-xs shadow-xs">
+                            Pendiente
+                          </span>
                         )}
                       </div>
 

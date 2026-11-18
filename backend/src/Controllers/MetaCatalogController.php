@@ -8,6 +8,7 @@ use PDO;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use App\Helpers\Response;
+use App\Helpers\UploadHelper;
 
 class MetaCatalogController
 {
@@ -49,17 +50,39 @@ class MetaCatalogController
     }
 
     /**
-     * Resuelve una URL absoluta para imágenes
+     * Resuelve una URL absoluta para imágenes compatible con Meta (Facebook e Instagram).
+     * Meta no admite formato WebP en sus catálogos. Si la imagen del producto está en .webp,
+     * busca si existe el original JPG/PNG en el servidor para servir el formato compatible.
      */
     private function formatImageUrl(?string $url): string
     {
         if (empty($url)) {
             return $this->baseUrl . '/favicon.png';
         }
-        if (str_starts_with($url, 'http://') || str_starts_with($url, 'https://')) {
-            return $url;
+
+        $targetUrl = $url;
+
+        // Si la URL apunta a un archivo .webp, intentar resolver a su equivalente JPG o PNG para Meta
+        if (preg_match('/\.webp$/i', $targetUrl)) {
+            $baseName = basename($targetUrl);
+            $stem = preg_replace('/\.webp$/i', '', $baseName);
+            $dirs = UploadHelper::getTargetDirectories();
+
+            foreach (['.jpg', '.jpeg', '.png'] as $altExt) {
+                $altFilename = $stem . $altExt;
+                foreach ($dirs as $dir) {
+                    if (file_exists($dir . $altFilename)) {
+                        $targetUrl = str_replace($baseName, $altFilename, $targetUrl);
+                        break 2;
+                    }
+                }
+            }
         }
-        $trimmed = ltrim($url, '/');
+
+        if (str_starts_with($targetUrl, 'http://') || str_starts_with($targetUrl, 'https://')) {
+            return $targetUrl;
+        }
+        $trimmed = ltrim($targetUrl, '/');
         return $this->baseUrl . '/' . $trimmed;
     }
 
