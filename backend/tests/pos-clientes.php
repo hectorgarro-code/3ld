@@ -75,3 +75,15 @@ verify($after['destacado_pos'] && $after['direccion'] === 'Calle ficticia 123' &
 $db->exec('ALTER TABLE clientes DROP COLUMN empresa; ALTER TABLE clientes DROP COLUMN cuit');
 $legacy = $repo->findAll(['orden' => 'destacados', 'q' => 'CONS. FINAL', 'per_page' => 20]);
 verify($legacy['data'][0]['nombre'] === 'CONS. FINAL', 'La búsqueda del POS funciona con datos de contacto de instalaciones anteriores');
+
+$db->exec('ALTER TABLE clientes ADD COLUMN empresa TEXT; ALTER TABLE clientes ADD COLUMN dni_cuit TEXT');
+$legacyClient = $repo->create([
+    'nombre' => 'Alta POS anterior', 'email' => 'alta@example.test',
+    'direccion' => 'Calle de prueba 43', 'cuit' => '20999999991',
+]);
+verify($legacyClient['email'] === 'alta@example.test' && $legacyClient['direccion'] === 'Calle de prueba 43',
+    'El alta rápida guarda correo y dirección con el esquema histórico');
+verify($legacyClient['cuit'] === '20999999991' && $repo->findAll(['q' => '20999999991'])['meta']['total'] === 1,
+    'La ficha y el listado general reconocen el identificador fiscal histórico');
+verify($repo->update((int) $legacyClient['id'], ['cuit' => '20999999992'])['cuit'] === '20999999992',
+    'Editar el identificador fiscal funciona con ambos nombres de columna');

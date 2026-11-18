@@ -15,6 +15,17 @@ class ClienteRepository
         $this->db = $db;
     }
 
+    private function fiscalIdColumn(): string
+    {
+        $columns = $this->db->query('SELECT * FROM clientes WHERE 1 = 0');
+        for ($index = 0; $index < $columns->columnCount(); $index++) {
+            if (($columns->getColumnMeta($index)['name'] ?? null) === 'cuit') {
+                return 'cuit';
+            }
+        }
+        return 'dni_cuit';
+    }
+
     public function findAll(array $params = []): array
     {
         $q = is_string($params['q'] ?? null) ? trim($params['q']) : '';
@@ -37,7 +48,8 @@ class ClienteRepository
             $like = "%{$q}%";
             $binds = [$like, $like, $like];
             if ($order !== 'destacados') {
-                $where .= " OR c.empresa LIKE ? OR c.cuit LIKE ?";
+                $fiscalIdColumn = $this->fiscalIdColumn();
+                $where .= " OR c.empresa LIKE ? OR c.{$fiscalIdColumn} LIKE ?";
                 $binds[] = $like;
                 $binds[] = $like;
             }
@@ -72,6 +84,7 @@ class ClienteRepository
         foreach ($clientes as &$c) {
             $c['tipo_cliente'] = ($c['tipo_cliente'] ?? '') === 'mayorista' ? 'mayorista' : 'minorista';
             $c['destacado_pos'] = (bool) ($c['destacado_pos'] ?? false);
+            $c['cuit'] = $c['cuit'] ?? $c['dni_cuit'] ?? null;
         }
         unset($c);
 
@@ -106,6 +119,7 @@ class ClienteRepository
 
         $cliente['tipo_cliente'] = ($cliente['tipo_cliente'] ?? '') === 'mayorista' ? 'mayorista' : 'minorista';
         $cliente['destacado_pos'] = (bool) ($cliente['destacado_pos'] ?? false);
+        $cliente['cuit'] = $cliente['cuit'] ?? $cliente['dni_cuit'] ?? null;
 
         try {
             $stmtPE = $this->db->prepare(
@@ -154,8 +168,9 @@ class ClienteRepository
         $tipoRaw = strtolower(trim((string)($data['tipo_cliente'] ?? 'minorista')));
         $tipoCliente = ($tipoRaw === 'mayorista') ? 'mayorista' : 'minorista';
 
+        $fiscalIdColumn = $this->fiscalIdColumn();
         $stmt = $this->db->prepare(
-            "INSERT INTO clientes (nombre, email, telefono, empresa, cuit, direccion, notas, tipo_cliente, descuento_porcentaje, activo, created_at, updated_at)
+            "INSERT INTO clientes (nombre, email, telefono, empresa, {$fiscalIdColumn}, direccion, notas, tipo_cliente, descuento_porcentaje, activo, created_at, updated_at)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())"
         );
         $stmt->execute([
@@ -199,7 +214,8 @@ class ClienteRepository
 
         foreach ($map as $col => $type) {
             if (array_key_exists($col, $data)) {
-                $fields[] = "{$col} = ?";
+                $column = $col === 'cuit' ? $this->fiscalIdColumn() : $col;
+                $fields[] = "{$column} = ?";
                 $val      = $data[$col];
                 if ($col === 'tipo_cliente') {
                     $tipoRaw = strtolower(trim((string)$val));
