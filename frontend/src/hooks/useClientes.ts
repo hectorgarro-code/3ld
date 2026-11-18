@@ -7,9 +7,10 @@ interface ClientesParams {
   q?: string
   page?: number
   per_page?: number
+  orden?: 'destacados' | 'pos_default'
 }
 
-export function useClientes(params?: ClientesParams & { search?: string }) {
+export function useClientes(params?: ClientesParams & { search?: string }, options?: { enabled?: boolean }) {
   // Normalize: remap 'search' -> 'q' for backward compat
   const { search, ...rest } = params ?? {}
   const apiParams: ClientesParams = { ...rest }
@@ -17,9 +18,11 @@ export function useClientes(params?: ClientesParams & { search?: string }) {
 
   return useQuery<PaginatedResponse<Cliente>>({
     queryKey: ['clientes', params],
-    queryFn: async () => {
+    enabled: options?.enabled,
+    queryFn: async ({ signal }) => {
       const { data } = await api.get<PaginatedResponse<Cliente>>('/clientes', {
         params: apiParams,
+        signal,
       })
       return data
     },
@@ -64,10 +67,7 @@ export function useUpdateCliente() {
       )
       return data.data
     },
-    onSuccess: (_, { id }) => {
-      queryClient.invalidateQueries({ queryKey: ['clientes'] })
-      queryClient.invalidateQueries({ queryKey: ['clientes', id] })
-    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['clientes'] }),
   })
 }
 

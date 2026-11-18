@@ -7,6 +7,7 @@ import { toast } from '@/store/toastStore'
 import { formatARS } from '@/lib/cost-calculator'
 import api from '@/lib/api'
 import { ProductoFormModal } from '@/components/productos/ProductoFormModal'
+import { PosCustomerPicker } from '@/components/pos/PosCustomerPicker'
 import {
   Search,
   Plus,
@@ -34,7 +35,7 @@ import {
   PROVINCIAS_CORREO_ARG,
   type ShippingConfig,
 } from '@/lib/correoArgentino'
-import type { PedidoEstado } from '@/types'
+import type { Cliente, PedidoEstado } from '@/types'
 import {
   calcularPrecioProductoCliente,
   calcularPrecioMayoristaDefault,
@@ -71,7 +72,7 @@ export interface PosCartItem {
 export default function PosPage() {
   const navigate = useNavigate()
   const { data: productosData, isLoading: loadingProductos, refetch: refetchProds } = useProductos({ per_page: 500 })
-  const { data: clientesData, refetch: refetchClientes } = useClientes({ per_page: 500 })
+  const { data: defaultClient } = useClientes({ per_page: 1, orden: 'pos_default' })
   const createPedido = useCreatePedido()
   const createCliente = useCreateCliente()
 
@@ -82,7 +83,7 @@ export default function PosPage() {
   const [mobileView, setMobileView] = useState<'catalog' | 'ticket'>('catalog')
 
   // Order Details State
-  const [clienteId, setClienteId] = useState<number | ''>('')
+  const [selectedClient, setSelectedClient] = useState<Cliente>()
   const [descuentoPct, setDescuentoPct] = useState<number>(0)
   const [estadoPedido, setEstadoPedido] = useState<PedidoEstado>('aprobado')
   const [notasGenerales, setNotasGenerales] = useState<string>('')
@@ -117,6 +118,8 @@ export default function PosPage() {
   const [isNewClienteModalOpen, setIsNewClienteModalOpen] = useState(false)
   const [newClienteNombre, setNewClienteNombre] = useState('')
   const [newClienteTelefono, setNewClienteTelefono] = useState('')
+  const [newClienteEmail, setNewClienteEmail] = useState('')
+  const [newClienteDireccion, setNewClienteDireccion] = useState('')
   const [newClienteTipo, setNewClienteTipo] = useState<'minorista' | 'mayorista'>('minorista')
 
   // Item Edit Note Modal
@@ -133,21 +136,12 @@ export default function PosPage() {
   const [quickArchivoUrl, setQuickArchivoUrl] = useState<string>('')
   const [posSelectedPiezas, setPosSelectedPiezas] = useState<Record<string, boolean>>({})
 
-  // Auto select default client
-  const defaultClienteId = useMemo(() => {
-    if (!clientesData?.data || clientesData.data.length === 0) return ''
-    const consumidor = clientesData.data.find(
-      (c) => c.nombre.toLowerCase().includes('consumidor final') || c.nombre.toLowerCase().includes('mostrador')
-    )
-    return consumidor ? consumidor.id : clientesData.data[0].id
-  }, [clientesData])
-
-  const activeClienteId = clienteId !== '' ? clienteId : defaultClienteId
-
-  const currentSelectedClient = useMemo(() => {
-    if (!clientesData?.data) return undefined
-    return clientesData.data.find((c) => c.id === Number(activeClienteId))
-  }, [clientesData, activeClienteId])
+  const currentSelectedClient = selectedClient ?? defaultClient?.data[0]
+  const activeClienteId = currentSelectedClient?.id
+  const recipientName = currentSelectedClient?.nombre ?? ''
+  const recipientPhone = currentSelectedClient?.telefono ?? ''
+  const recipientEmail = currentSelectedClient?.email ?? ''
+  const recipientAddress = currentSelectedClient?.direccion ?? ''
 
   // Categories extraction
   const categories = useMemo(() => {
@@ -348,10 +342,10 @@ export default function PosPage() {
   }
 
   // Cambio de cliente con recálculo dinámico en el carrito
-  const handleClientChange = (newClientId: number) => {
-    setClienteId(newClientId)
-    const newClient = clientesData?.data?.find((c) => c.id === newClientId)
-    if (!newClient || cart.length === 0) return
+  const handleClientChange = (newClient: Cliente) => {
+    if (newClient.id === activeClienteId) return
+    setSelectedClient(newClient)
+    if (cart.length === 0) return
 
     let updatedCount = 0
     const updatedCart = cart.map((item) => {
@@ -453,17 +447,21 @@ export default function PosPage() {
 
   // Sync client details into shippingConfig
   useEffect(() => {
-    const c = clientesData?.data.find((cl) => cl.id === activeClienteId)
-    if (c) {
-      setShippingConfig((prev) => ({
-        ...prev,
-        destinatarioNombre: c.nombre || '',
-        telefono: c.telefono || '',
-        email: c.email || '',
-        calle: c.direccion || '',
-      }))
-    }
-  }, [activeClienteId, clientesData])
+    setShippingQuote(null)
+    setShippingError(null)
+    setShippingConfig(prev => ({
+      ...prev,
+      destinatarioNombre: recipientName,
+      telefono: recipientPhone,
+      email: recipientEmail,
+      calle: recipientAddress,
+      altura: '',
+      pisoDpto: '',
+      localidad: '',
+      provinciaCodigo: 'B',
+      codigoPostal: '',
+    }))
+  }, [activeClienteId, recipientName, recipientPhone, recipientEmail, recipientAddress])
 
   // Estimated weight from cart products
   const totalCartWeightGrams = useMemo(() => {
@@ -649,15 +647,18 @@ export default function PosPage() {
       const res = await createCliente.mutateAsync({
         nombre: newClienteNombre.trim(),
         telefono: newClienteTelefono.trim() || undefined,
+        email: newClienteEmail.trim() || undefined,
+        direccion: newClienteDireccion.trim() || undefined,
         tipo_cliente: newClienteTipo,
-      } as any)
+      })
       toast('Cliente creado exitosamente', 'success')
       setIsNewClienteModalOpen(false)
       setNewClienteNombre('')
       setNewClienteTelefono('')
+      setNewClienteEmail('')
+      setNewClienteDireccion('')
       setNewClienteTipo('minorista')
-      await refetchClientes()
-      if (res?.id) handleClientChange(res.id)
+      handleClientChange(res)
     } catch (err) {
       toast('Error al crear cliente', 'error')
     }
@@ -880,17 +881,7 @@ export default function PosPage() {
               )}
             </div>
             <div className="flex items-center gap-2">
-              <select
-                value={activeClienteId}
-                onChange={(e) => handleClientChange(Number(e.target.value))}
-                className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-white focus:outline-none focus:border-teal-500"
-              >
-                {clientesData?.data.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.nombre} {c.tipo_cliente === 'mayorista' ? ' [Mayorista]' : ''} {Number(c.descuento_porcentaje) > 0 ? ` (-${c.descuento_porcentaje}%)` : ''}
-                  </option>
-                ))}
-              </select>
+              <PosCustomerPicker selected={currentSelectedClient} onSelect={handleClientChange} />
               <button
                 onClick={() => setIsNewClienteModalOpen(true)}
                 className="p-2 bg-slate-800 hover:bg-slate-700 text-teal-400 rounded-xl border border-slate-700 transition"
@@ -1606,7 +1597,7 @@ export default function PosPage() {
       {/* QUICK CLIENT CREATION MODAL */}
       {isNewClienteModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs">
-          <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-200">
+          <div className="max-h-[90dvh] overflow-y-auto bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-200">
             <h3 className="font-extrabold text-base text-slate-900 mb-3">Nuevo Cliente Rápido</h3>
             <form onSubmit={handleCreateQuickCliente} className="space-y-3 text-xs">
               <div>
@@ -1630,6 +1621,19 @@ export default function PosPage() {
                   className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900"
                 />
               </div>
+
+              <label className="block font-bold text-slate-700">
+                Correo electrónico (opcional)
+                <input type="email" autoComplete="email" maxLength={150} value={newClienteEmail}
+                  onChange={event => setNewClienteEmail(event.target.value)}
+                  className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 text-sm text-slate-900" />
+              </label>
+              <label className="block font-bold text-slate-700">
+                Dirección habitual (opcional)
+                <input type="text" autoComplete="street-address" maxLength={255} value={newClienteDireccion}
+                  onChange={event => setNewClienteDireccion(event.target.value)}
+                  className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 text-sm text-slate-900" />
+              </label>
 
               <div>
                 <label className="font-bold text-slate-700 block mb-1">Tipo de Cliente (Tarifa)</label>

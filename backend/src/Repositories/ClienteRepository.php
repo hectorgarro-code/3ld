@@ -17,7 +17,14 @@ class ClienteRepository
 
     public function findAll(array $params = []): array
     {
-        $q       = $params['q']        ?? '';
+        $q = is_string($params['q'] ?? null) ? trim($params['q']) : '';
+        $order = $params['orden'] ?? '';
+        $orderBy = match ($order) {
+            'destacados' => 'c.destacado_pos DESC, c.nombre ASC, c.id ASC',
+            'pos_default' => "CASE WHEN LOWER(TRIM(c.nombre)) IN ('cons. final', 'cons final', 'consumidor final')
+                OR LOWER(c.nombre) LIKE '%consumidor final%' OR LOWER(c.nombre) LIKE '%mostrador%' THEN 0 ELSE 1 END, c.nombre ASC, c.id ASC",
+            default => 'c.nombre ASC, c.id ASC',
+        };
         $page    = max(1, (int) ($params['page']     ?? 1));
         $perPage = min(100, max(1, (int) ($params['per_page'] ?? 15)));
         $offset  = ($page - 1) * $perPage;
@@ -26,9 +33,17 @@ class ClienteRepository
         $binds = [];
 
         if (!empty($q)) {
-            $where .= " AND (c.nombre LIKE ? OR c.email LIKE ? OR c.telefono LIKE ? OR c.empresa LIKE ? OR c.cuit LIKE ?)";
-            $like   = "%{$q}%";
-            $binds  = array_merge($binds, [$like, $like, $like, $like, $like]);
+            $where .= " AND (c.nombre LIKE ? OR c.email LIKE ? OR c.telefono LIKE ? OR c.empresa LIKE ? OR c.cuit LIKE ?";
+            $like = "%{$q}%";
+            $binds = [$like, $like, $like, $like, $like];
+            if ($order === 'destacados' && preg_match('/^[+0-9 .()\-]+$/D', $q)) {
+                $digits = preg_replace('/\D/', '', $q);
+                if ($digits !== '') {
+                    $where .= " OR REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(c.telefono, ' ', ''), '-', ''), '(', ''), ')', ''), '+', ''), '.', '') LIKE ?";
+                    $binds[] = "%{$digits}%";
+                }
+            }
+            $where .= ')';
         }
 
         $stmtCount = $this->db->prepare("SELECT COUNT(*) FROM clientes c {$where}");
@@ -42,7 +57,7 @@ class ClienteRepository
                 LEFT JOIN pedidos p ON p.cliente_id = c.id
                 {$where}
                 GROUP BY c.id
-                ORDER BY c.nombre ASC
+                ORDER BY {$orderBy}
                 LIMIT {$perPage} OFFSET {$offset}";
 
         $stmt = $this->db->prepare($sql);
@@ -51,6 +66,7 @@ class ClienteRepository
 
         foreach ($clientes as &$c) {
             $c['tipo_cliente'] = ($c['tipo_cliente'] ?? '') === 'mayorista' ? 'mayorista' : 'minorista';
+            $c['destacado_pos'] = (bool) ($c['destacado_pos'] ?? false);
         }
         unset($c);
 
@@ -84,6 +100,7 @@ class ClienteRepository
         }
 
         $cliente['tipo_cliente'] = ($cliente['tipo_cliente'] ?? '') === 'mayorista' ? 'mayorista' : 'minorista';
+        $cliente['destacado_pos'] = (bool) ($cliente['destacado_pos'] ?? false);
 
         try {
             $stmtPE = $this->db->prepare(
@@ -172,6 +189,7 @@ class ClienteRepository
             'notas'                => 'string',
             'tipo_cliente'         => 'string',
             'descuento_porcentaje' => 'float',
+            'destacado_pos'        => 'bool',
         ];
 
         foreach ($map as $col => $type) {
@@ -181,6 +199,8 @@ class ClienteRepository
                 if ($col === 'tipo_cliente') {
                     $tipoRaw = strtolower(trim((string)$val));
                     $binds[] = ($tipoRaw === 'mayorista') ? 'mayorista' : 'minorista';
+                } elseif ($type === 'bool') {
+                    $binds[] = (int) $val;
                 } else {
                     $binds[]  = $val !== null ? ($type === 'float' ? (float)$val : (string)$val) : null;
                 }

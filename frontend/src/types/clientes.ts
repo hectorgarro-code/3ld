@@ -15,6 +15,7 @@ export interface Cliente {
   empresa?: string
   cuit?: string
   direccion?: string
+  destacado_pos?: boolean
   notas?: string
   tipo_cliente?: 'minorista' | 'mayorista'
   descuento_porcentaje?: number

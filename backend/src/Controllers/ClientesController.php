@@ -85,6 +85,9 @@ class ClientesController
             $id   = (int) $args['id'];
             $body = $request->getParsedBody() ?? [];
 
+            if (array_key_exists('destacado_pos', $body) && !is_bool($body['destacado_pos'])) {
+                return Response::error('Indicá si el cliente debe quedar destacado.', 422);
+            }
             $updated = $this->repository->update($id, $body);
             if (!$updated) {
                 return Response::error('Cliente no encontrado', 404);

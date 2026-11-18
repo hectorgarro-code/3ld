@@ -84,6 +84,12 @@ class Database
                         }
                     }
                 } catch (\Throwable $e) { error_log('3LD: campo de figuras por kit pendiente: ' . $e->getMessage()); }
+                try {
+                    $column = self::$instance->query("SHOW COLUMNS FROM clientes LIKE 'destacado_pos'")->fetch();
+                    if (!$column) {
+                        self::$instance->exec("ALTER TABLE clientes ADD COLUMN destacado_pos TINYINT(1) NOT NULL DEFAULT 0");
+                    }
+                } catch (\Throwable $e) { error_log('3LD: columna de clientes destacados pendiente.'); }
                 // Cada instalación importa sus archivos antiguos al registro compartido, sin borrarlos.
                 if (glob(__DIR__ . '/../var/return-requests/*.php')) {
                     try { (new \App\Services\ReturnLedger(self::$instance))->importLegacy(new \App\Services\ReturnRequests()); }
