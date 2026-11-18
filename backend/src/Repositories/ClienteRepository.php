@@ -32,10 +32,15 @@ class ClienteRepository
         $where = "WHERE c.activo = 1";
         $binds = [];
 
-        if (!empty($q)) {
-            $where .= " AND (c.nombre LIKE ? OR c.email LIKE ? OR c.telefono LIKE ? OR c.empresa LIKE ? OR c.cuit LIKE ?";
+        if ($q !== '') {
+            $where .= " AND (c.nombre LIKE ? OR c.email LIKE ? OR c.telefono LIKE ?";
             $like = "%{$q}%";
-            $binds = [$like, $like, $like, $like, $like];
+            $binds = [$like, $like, $like];
+            if ($order !== 'destacados') {
+                $where .= " OR c.empresa LIKE ? OR c.cuit LIKE ?";
+                $binds[] = $like;
+                $binds[] = $like;
+            }
             if ($order === 'destacados' && preg_match('/^[+0-9 .()\-]+$/D', $q)) {
                 $digits = preg_replace('/\D/', '', $q);
                 if ($digits !== '') {

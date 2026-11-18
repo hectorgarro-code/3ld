@@ -72,3 +72,6 @@ $repo->update((int) $saved['id'], ['destacado_pos' => true]);
 $after = $repo->findById((int) $saved['id']);
 verify($after['destacado_pos'] && $after['direccion'] === 'Calle ficticia 123' && $after['tipo_cliente'] === 'mayorista',
     'Cambiar la estrella conserva la dirección y la tarifa del cliente');
+$db->exec('ALTER TABLE clientes DROP COLUMN empresa; ALTER TABLE clientes DROP COLUMN cuit');
+$legacy = $repo->findAll(['orden' => 'destacados', 'q' => 'CONS. FINAL', 'per_page' => 20]);
+verify($legacy['data'][0]['nombre'] === 'CONS. FINAL', 'La búsqueda del POS funciona con datos de contacto de instalaciones anteriores');
