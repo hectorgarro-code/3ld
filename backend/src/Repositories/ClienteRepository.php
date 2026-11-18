@@ -8,6 +8,8 @@ use PDO;
 
 class ClienteRepository
 {
+    private const PHONE_DIGITS = "REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(c.telefono, ' ', ''), '-', ''), '(', ''), ')', ''), '+', ''), '.', '')";
+
     private PDO $db;
 
     public function __construct(PDO $db)
@@ -56,7 +58,7 @@ class ClienteRepository
             if ($order === 'destacados' && preg_match('/^[+0-9 .()\-]+$/D', $q)) {
                 $digits = preg_replace('/\D/', '', $q);
                 if ($digits !== '') {
-                    $where .= " OR REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(c.telefono, ' ', ''), '-', ''), '(', ''), ')', ''), '+', ''), '.', '') LIKE ?";
+                    $where .= ' OR ' . self::PHONE_DIGITS . ' LIKE ?';
                     $binds[] = "%{$digits}%";
                 }
             }
@@ -161,6 +163,43 @@ class ClienteRepository
         }
 
         return $cliente;
+    }
+
+    public function findContactMatches(string $email, string $phone): array
+    {
+        $email = mb_strtolower(trim($email));
+        $digits = preg_replace('/\D/', '', $phone);
+        $national = preg_replace('/^(?:549|54|0)(?=\d{10}$)/D', '', $digits);
+        $phones = strlen($national) === 10
+            ? [$national, '0' . $national, '54' . $national, '549' . $national]
+            : (strlen($digits) >= 6 ? [$digits] : []);
+
+        $conditions = [];
+        $binds = [];
+        if ($email !== '') {
+            $conditions[] = 'LOWER(TRIM(c.email)) = ?';
+            $binds[] = $email;
+        }
+        if ($phones) {
+            $conditions[] = self::PHONE_DIGITS . ' IN (' . implode(', ', array_fill(0, count($phones), '?')) . ')';
+            array_push($binds, ...$phones);
+        }
+        if (!$conditions) {
+            return [];
+        }
+
+        $where = implode(' OR ', $conditions);
+        $query = $this->db->prepare("SELECT c.id, c.nombre, c.email, c.telefono FROM clientes c
+            WHERE c.activo = 1 AND ($where) ORDER BY c.id LIMIT 10");
+        $query->execute($binds);
+        return array_map(static function (array $row) use ($email, $phones): array {
+            return [
+                'id' => (int) $row['id'],
+                'nombre' => $row['nombre'],
+                'email' => $email !== '' && mb_strtolower(trim($row['email'] ?? '')) === $email,
+                'telefono' => in_array(preg_replace('/\D/', '', $row['telefono'] ?? ''), $phones, true),
+            ];
+        }, $query->fetchAll(PDO::FETCH_ASSOC));
     }
 
     public function create(array $data): array

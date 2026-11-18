@@ -40,9 +40,14 @@ export function useCliente(id: number | string | undefined) {
   })
 }
 
+type CreateClientePayload = Partial<Cliente> & {
+  verificar_duplicados?: boolean
+  confirmar_coincidencias?: number[]
+}
+
 export function useCreateCliente() {
   const queryClient = useQueryClient()
-  return useMutation<Cliente, Error, Partial<Cliente>>({
+  return useMutation<Cliente, Error, CreateClientePayload>({
     mutationFn: async (payload) => {
       const { data } = await api.post<ApiResponse<Cliente>>('/clientes', payload)
       return data.data

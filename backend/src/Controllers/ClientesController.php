@@ -69,6 +69,20 @@ class ClientesController
                 return Response::error('El nombre del cliente es requerido', 422);
             }
 
+            if (($body['verificar_duplicados'] ?? false) === true) {
+                $email = $body['email'] ?? '';
+                $phone = $body['telefono'] ?? '';
+                if (!is_string($email) || !is_string($phone)) {
+                    return Response::error('Revisá el email y el teléfono del cliente.', 422);
+                }
+                $matches = $this->repository->findContactMatches($email, $phone);
+                $ids = array_column($matches, 'id');
+                if ($ids && $ids !== ($body['confirmar_coincidencias'] ?? [])) {
+                    return Response::error('Ya existe un cliente con esos datos de contacto.', 409, [
+                        'coincidencias' => $matches,
+                    ])->withHeader('Cache-Control', 'no-store');
+                }
+            }
             $nuevoCliente = $this->repository->create($body);
             return Response::success($nuevoCliente, 201);
         } catch (Throwable $e) {

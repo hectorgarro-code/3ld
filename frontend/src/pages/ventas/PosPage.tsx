@@ -35,12 +35,19 @@ import {
   PROVINCIAS_CORREO_ARG,
   type ShippingConfig,
 } from '@/lib/correoArgentino'
-import type { Cliente, PedidoEstado } from '@/types'
+import type { ApiResponse, Cliente, PedidoEstado } from '@/types'
 import {
   calcularPrecioProductoCliente,
   calcularPrecioMayoristaDefault,
   esClienteMayorista,
 } from '@/lib/pricing'
+
+interface ContactMatch {
+  id: number
+  nombre: string
+  email: boolean
+  telefono: boolean
+}
 
 interface PostalRate {
   service: string
@@ -121,6 +128,8 @@ export default function PosPage() {
   const [newClienteEmail, setNewClienteEmail] = useState('')
   const [newClienteDireccion, setNewClienteDireccion] = useState('')
   const [newClienteTipo, setNewClienteTipo] = useState<'minorista' | 'mayorista'>('minorista')
+  const [duplicateWarning, setDuplicateWarning] = useState<{ key: string; matches: ContactMatch[] }>()
+  const [loadingClientId, setLoadingClientId] = useState<number>()
 
   // Item Edit Note Modal
   const [itemNoteModalIndex, setItemNoteModalIndex] = useState<number | null>(null)
@@ -639,28 +648,63 @@ export default function PosPage() {
   }
 
 
-  // Quick Client Creation
-  const handleCreateQuickCliente = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!newClienteNombre.trim()) return
+  const newClientData = {
+    nombre: newClienteNombre.trim(),
+    telefono: newClienteTelefono.trim() || undefined,
+    email: newClienteEmail.trim() || undefined,
+    direccion: newClienteDireccion.trim() || undefined,
+    tipo_cliente: newClienteTipo,
+  }
+  const newClientKey = JSON.stringify(newClientData)
+  const contactMatches = duplicateWarning?.key === newClientKey ? duplicateWarning.matches : []
+  const savingClient = createCliente.isPending || loadingClientId !== undefined
+
+  function closeQuickClient() {
+    setIsNewClienteModalOpen(false)
+    setDuplicateWarning(undefined)
+  }
+
+  function finishQuickClient(client: Cliente) {
+    closeQuickClient()
+    setNewClienteNombre('')
+    setNewClienteTelefono('')
+    setNewClienteEmail('')
+    setNewClienteDireccion('')
+    setNewClienteTipo('minorista')
+    handleClientChange(client)
+  }
+
+  async function createQuickClient(confirmMatches = false) {
+    if (!newClientData.nombre || savingClient || (!confirmMatches && contactMatches.length)) return
     try {
-      const res = await createCliente.mutateAsync({
-        nombre: newClienteNombre.trim(),
-        telefono: newClienteTelefono.trim() || undefined,
-        email: newClienteEmail.trim() || undefined,
-        direccion: newClienteDireccion.trim() || undefined,
-        tipo_cliente: newClienteTipo,
+      const client = await createCliente.mutateAsync({
+        ...newClientData,
+        verificar_duplicados: true,
+        confirmar_coincidencias: confirmMatches ? contactMatches.map(match => match.id) : [],
       })
       toast('Cliente creado exitosamente', 'success')
-      setIsNewClienteModalOpen(false)
-      setNewClienteNombre('')
-      setNewClienteTelefono('')
-      setNewClienteEmail('')
-      setNewClienteDireccion('')
-      setNewClienteTipo('minorista')
-      handleClientChange(res)
-    } catch (err) {
-      toast('Error al crear cliente', 'error')
+      finishQuickClient(client)
+    } catch (caught: unknown) {
+      const error = caught as { response?: { status: number; data?: { errors?: { coincidencias?: ContactMatch[] } } } }
+      const matches = error.response?.data?.errors?.coincidencias
+      if (error.response?.status === 409 && matches?.length) {
+        setDuplicateWarning({ key: newClientKey, matches })
+      } else {
+        toast('Error al crear cliente', 'error')
+      }
+    }
+  }
+
+  async function selectExistingClient(id: number) {
+    if (savingClient) return
+    setLoadingClientId(id)
+    try {
+      const { data } = await api.get<ApiResponse<Cliente>>('/clientes/' + id)
+      finishQuickClient(data.data)
+    } catch {
+      toast('No se pudo cargar el cliente existente', 'error')
+    } finally {
+      setLoadingClientId(undefined)
     }
   }
 
@@ -1599,13 +1643,13 @@ export default function PosPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs">
           <div className="max-h-[90dvh] overflow-y-auto bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-200">
             <h3 className="font-extrabold text-base text-slate-900 mb-3">Nuevo Cliente Rápido</h3>
-            <form onSubmit={handleCreateQuickCliente} className="space-y-3 text-xs">
+            <form onSubmit={event => { event.preventDefault(); void createQuickClient() }} className="space-y-3 text-xs">
               <div>
                 <label className="font-bold text-slate-700 block mb-1">Nombre Completo</label>
                 <input
                   type="text"
                   required
-                  value={newClienteNombre}
+                  disabled={savingClient} value={newClienteNombre}
                   onChange={(e) => setNewClienteNombre(e.target.value)}
                   placeholder="Ej: Juan Pérez"
                   className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900"
@@ -1615,7 +1659,7 @@ export default function PosPage() {
                 <label className="font-bold text-slate-700 block mb-1">Teléfono / WhatsApp</label>
                 <input
                   type="text"
-                  value={newClienteTelefono}
+                  disabled={savingClient} value={newClienteTelefono}
                   onChange={(e) => setNewClienteTelefono(e.target.value)}
                   placeholder="Ej: 2257..."
                   className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900"
@@ -1624,13 +1668,13 @@ export default function PosPage() {
 
               <label className="block font-bold text-slate-700">
                 Correo electrónico (opcional)
-                <input type="email" autoComplete="email" maxLength={150} value={newClienteEmail}
+                <input type="email" autoComplete="email" maxLength={150} disabled={savingClient} value={newClienteEmail}
                   onChange={event => setNewClienteEmail(event.target.value)}
                   className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 text-sm text-slate-900" />
               </label>
               <label className="block font-bold text-slate-700">
                 Dirección habitual (opcional)
-                <input type="text" autoComplete="street-address" maxLength={255} value={newClienteDireccion}
+                <input type="text" autoComplete="street-address" maxLength={255} disabled={savingClient} value={newClienteDireccion}
                   onChange={event => setNewClienteDireccion(event.target.value)}
                   className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 text-sm text-slate-900" />
               </label>
@@ -1638,7 +1682,7 @@ export default function PosPage() {
               <div>
                 <label className="font-bold text-slate-700 block mb-1">Tipo de Cliente (Tarifa)</label>
                 <select
-                  value={newClienteTipo}
+                  disabled={savingClient} value={newClienteTipo}
                   onChange={(e) => setNewClienteTipo(e.target.value as any)}
                   className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900"
                 >
@@ -1647,21 +1691,46 @@ export default function PosPage() {
                 </select>
               </div>
 
+              {contactMatches.length > 0 && (
+                <section className="space-y-2 rounded-xl border border-amber-200 bg-amber-50 p-3" aria-label="Clientes con datos coincidentes">
+                  <p role="alert" className="font-semibold text-amber-900">Estos datos de contacto ya están cargados. Podés usar una ficha existente o crear otro cliente.</p>
+                  <ul className="divide-y divide-amber-200">
+                    {contactMatches.map(match => (
+                      <li key={match.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
+                        <span className="min-w-0 break-words text-slate-800">
+                          <strong>{match.nombre}</strong>
+                          {' · Coincide ' + [match.email ? 'el email' : '', match.telefono ? 'el teléfono' : ''].filter(Boolean).join(' y ')}
+                        </span>
+                        <button type="button" disabled={savingClient} onClick={() => void selectExistingClient(match.id)}
+                          className="rounded-lg border border-amber-300 bg-white px-3 py-2 font-bold text-amber-900 disabled:opacity-50">
+                          {loadingClientId === match.id ? 'Cargando…' : 'Usar ' + match.nombre}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              )}
+
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
                 <button
                   type="button"
-                  onClick={() => setIsNewClienteModalOpen(false)}
+                  disabled={savingClient}
+                  onClick={closeQuickClient}
                   className="px-4 py-2 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200"
                 >
                   Cancelar
                 </button>
-                <button
-                  type="submit"
-                  disabled={createCliente.isPending}
-                  className="px-5 py-2 bg-teal-600 text-white font-bold rounded-xl hover:bg-teal-500 shadow-md"
-                >
-                  {createCliente.isPending ? 'Guardando...' : 'Crear Cliente'}
-                </button>
+                {contactMatches.length ? (
+                  <button type="button" disabled={savingClient} onClick={() => void createQuickClient(true)}
+                    className="rounded-xl bg-teal-600 px-5 py-2 font-bold text-white shadow-md hover:bg-teal-500 disabled:opacity-50">
+                    {createCliente.isPending ? 'Guardando…' : 'Crear igualmente'}
+                  </button>
+                ) : (
+                  <button type="submit" disabled={savingClient}
+                    className="rounded-xl bg-teal-600 px-5 py-2 font-bold text-white shadow-md hover:bg-teal-500 disabled:opacity-50">
+                    {createCliente.isPending ? 'Guardando…' : 'Crear cliente'}
+                  </button>
+                )}
               </div>
             </form>
           </div>

@@ -87,3 +87,26 @@ verify($legacyClient['cuit'] === '20999999991' && $repo->findAll(['q' => '209999
     'La ficha y el listado general reconocen el identificador fiscal histórico');
 verify($repo->update((int) $legacyClient['id'], ['cuit' => '20999999992'])['cuit'] === '20999999992',
     'Editar el identificador fiscal funciona con ambos nombres de columna');
+
+$post = (new ServerRequestFactory())->createServerRequest('POST', '/');
+$newPayload = [
+    'nombre' => 'Duplicado de prueba', 'email' => ' ZETA@example.test ',
+    'telefono' => '+54 9 2257 512597', 'verificar_duplicados' => true,
+];
+$before = (int) $db->query('SELECT COUNT(*) FROM clientes')->fetchColumn();
+$warning = $controller->create($post->withParsedBody($newPayload), new Response());
+$matches = json_decode((string) $warning->getBody(), true)['errors']['coincidencias'];
+verify($warning->getStatusCode() === 409 && (int) $db->query('SELECT COUNT(*) FROM clientes')->fetchColumn() === $before,
+    'El alta POS devuelve un aviso antes de crear un duplicado');
+verify($matches === [['id' => $favorite, 'nombre' => 'Zeta Prueba', 'email' => true, 'telefono' => true]],
+    'Identifica el email sin distinguir mayúsculas y el mismo teléfono con formatos nacionales e internacionales');
+verify($repo->findContactMatches('baja@example.test', '') === [] && $repo->findContactMatches('', '12') === [],
+    'Ignora fichas inactivas y números incompletos');
+$other = $repo->create(['nombre' => 'Segundo contacto', 'telefono' => '02257512597']);
+$confirmation = $controller->create($post->withParsedBody($newPayload + ['confirmar_coincidencias' => [$favorite]]), new Response());
+verify($confirmation->getStatusCode() === 409, 'Vuelve a pedir confirmación si aparece una coincidencia nueva');
+$confirmAll = $controller->create($post->withParsedBody($newPayload + ['confirmar_coincidencias' => [$favorite, $other['id']]]), new Response());
+verify($confirmAll->getStatusCode() === 201 && (int) $db->query('SELECT COUNT(*) FROM clientes')->fetchColumn() === $before + 2,
+    'Permite separar fichas cuando el operador confirma conscientemente las coincidencias');
+$unique = $controller->create($post->withParsedBody(['nombre' => 'Sin coincidencias', 'email' => 'nadie@example.test', 'verificar_duplicados' => true]), new Response());
+verify($unique->getStatusCode() === 201, 'El alta de un contacto único se guarda directamente');
