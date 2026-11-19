@@ -71,7 +71,7 @@ class TiendaRepository
         }
 
         try {
-            $sql = "SELECT p.id, p.nombre AS title, p.subcategoria, p.descripcion,
+            $sql = "SELECT p.id, p.nombre AS title, p.subcategoria, p.descripcion, p.tipo,
                            CASE WHEN p.precio_oferta > 0 AND p.precio_oferta < p.precio_venta THEN p.precio_oferta ELSE p.precio_venta END AS price,
                            CASE WHEN p.precio_oferta > 0 AND p.precio_oferta < p.precio_venta THEN p.precio_venta ELSE NULL END AS oldPrice,
                            p.precios_cantidad, p.figuras_por_kit,
@@ -136,7 +136,7 @@ class TiendaRepository
                 if (!empty($item['piezas'])) {
                     $decP = is_string($item['piezas']) ? json_decode($item['piezas'], true) : $item['piezas'];
                     $rawPiezas = is_array($decP) ? array_values($decP) : [];
-                    $allowedFields = ['id', 'nombre', 'precio', 'medidas', 'imagen_url'];
+                    $allowedFields = ['id', 'producto_id', 'nombre', 'precio', 'precio_original', 'cantidad', 'medidas', 'imagen_url'];
                     $sanitizedPiezas = [];
                     foreach ($rawPiezas as $p) {
                         if (is_array($p)) {

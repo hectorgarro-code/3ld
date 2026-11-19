@@ -11,7 +11,9 @@ import {
   Pencil,
   Eye,
   Minus,
-  Plus
+  Plus,
+  Boxes,
+  Sparkles
 } from 'lucide-react'
 import { resolveImageUrl } from '@/lib/utils'
 import { obtenerPrecioPorCantidad } from '@/lib/pricing'
@@ -38,8 +40,11 @@ export interface UnifiedStoreProduct {
   estado_stock?: string
   stockStatus?: string
   archivo_url?: string
+  tipo?: string
   piezas?: {
     id: string
+    producto_id?: number
+    cantidad?: number
     nombre: string
     precio: number
     imagen_url?: string
@@ -186,6 +191,14 @@ export function ProductStoreDetailModal({
   const [selectedPiezas, setSelectedPiezas] = useState<Record<string, boolean>>({})
   const [isShareModalOpen, setIsShareModalOpen] = useState(false)
 
+  const isCombo = useMemo(() => {
+    if (!product) return false
+    const cat = (product.category || product.raw?.categoria || product.raw?.categoria_nombre || '').toLowerCase()
+    const isKitCat = cat.includes('kit') || cat.includes('combo')
+    const hasComponents = Array.isArray(product.piezas) && product.piezas.some((p: any) => Boolean(p.producto_id))
+    return isKitCat || product.tipo === 'combo' || product.tipo === 'kit' || hasComponents
+  }, [product])
+
   // Inicializar estado cuando se abre con un producto nuevo
   useEffect(() => {
     if (product && isOpen) {
@@ -197,16 +210,22 @@ export function ProductStoreDetailModal({
 
       if (product.piezas && product.piezas.length > 0) {
         const initialMap: Record<string, boolean> = {}
-        const first = product.piezas[0]
-        if (first) {
-          initialMap[first.id || first.nombre] = true
+        if (isCombo) {
+          product.piezas.forEach((p) => {
+            initialMap[p.id || p.nombre] = true
+          })
+        } else {
+          const first = product.piezas[0]
+          if (first) {
+            initialMap[first.id || first.nombre] = true
+          }
         }
         setSelectedPiezas(initialMap)
       } else {
         setSelectedPiezas({})
       }
     }
-  }, [product, isOpen])
+  }, [product, isOpen, isCombo])
 
   useEffect(() => {
     if (!isOpen) return
@@ -237,6 +256,9 @@ export function ProductStoreDetailModal({
   // Calcular precio total si hay piezas seleccionadas
   const calculatedPrice = useMemo(() => {
     if (!product) return 0
+    if (isCombo) {
+      return product.price
+    }
     if (product.piezas && product.piezas.length > 0) {
       const selectedList = product.piezas.filter((p) => selectedPiezas[p.id || p.nombre])
       if (selectedList.length > 0) {
@@ -246,9 +268,9 @@ export function ProductStoreDetailModal({
       return 0
     }
     return product.price
-  }, [product, selectedPiezas])
+  }, [product, isCombo, selectedPiezas])
 
-  const allPiecesSelected = !product?.piezas?.length || product.piezas.every(p => selectedPiezas[p.id || p.nombre])
+  const allPiecesSelected = isCombo || !product?.piezas?.length || product.piezas.every(p => selectedPiezas[p.id || p.nombre])
   const quantityTiers = useMemo(() => (product?.precios_cantidad || [])
     .filter(t => Number.isInteger(Number(t.cantidad)) && Number(t.cantidad) > 0 && Number.isFinite(Number(t.precio)) && Number(t.precio) >= 0)
     .map(t => ({ cantidad: Number(t.cantidad), precio: Number(t.precio) }))
@@ -258,6 +280,18 @@ export function ProductStoreDetailModal({
 
   const cartSelection = useMemo(() => {
     if (!product) return null
+    if (isCombo) {
+      return {
+        ...(product.raw || product),
+        id: product.id,
+        figuras_por_kit: product.piezas?.length ?? 0,
+        title: product.title,
+        price: product.price,
+        basePrice: product.price,
+        selectedPieceIds: undefined,
+        precios_cantidad: [],
+      }
+    }
     const pieces = product.piezas?.filter(p => selectedPiezas[p.id || p.nombre]) || []
     if (product.piezas?.length && !pieces.length) return null
     return {
@@ -542,8 +576,62 @@ export function ProductStoreDetailModal({
               </FreeShippingProgress>
             </details>}
 
-            {/* Selección de Piezas */}
-            {product.piezas && product.piezas.length > 0 && (
+            {/* Si es Combo / Kit: Lista de Artículos incluidos */}
+            {isCombo && product.piezas && product.piezas.length > 0 && (
+              <div className="mt-4 bg-gradient-to-br from-amber-50 to-orange-50/70 p-4 rounded-2xl border border-amber-200/90 space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-black text-amber-950 flex items-center gap-1.5 uppercase tracking-wide">
+                    <Boxes className="w-4 h-4 text-amber-600" />
+                    Este Combo Incluye ({product.piezas.length} artículos):
+                  </label>
+                  <span className="text-[10px] bg-gradient-to-r from-amber-500 to-orange-500 text-white font-black px-2.5 py-0.5 rounded-full shadow-2xs">
+                    Pack Promocional
+                  </span>
+                </div>
+
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {product.piezas.map((pieza: any, pIdx: number) => (
+                    <div
+                      key={pieza.id || pIdx}
+                      className="flex items-center justify-between p-2.5 bg-white rounded-xl border border-amber-200/80 shadow-2xs text-xs"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        {pieza.imagen_url ? (
+                          <img
+                            src={resolveImageUrl(pieza.imagen_url)}
+                            alt={pieza.nombre}
+                            className="w-10 h-10 object-cover rounded-lg border border-slate-200 shrink-0"
+                          />
+                        ) : (
+                          <div className="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center text-xs text-amber-600 font-bold shrink-0">
+                            📦
+                          </div>
+                        )}
+                        <div className="flex flex-col min-w-0">
+                          <span className="font-extrabold text-slate-800 break-words leading-tight">{pieza.nombre}</span>
+                          <span className="text-[10px] text-amber-800 font-semibold mt-0.5">
+                            {pieza.cantidad ? `Cantidad: ${pieza.cantidad} un.` : 'Incluido en el pack'}
+                          </span>
+                        </div>
+                      </div>
+                      {pieza.precio > 0 && (
+                        <span className="text-[11px] font-bold text-slate-400 line-through shrink-0 ml-2">
+                          ${(Number(pieza.precio) * (pieza.cantidad || 1)).toLocaleString('es-AR')}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex items-center gap-1.5 text-[11px] text-amber-900 font-bold bg-white/70 p-2 rounded-xl border border-amber-200/60">
+                  <Sparkles className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                  <span>Todos los artículos del combo se incluyen juntos con su precio promocional aplicado.</span>
+                </div>
+              </div>
+            )}
+
+            {/* Selección de Piezas estándar si NO es combo */}
+            {!isCombo && product.piezas && product.piezas.length > 0 && (
               <div className="mt-4 bg-indigo-50/70 p-3.5 rounded-2xl border border-indigo-100/90 space-y-2.5">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <label className="text-xs font-black text-indigo-950 flex items-center gap-1.5 tracking-wide">

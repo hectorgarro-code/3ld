@@ -73,6 +73,7 @@ export interface StoreProduct {
   id: string | number;
   title: string;
   category: string;
+  tipo?: string;
   subcategory?: string;
   secondaryCategory?: string;
   categoria_secundaria_id?: number | null;
@@ -84,7 +85,7 @@ export interface StoreProduct {
   images?: string[];
   colors?: (string | { name: string; hex: string })[];
   figuras_por_kit?: number | null;
-  piezas?: { id: string; nombre: string; precio: number; precio_costo?: number; medidas?: string; imagen_url?: string }[];
+  piezas?: { id: string; producto_id?: number | string; nombre: string; precio: number; precio_costo?: number; precio_original?: number; cantidad?: number; medidas?: string; imagen_url?: string }[];
   precios_cantidad?: { cantidad: number; precio: number }[] | string;
   description: string;
   weightGrams?: number;
@@ -1713,10 +1714,13 @@ export default function TiendaPage() {
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-            {filteredProducts.slice(0, visibleProductLimit).map((product, index) => (
+            {filteredProducts.slice(0, visibleProductLimit).map((product, index) => {
+              const isComboProduct = product.category === 'Kits y Combos' || product.tipo === 'combo' || (Array.isArray(product.piezas) && product.piezas.some((pz: any) => Boolean(pz.producto_id)));
+              const comboPiecesCount = product.piezas?.length || 0;
+              return (
               <div
                 key={product.id}
-                className="bg-white rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition overflow-hidden flex flex-col group cursor-pointer"
+                className={`bg-white rounded-2xl border transition overflow-hidden flex flex-col group cursor-pointer ${isComboProduct ? 'border-purple-200 shadow-xs hover:border-purple-400 hover:shadow-md' : 'border-slate-200 shadow-xs hover:shadow-md'}`}
                 onClick={() => {
                   openProductModal(product);
                 }}
@@ -1730,7 +1734,6 @@ export default function TiendaPage() {
                     loading={index < 4 ? "eager" : "lazy"} fetchPriority={index < 2 ? "high" : "auto"}
                     decoding="async"
                     onError={(e) => {
-                      // Fallback a imagen original si falla el thumbnail
                       if (product.image && e.currentTarget.src !== product.image) {
                         e.currentTarget.src = product.image;
                       }
@@ -1738,7 +1741,11 @@ export default function TiendaPage() {
                   />
                   {/* Stock status badge */}
                   <div className="absolute top-2 left-2 flex flex-col gap-1">
-                    {isProductInStock(product) ? (
+                    {isComboProduct ? (
+                      <span className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-[10px] font-black px-2 py-0.5 rounded-md backdrop-blur-xs flex items-center gap-1 shadow-md">
+                        <Sparkles className="w-3 h-3 text-amber-300 fill-amber-300" /> COMBO ({comboPiecesCount} art.)
+                      </span>
+                    ) : isProductInStock(product) ? (
                       <span className="bg-emerald-500/90 text-white text-[10px] font-black px-2 py-0.5 rounded-md backdrop-blur-xs flex items-center gap-1 shadow-xs">
                         <Zap className="w-3 h-3" /> En Stock
                       </span>
@@ -1749,7 +1756,27 @@ export default function TiendaPage() {
                     )}
                   </div>
 
-                  {product.images && product.images.length > 1 && (
+                  {/* Component preview avatars for combo */}
+                  {isComboProduct && product.piezas && product.piezas.length > 0 && (
+                    <div className="absolute bottom-2 left-2 flex -space-x-1.5 overflow-hidden p-0.5 bg-black/50 backdrop-blur-md rounded-full border border-white/20 shadow-xs" title="Artículos incluidos en el combo">
+                      {product.piezas.slice(0, 3).map((pz: any, pzIdx: number) => (
+                        <img
+                          key={pzIdx}
+                          src={pz.imagen_url || product.image || '/placeholder.png'}
+                          alt={pz.nombre}
+                          className="w-5 h-5 rounded-full object-cover border border-white/80"
+                          title={`${pz.cantidad || 1}x ${pz.nombre}`}
+                        />
+                      ))}
+                      {product.piezas.length > 3 && (
+                        <span className="w-5 h-5 rounded-full bg-slate-800 text-[9px] font-black text-white flex items-center justify-center border border-white/80">
+                          +{product.piezas.length - 3}
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  {product.images && product.images.length > 1 && !isComboProduct && (
                     <span className="absolute bottom-2 right-2 bg-slate-900/75 backdrop-blur-xs text-white text-[10px] font-black px-2 py-0.5 rounded-md shadow-xs flex items-center gap-1">
                       📷 {product.images.length}
                     </span>
@@ -1759,15 +1786,15 @@ export default function TiendaPage() {
                 {/* Product Info */}
                 <div className="p-3 flex-1 flex flex-col justify-between">
                   <div>
-                    <span className="text-[10px] font-bold text-cyan-700 uppercase tracking-wide">
+                    <span className={`text-[10px] font-bold uppercase tracking-wide ${isComboProduct ? 'text-purple-600' : 'text-cyan-700'}`}>
                       {product.subcategory || product.category}
                     </span>
-                    <h3 className="text-xs font-bold text-slate-800 line-clamp-2 mt-0.5 leading-snug group-hover:text-cyan-600 transition">
+                    <h3 className={`text-xs font-bold line-clamp-2 mt-0.5 leading-snug transition ${isComboProduct ? 'text-slate-900 group-hover:text-purple-600' : 'text-slate-800 group-hover:text-cyan-600'}`}>
                       {product.title}
                     </h3>
                     {hasValidSize(product.size) && (
                       <p className="text-[11px] font-medium text-slate-500 mt-1 flex items-center gap-1">
-                        <span>📏</span>
+                        <span>📐</span>
                         <span className="truncate">{product.size}</span>
                       </p>
                     )}
@@ -1775,30 +1802,53 @@ export default function TiendaPage() {
 
                     <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between">
                       <div>
-                        {product.oldPrice && (
-                          <span className="text-[10px] text-slate-400 line-through mr-1 font-semibold">
-                            ${product.oldPrice.toLocaleString('es-AR')}
-                          </span>
-                        )}
-                        <div className="flex flex-col">
-                          <div className="flex items-baseline gap-1">
-                            {product.piezas && product.piezas.length > 0 && (
-                              <span className="text-[10px] font-bold text-slate-400 uppercase">
-                                Desde
-                              </span>
+                        {isComboProduct ? (
+                          <div className="flex flex-col">
+                            {product.oldPrice && product.oldPrice > product.price && (
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[10px] text-slate-400 line-through font-semibold">
+                                  ${product.oldPrice.toLocaleString('es-AR')}
+                                </span>
+                                <span className="text-[9px] font-black text-emerald-600 bg-emerald-50 px-1 rounded border border-emerald-200">
+                                  -{Math.round(((product.oldPrice - product.price) / product.oldPrice) * 100)}%
+                                </span>
+                              </div>
                             )}
-                            <span className="text-sm font-black text-slate-900">
-                              ${((product.piezas && product.piezas.length > 0)
-                                ? (Math.min(...product.piezas.map(pz => Number(pz.precio) || 0).filter(pr => pr > 0)) || product.price)
-                                : product.price).toLocaleString('es-AR')}
+                            <span className="text-sm font-black text-purple-700">
+                              ${product.price.toLocaleString('es-AR')}
+                            </span>
+                            <span className="text-[9px] font-black text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded w-fit mt-0.5 tracking-tight border border-purple-200/60">
+                              COMBO COMPLETO
                             </span>
                           </div>
-                          {product.piezas && product.piezas.length > 0 && (
-                            <span className="text-[10px] font-extrabold text-cyan-700 bg-cyan-50 px-1.5 py-0.5 rounded w-fit mt-0.5 tracking-tight border border-cyan-200/50">
-                              +VER PIEZAS
-                            </span>
-                          )}
-                        </div>
+                        ) : (
+                          <div>
+                            {product.oldPrice && (
+                              <span className="text-[10px] text-slate-400 line-through mr-1 font-semibold">
+                                ${product.oldPrice.toLocaleString('es-AR')}
+                              </span>
+                            )}
+                            <div className="flex flex-col">
+                              <div className="flex items-baseline gap-1">
+                                {product.piezas && product.piezas.length > 0 && (
+                                  <span className="text-[10px] font-bold text-slate-400 uppercase">
+                                    Desde
+                                  </span>
+                                )}
+                                <span className="text-sm font-black text-slate-900">
+                                  ${((product.piezas && product.piezas.length > 0)
+                                    ? (Math.min(...product.piezas.map(pz => Number(pz.precio) || 0).filter(pr => pr > 0)) || product.price)
+                                    : product.price).toLocaleString('es-AR')}
+                                </span>
+                              </div>
+                              {product.piezas && product.piezas.length > 0 && (
+                                <span className="text-[10px] font-extrabold text-cyan-700 bg-cyan-50 px-1.5 py-0.5 rounded w-fit mt-0.5 tracking-tight border border-cyan-200/50">
+                                  +VER PIEZAS
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </div>
 
                     <div className="flex items-center gap-1">
@@ -1818,16 +1868,17 @@ export default function TiendaPage() {
                             addToCart(product);
                           }
                         }}
-                        className="p-2 bg-slate-900 hover:bg-cyan-600 text-white rounded-xl transition active:scale-90"
-                        title={requiresPersonalization(product.title) ? "Personalizar" : product.piezas?.length ? "Ver opciones y piezas" : "Agregar al Carrito"}
+                        className={`p-2 ${isComboProduct ? 'bg-purple-600 hover:bg-purple-700' : 'bg-slate-900 hover:bg-cyan-600'} text-white rounded-xl transition active:scale-90`}
+                        title={requiresPersonalization(product.title) ? "Personalizar" : isComboProduct ? "Ver combo y agregar" : product.piezas?.length ? "Ver opciones y piezas" : "Agregar al Carrito"}
                       >
-                        {requiresPersonalization(product.title) ? <span className="text-xs font-bold">Personalizar</span> : <Plus className="w-4 h-4" />}
+                        {requiresPersonalization(product.title) ? <span className="text-xs font-bold">Personalizar</span> : isComboProduct ? <Sparkles className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
                       </button>
                     </div>
                   </div>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
 

@@ -25,12 +25,14 @@ import {
   ChevronDown,
   Activity,
   Share2,
+  PackagePlus,
 } from 'lucide-react'
 import api from '@/lib/api'
 import { ProductoFormModal } from '@/components/productos/ProductoFormModal'
 import { ProductStoreDetailModal } from '@/components/tienda/ProductStoreDetailModal'
 import { MetaSyncModal } from '@/components/tienda/MetaSyncModal'
 import { EstructurasPreciosModal } from '@/components/productos/EstructurasPreciosModal'
+import { CrearKitModal } from '@/components/tienda/CrearKitModal'
 import { useEstructurasPrecio } from '@/hooks/useEstructurasPrecio'
 import { optimizeImagesForPrint } from '@/lib/imageOptimization'
 import { resolveImageUrl, getThumbnailUrl } from '@/lib/utils'
@@ -90,6 +92,7 @@ export default function TiendaAdminPage() {
   // Bulk Action Modals
   const [bulkModal, setBulkModal] = useState<'category' | 'prices' | 'offers' | 'stock' | 'volume_pricing' | null>(null)
   const [isEstructurasModalOpen, setIsEstructurasModalOpen] = useState(false)
+  const [isCrearKitModalOpen, setIsCrearKitModalOpen] = useState(false)
   const [bulkEstructuraId, setBulkEstructuraId] = useState<string>('')
   const { estructuras } = useEstructurasPrecio()
   
@@ -512,6 +515,15 @@ export default function TiendaAdminPage() {
               </div>
             )}
           </div>
+
+          <button
+            onClick={() => setIsCrearKitModalOpen(true)}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white text-xs font-black rounded-xl shadow-xs transition active:scale-95 cursor-pointer"
+            title="Crear un nuevo Kit o Combo promocional con precio diferencial"
+          >
+            <PackagePlus className="h-3.5 w-3.5" />
+            <span>+ Kit / Combo</span>
+          </button>
 
           <button
             onClick={() => setIsEstructurasModalOpen(true)}
@@ -1550,6 +1562,14 @@ export default function TiendaAdminPage() {
             (p) => isPublished(p) && Number(p.precio_venta) > 0 && Boolean(p.imagen_url)
           ).length
         }
+      />
+
+      {/* Crear Kit o Combo Modal */}
+      <CrearKitModal
+        isOpen={isCrearKitModalOpen}
+        onClose={() => setIsCrearKitModalOpen(false)}
+        onCreated={() => fetchProducts()}
+        preselectedProductIds={selectedIds}
       />
       </div>
 

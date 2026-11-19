@@ -675,6 +675,19 @@ class MercadoPagoController
                                 );
                                 $stmtUp->execute([$nuevoEstado, $paymentId, $status, $nuevoEstado, $pedidoId]);
 
+                                // Procesar deducción de stock automática si el pago fue aprobado
+                                if ($nuevoEstado === 'cobrado') {
+                                    try {
+                                        $stmtItems = $this->db->prepare("SELECT id FROM pedido_items WHERE pedido_id = ?");
+                                        $stmtItems->execute([$pedidoId]);
+                                        $pItems = $stmtItems->fetchAll(PDO::FETCH_COLUMN);
+                                        $pedRepo = new \App\Repositories\PedidoRepository($this->db);
+                                        foreach ($pItems as $pItemId) {
+                                            $pedRepo->procesarStockItem((int)$pItemId, 'cobrado');
+                                        }
+                                    } catch (\Throwable $e) {}
+                                }
+
                                 // Registrar en historial de pedido si la tabla existe
                                 try {
                                     $stmtH = $this->db->prepare(

@@ -855,20 +855,44 @@ class PedidoRepository
 
     private function aplicarAutoConsumoItem(int $productoId, float $cantidad): void
     {
-        $stmtProd = $this->db->prepare("SELECT stock_actual FROM productos WHERE id = ? FOR UPDATE");
+        $stmtProd = $this->db->prepare("SELECT id, nombre, stock_actual, piezas, tipo FROM productos WHERE id = ? FOR UPDATE");
         $stmtProd->execute([$productoId]);
         $producto = $stmtProd->fetch();
         if (!$producto) return;
 
+        // Comprobar si el producto es un Kit o Combo con artículos componentes
+        $piezas = !empty($producto['piezas']) ? (is_string($producto['piezas']) ? json_decode($producto['piezas'], true) : $producto['piezas']) : [];
+        $hasComponents = false;
+        if (is_array($piezas) && !empty($piezas)) {
+            foreach ($piezas as $comp) {
+                if (!empty($comp['producto_id'])) {
+                    $hasComponents = true;
+                    $compProdId = (int)$comp['producto_id'];
+                    $compQty = (float)($comp['cantidad'] ?? 1) * $cantidad;
+                    // Descontar automáticamente el stock del producto componente
+                    $this->aplicarAutoConsumoItem($compProdId, $compQty);
+                }
+            }
+        }
+
+        if ($hasComponents) {
+            // Descontar el stock del combo mismo si tiene inventario directo registrado
+            $this->db->prepare("UPDATE productos SET stock_actual = GREATEST(0, stock_actual - ?), updated_at = NOW() WHERE id = ?")->execute([$cantidad, $productoId]);
+            $this->db->prepare("INSERT INTO movimientos_stock (producto_id, cantidad, tipo_movimiento, notas) VALUES (?, ?, 'venta', ?)")
+                ->execute([$productoId, -$cantidad, "Descuento por venta de Kit/Combo: {$producto['nombre']}"]);
+            return;
+        }
+
+        // Lógica estándar para producto unitario
         if ($producto['stock_actual'] >= $cantidad) {
-            $this->db->prepare("UPDATE productos SET stock_actual = stock_actual - ? WHERE id = ?")->execute([$cantidad, $productoId]);
+            $this->db->prepare("UPDATE productos SET stock_actual = stock_actual - ?, updated_at = NOW() WHERE id = ?")->execute([$cantidad, $productoId]);
             $this->db->prepare("INSERT INTO movimientos_stock (producto_id, cantidad, tipo_movimiento, notas) VALUES (?, ?, 'venta', 'Descuento por entrega de pedido')")->execute([$productoId, -$cantidad]);
         } else {
             $stockDisponible = max(0, $producto['stock_actual']);
             $faltante = $cantidad - $stockDisponible;
 
             if ($stockDisponible > 0) {
-                $this->db->prepare("UPDATE productos SET stock_actual = 0 WHERE id = ?")->execute([$productoId]);
+                $this->db->prepare("UPDATE productos SET stock_actual = 0, updated_at = NOW() WHERE id = ?")->execute([$productoId]);
                 $this->db->prepare("INSERT INTO movimientos_stock (producto_id, cantidad, tipo_movimiento, notas) VALUES (?, ?, 'venta', 'Descuento por entrega de pedido')")->execute([$productoId, -$stockDisponible]);
             }
 
@@ -879,11 +903,11 @@ class PedidoRepository
             if (!empty($receta)) {
                 foreach ($receta as $insumo) {
                     $cantidadADescontar = $insumo['cantidad'] * $faltante;
-                    $this->db->prepare("UPDATE productos SET stock_actual = stock_actual - ? WHERE id = ?")->execute([$cantidadADescontar, $insumo['insumo_id']]);
+                    $this->db->prepare("UPDATE productos SET stock_actual = stock_actual - ?, updated_at = NOW() WHERE id = ?")->execute([$cantidadADescontar, $insumo['insumo_id']]);
                     $this->db->prepare("INSERT INTO movimientos_stock (producto_id, cantidad, tipo_movimiento, notas) VALUES (?, ?, 'produccion', 'Descuento por ensamble automático')")->execute([$insumo['insumo_id'], -$cantidadADescontar]);
                 }
             } else {
-                $this->db->prepare("UPDATE productos SET stock_actual = stock_actual - ? WHERE id = ?")->execute([$faltante, $productoId]);
+                $this->db->prepare("UPDATE productos SET stock_actual = stock_actual - ?, updated_at = NOW() WHERE id = ?")->execute([$faltante, $productoId]);
                 $this->db->prepare("INSERT INTO movimientos_stock (producto_id, cantidad, tipo_movimiento, notas) VALUES (?, ?, 'venta', 'Descuento por entrega (stock negativo)')")->execute([$productoId, -$faltante]);
             }
         }
@@ -891,11 +915,31 @@ class PedidoRepository
 
     private function restaurarStockItem(int $productoId, float $cantidad): void
     {
-        // Simple restoration logic: we just add back to the product. 
-        // Note: If the stock was built via recipe, we would ideally restore the recipe items.
-        // However, restoring assembled items to ingredients is complex. We'll restore it as the finished product stock,
-        // which represents that the item was returned to the shelf.
-        $this->db->prepare("UPDATE productos SET stock_actual = stock_actual + ? WHERE id = ?")->execute([$cantidad, $productoId]);
+        $stmtProd = $this->db->prepare("SELECT id, nombre, stock_actual, piezas, tipo FROM productos WHERE id = ?");
+        $stmtProd->execute([$productoId]);
+        $producto = $stmtProd->fetch();
+        if (!$producto) return;
+
+        $piezas = !empty($producto['piezas']) ? (is_string($producto['piezas']) ? json_decode($producto['piezas'], true) : $producto['piezas']) : [];
+        if (is_array($piezas) && !empty($piezas)) {
+            $hasComponents = false;
+            foreach ($piezas as $comp) {
+                if (!empty($comp['producto_id'])) {
+                    $hasComponents = true;
+                    $compProdId = (int)$comp['producto_id'];
+                    $compQty = (float)($comp['cantidad'] ?? 1) * $cantidad;
+                    $this->restaurarStockItem($compProdId, $compQty);
+                }
+            }
+            if ($hasComponents) {
+                $this->db->prepare("UPDATE productos SET stock_actual = stock_actual + ?, updated_at = NOW() WHERE id = ?")->execute([$cantidad, $productoId]);
+                $this->db->prepare("INSERT INTO movimientos_stock (producto_id, cantidad, tipo_movimiento, notas) VALUES (?, ?, 'anulacion_venta', ?)")
+                    ->execute([$productoId, $cantidad, "Restauración de stock por anulación de Kit/Combo: {$producto['nombre']}"]);
+                return;
+            }
+        }
+
+        $this->db->prepare("UPDATE productos SET stock_actual = stock_actual + ?, updated_at = NOW() WHERE id = ?")->execute([$cantidad, $productoId]);
         $this->db->prepare("INSERT INTO movimientos_stock (producto_id, cantidad, tipo_movimiento, notas) VALUES (?, ?, 'anulacion_venta', 'Restauración de stock')")->execute([$productoId, $cantidad]);
     }
 }
