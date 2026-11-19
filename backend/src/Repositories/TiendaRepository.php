@@ -432,6 +432,11 @@ class TiendaRepository
                     continue;
                 }
 
+                // Omitir categorías sin productos activos y publicados en tienda
+                if ((int)$cat['productos_count'] <= 0) {
+                    continue;
+                }
+
                 $subs = $subcategoriesByParent[$catId] ?? [];
 
                 try {

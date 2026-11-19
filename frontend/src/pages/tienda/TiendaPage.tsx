@@ -257,28 +257,32 @@ export default function TiendaPage() {
     const loadedProducts = products;
 
     if (rawCategories && rawCategories.length > 0) {
-      const dynamicCats = rawCategories.map((c: any) => {
-        const catName = c.nombre || c.name || '';
-        const countFromProds = loadedProducts.filter(
-          (p: any) => p.category === catName || (c.id && String(p.categoria_id) === String(c.id))
-        ).length;
-        return {
-          id: catName,
-          name: catName,
-          icon: c.icono || c.icon || '✨',
-          image: c.image || c.imagen_url || c.imagen || null,
-          subcategories: c.subcategories || [],
-          es_destacada: Boolean(c.es_destacada),
-          productos_count: countFromProds
-        };
-      });
+      const dynamicCats = rawCategories
+        .map((c: any) => {
+          const catName = c.nombre || c.name || '';
+          const countFromProds = loadedProducts.filter(
+            (p: any) => p.category === catName || (c.categoria_id && String(p.categoria_id) === String(c.categoria_id)) || (c.id && String(p.categoria_id) === String(c.id))
+          ).length;
+          const count = loadedProducts.length > 0 ? countFromProds : (Number(c.productos_count) || 0);
+          return {
+            id: catName,
+            name: catName,
+            icon: c.icono || c.icon || '✨',
+            image: c.image || c.imagen_url || c.imagen || null,
+            subcategories: c.subcategories || [],
+            es_destacada: Boolean(c.es_destacada),
+            productos_count: count
+          };
+        })
+        .filter((category: Category) => (category.productos_count ?? 0) > 0);
+
       // Asegurar que las categorías destacadas siempre queden al principio de la lista
       dynamicCats.sort((a: Category, b: Category) => {
         if (a.es_destacada && !b.es_destacada) return -1;
         if (!a.es_destacada && b.es_destacada) return 1;
         return a.name.localeCompare(b.name, 'es', { sensitivity: 'base' });
       });
-      return [allCat, ...dynamicCats.filter((category: Category) => (category.productos_count ?? 0) > 0)];
+      return [allCat, ...dynamicCats];
     }
 
     if (loadedProducts.length > 0) {
@@ -1100,14 +1104,14 @@ export default function TiendaPage() {
     } : null;
 
   const mobileFeaturedCategories = useMemo(() => {
-    const nonAll = categories.filter((c) => c.id !== 'all');
+    const nonAll = categories.filter((c) => c.id !== 'all' && (categoryProductCounts[c.name] ?? c.productos_count ?? 0) > 0);
     const destacadas = nonAll.filter((c) => c.es_destacada);
     if (destacadas.length >= 3) {
       return destacadas.slice(0, 3);
     }
     const rest = nonAll.filter((c) => !c.es_destacada);
     return [...destacadas, ...rest].slice(0, 3);
-  }, [categories]);
+  }, [categories, categoryProductCounts]);
 
   const currentCategoryData = useMemo(() => {
     return categories.find((c) => c.id === selectedCategory || c.name === selectedCategory) || categories[0] || INITIAL_CATEGORIES[0];
@@ -1441,7 +1445,9 @@ export default function TiendaPage() {
           
           {/* PC / Desktop: En una o más líneas con wrap */}
           <div className="hidden md:flex md:flex-wrap items-center gap-2 py-3">
-            {categories.map((cat) => {
+            {categories
+              .filter((cat) => cat.id === 'all' || (categoryProductCounts[cat.name] ?? cat.productos_count ?? 0) > 0)
+              .map((cat) => {
               const active = selectedCategory === cat.id || (selectedCategory === 'all' && cat.id === 'all');
               const count = cat.id === 'all' ? products.length : (categoryProductCounts[cat.name] ?? cat.productos_count ?? 0);
               const isDestacada = Boolean(cat.es_destacada && cat.id !== 'all');
@@ -1492,7 +1498,7 @@ export default function TiendaPage() {
               <Menu className="w-4 h-4 text-white" />
               <span>Categorías</span>
               <span className="bg-white/25 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full">
-                {categories.length > 1 ? categories.length - 1 : ''}
+                {categories.filter((c) => c.id !== 'all' && (categoryProductCounts[c.name] ?? c.productos_count ?? 0) > 0).length || ''}
               </span>
             </button>
 
@@ -2520,7 +2526,9 @@ export default function TiendaPage() {
             {/* Categories Grid (2 Columnas con Foto en Celular) */}
             <div className="p-3 overflow-y-auto max-h-[75vh] flex-1">
               <div className="grid grid-cols-2 gap-2.5">
-                {categories.map((cat) => {
+                {categories
+                  .filter((cat) => cat.id === 'all' || (categoryProductCounts[cat.name] ?? cat.productos_count ?? 0) > 0)
+                  .map((cat) => {
                   const active = selectedCategory === cat.id || (selectedCategory === 'all' && cat.id === 'all');
                   return (
                     <button
