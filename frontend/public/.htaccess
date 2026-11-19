@@ -8,7 +8,7 @@
   Header set Permissions-Policy "geolocation=(), microphone=(), camera=()"
 
   # Prevenir cache agresivo de index.html para que el navegador siempre cargue los JS/CSS nuevos
-  <FilesMatch "^(index\.html)?$">
+  <FilesMatch "^((index|storefront)\.html)?$">
     Header set Cache-Control "no-cache, no-store, must-revalidate, max-age=0"
     Header set Pragma "no-cache"
     Header set Expires "0"
@@ -77,6 +77,12 @@
   # 2. Si existe en uploads/...
   RewriteCond %{DOCUMENT_ROOT}/uploads/$1 -f
   RewriteRule ^uploads/(.*)$ uploads/$1 [L]
+
+  # Precargar la primera foto solo en la portada pública sin filtros.
+  RewriteCond %{HTTP_HOST} ^3ld\.com\.ar$ [NC]
+  RewriteCond %{QUERY_STRING} ^$
+  RewriteCond %{DOCUMENT_ROOT}/storefront.html -f
+  RewriteRule ^$ storefront.html [L]
 
   # Resolver enlaces de la tienda aunque exista un directorio fisico con ese nombre.
   RewriteRule ^tienda/?$ index.html [L]
