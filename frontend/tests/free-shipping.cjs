@@ -11,7 +11,7 @@ function compile(file, imports = {}) {
 }
 const pricing = compile('lib/pricing.ts');
 const { projectFreeShipping } = compile('lib/freeShipping.ts', { './pricing': pricing });
-const { useCartStore } = compile('store/cartStore.ts', { '@/lib/pricing': pricing });
+const { useCartStore } = compile('store/cartStore.ts', { '@/lib/pricing': pricing, '@/lib/productKit': compile('lib/productKit.ts') });
 const product = { id: 114, price: 2500, basePrice: 2500, precios_cantidad: [{ cantidad: 10, precio: 2000 }, { cantidad: 20, precio: 1500 }] };
 let goal = projectFreeShipping([], product, 1, 'Estándar');
 assert.equal(goal.projectedSubtotal, 2500);

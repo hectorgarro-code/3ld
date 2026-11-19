@@ -5,7 +5,7 @@ export const LOCAL_FREE_SHIPPING_THRESHOLD = 30000
 type Tier = { cantidad: number; precio: number }
 export type ShippingCartLine = {
   id: string | number; color: string; qty: number; price: number; basePrice?: number
-  selectedPieceIds?: string[]; precios_cantidad?: Tier[]
+  selectedPieceIds?: string[]; personalizedName?: string; precios_cantidad?: Tier[]
 }
 export type ShippingSelection = Omit<ShippingCartLine, 'color' | 'qty'>
 const cents = (value: number) => Math.round((Number(value) || 0) * 100)
@@ -14,7 +14,7 @@ const variant = (ids?: string[]) => JSON.stringify([...(ids || [])].sort())
 /** Proyecta la misma combinación de variante y escalas que aplica el carrito. */
 export function projectFreeShipping(cart: ShippingCartLine[], selection: ShippingSelection, quantity: number, color: string) {
   const currentSubtotal = cart.reduce((sum, item) => sum + cents(item.price) * item.qty, 0)
-  const existing = cart.find(item => item.id === selection.id && item.color === color && variant(item.selectedPieceIds) === variant(selection.selectedPieceIds))
+  const existing = cart.find(item => item.id === selection.id && item.color === color && item.personalizedName === selection.personalizedName && variant(item.selectedPieceIds) === variant(selection.selectedPieceIds))
   const otherSubtotal = currentSubtotal - (existing ? cents(existing.price) * existing.qty : 0)
   const existingQuantity = existing?.qty || 0
   const combinedQuantity = existingQuantity + quantity

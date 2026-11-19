@@ -1,3 +1,4 @@
+import { LOCAL_COVERAGE, requiresPersonalization, personalizationSummary } from '@/lib/storePurchase';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   ShoppingCart,
@@ -277,7 +278,7 @@ export default function TiendaPage() {
         if (!a.es_destacada && b.es_destacada) return 1;
         return a.name.localeCompare(b.name, 'es', { sensitivity: 'base' });
       });
-      return [allCat, ...dynamicCats];
+      return [allCat, ...dynamicCats.filter((category: Category) => (category.productos_count ?? 0) > 0)];
     }
 
     if (loadedProducts.length > 0) {
@@ -297,7 +298,7 @@ export default function TiendaPage() {
       return [allCat, ...dynamicCats];
     }
 
-    return INITIAL_CATEGORIES;
+    return [allCat];
   }, [rawCategories, products]);
 
   const { cart, addToCart: storeAddToCart, updateCartQty, removeCartItem, clearCart, applyQuote } = useCartStore();
@@ -494,6 +495,17 @@ export default function TiendaPage() {
     color: item.color,
     selected_piece_ids: item.selectedPieceIds || [],
   })), [cart]);
+  const personalizationNotes = cart.map(personalizationSummary).filter(Boolean).join('\n');
+  const hasPendingPersonalization = cart.some(item => requiresPersonalization(item.title) && !item.personalizedName);
+  const quoteProductShipping = async (postalCode: string, selection: { id: string | number; quantity: number; color: string; selected_piece_ids: string[] }) => {
+    const provider = localDeliveryPostalCodes.includes(postalCode) ? 'local' : 'correo';
+    if (provider === 'correo' && !correoEnabled) throw new Error('Envío fuera de cobertura. Podés consultar por WhatsApp.');
+    const { data } = await api.post('/tienda/checkout/cotizar', {
+      items: [selection],
+      envio: { method: 'shipping', provider, postal_code: postalCode },
+    });
+    return data.data.shipping as CheckoutShipping;
+  };
   const shippingKey = JSON.stringify([destination, shippingProvider, checkoutItems]);
   const [postalQuote, setPostalQuote] = useState<{ key: string; rate: CheckoutShipping } | null>(null);
   const [isCalculatingShipping, setIsCalculatingShipping] = useState(false);
@@ -676,7 +688,7 @@ export default function TiendaPage() {
         expected_total: quote.total,
         analytics: getCheckoutAnalyticsIdentity(),
         comprador: buyerInfo,
-        notas: buyerInfo.notas,
+        notas: [personalizationNotes, buyerInfo.notas.trim()].filter(Boolean).join('\n'),
       });
 
       if (res.data?.success && res.data?.data?.init_point) {
@@ -1029,7 +1041,11 @@ export default function TiendaPage() {
     return `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
   };
 
-  const addToCart = (product: StoreProduct, qty = 1, color = 'Negro Mate') => {
+  const addToCart = (product: StoreProduct & { personalizedName?: string }, qty = 1, color = 'Negro Mate') => {
+    if (requiresPersonalization(product.title) && !product.personalizedName?.trim()) {
+      openProductModal(product);
+      return;
+    }
     storeAddToCart(product, qty, color);
     trackAddToCart(product, qty);
     showToast(`¡"${product.title}" agregado al carrito!`, 'success');
@@ -1252,6 +1268,8 @@ export default function TiendaPage() {
     let text = `¡Hola 3LD! Quiero encargar el siguiente pedido desde la tienda:\n\n`;
 
     cart.forEach((item) => {
+      const personalization = personalizationSummary(item);
+      if (personalization) text += personalization + '\n';
       text += formatWhatsAppCartLine({ ...item, figuras_por_kit: products.find(p => String(p.id) === String(item.id))?.figuras_por_kit ?? item.figuras_por_kit });
     });
 
@@ -1320,7 +1338,7 @@ export default function TiendaPage() {
       {/* Top Notification Bar */}
       <div className="bg-gradient-to-r from-[#6B66C8] via-[#5752B3] to-[#6B66C8] text-white text-[11px] sm:text-xs py-2 px-4 text-center font-bold tracking-wide flex items-center justify-center gap-2 border-b border-[#5752B3]">
         <span className="w-2.5 h-2.5 rounded-full bg-[#F7C731] animate-pulse"></span>
-        <span>🚚 <strong>Envío local gratis desde $30.000</strong> | Mar de Ajó y zona hasta 45 km</span>
+        <span>🚚 <strong>Envío local gratis desde $30.000</strong> | {LOCAL_COVERAGE}</span>
       </div>
 
       {/* Main Header */}
@@ -1338,16 +1356,16 @@ export default function TiendaPage() {
               className="flex items-center gap-2 cursor-pointer group select-none"
               title="3LD - Inicio"
             >
-              <img src="/logo.png" alt="3LD Logo" className="h-10 sm:h-12 w-auto object-contain transition group-hover:scale-105" />
+              <img src="/logo.png" alt="3LD Logo" width={300} height={131} className="h-10 sm:h-12 w-auto shrink-0 object-contain transition group-hover:scale-105" />
             </div>
 
             {/* Desktop Search Bar */}
-            <div className="hidden md:flex flex-1 max-w-md mx-6 relative">
+            <div className="hidden md:flex min-w-0 flex-1 max-w-md mx-6 relative">
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Buscar entre +1.000 modelos (ej: Nerf, Sello, Cortantes)..."
+                placeholder="Buscar productos (ej: Stitch, cortantes)…"
                 className="w-full pl-10 pr-10 py-2 bg-slate-100/90 border border-slate-200 rounded-full text-xs focus:outline-none focus:ring-2 focus:ring-[#6B66C8] focus:bg-white transition"
               />
               <Search className="w-4 h-4 absolute left-3.5 top-2.5 text-slate-400" />
@@ -1384,7 +1402,7 @@ export default function TiendaPage() {
               {/* Cart Button */}
               <button
                 onClick={() => setIsCartOpen(true)}
-                className="relative p-2.5 bg-[#6B66C8] text-white rounded-2xl hover:bg-[#5752B3] transition shadow-sm active:scale-95 flex items-center justify-center"
+                aria-label={"Abrir carrito" + (cartItemsCount ? " (" + cartItemsCount + " artículos)" : "")} className="relative p-2.5 bg-[#6B66C8] text-white rounded-2xl hover:bg-[#5752B3] transition shadow-sm active:scale-95 flex items-center justify-center"
               >
                 <ShoppingCart className="w-5 h-5" />
                 {cartItemsCount > 0 && (
@@ -1403,7 +1421,7 @@ export default function TiendaPage() {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="¿Qué estás buscando? (ej: cortantes, dummy...)"
+                placeholder="Buscar productos (ej: Stitch, cortantes)…"
                 className="w-full pl-10 pr-8 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:bg-white transition"
               />
               <Search className="w-4 h-4 absolute left-3.5 top-3 text-slate-400" />
@@ -1614,7 +1632,7 @@ export default function TiendaPage() {
 
             <div className="flex items-center gap-2 w-full sm:w-auto">
               <select
-                value={sortOption}
+                aria-label="Ordenar productos" value={sortOption}
                 onChange={(e) => setSortOption(e.target.value)}
                 className="flex-1 sm:flex-none bg-white border border-slate-200 text-slate-700 text-xs font-semibold rounded-xl px-2.5 py-2 focus:ring-2 focus:ring-cyan-500 focus:outline-none"
               >
@@ -1675,7 +1693,7 @@ export default function TiendaPage() {
             <Package className="w-12 h-12 text-slate-300 mx-auto mb-3" />
             <h3 className="text-base font-bold text-slate-800">No encontramos productos con este criterio</h3>
             <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-              Podemos fabricar cualquier pieza o cortante a pedido en nuestro taller 3D.
+              ¿Buscás otro diseño? También podés consultar por fabricación a pedido.
             </p>
             <button
               onClick={() => setIsQuoteModalOpen(true)}
@@ -1686,7 +1704,7 @@ export default function TiendaPage() {
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-            {filteredProducts.map((product) => (
+            {filteredProducts.map((product, index) => (
               <div
                 key={product.id}
                 className="bg-white rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition overflow-hidden flex flex-col group cursor-pointer"
@@ -1700,7 +1718,7 @@ export default function TiendaPage() {
                     src={getThumbnailUrl(product.image, 400)}
                     alt={product.title}
                     className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
-                    loading="lazy"
+                    loading={index < 4 ? "eager" : "lazy"} fetchPriority={index < 2 ? "high" : "auto"}
                     decoding="async"
                     onError={(e) => {
                       // Fallback a imagen original si falla el thumbnail
@@ -1785,16 +1803,16 @@ export default function TiendaPage() {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          if (product.piezas && product.piezas.length > 0) {
+                          if (requiresPersonalization(product.title) || product.piezas?.length) {
                             openProductModal(product);
                           } else {
                             addToCart(product);
                           }
                         }}
                         className="p-2 bg-slate-900 hover:bg-cyan-600 text-white rounded-xl transition active:scale-90"
-                        title={product.piezas && product.piezas.length > 0 ? "Ver opciones y piezas" : "Agregar al Carrito"}
+                        title={requiresPersonalization(product.title) ? "Personalizar" : product.piezas?.length ? "Ver opciones y piezas" : "Agregar al Carrito"}
                       >
-                        <Plus className="w-4 h-4" />
+                        {requiresPersonalization(product.title) ? <span className="text-xs font-bold">Personalizar</span> : <Plus className="w-4 h-4" />}
                       </button>
                     </div>
                   </div>
@@ -1922,7 +1940,7 @@ export default function TiendaPage() {
                 <Truck className="w-5 h-5" />
               </div>
               <h4 className="text-xs font-black text-slate-900">Entregas en nuestra zona</h4>
-              <p className="text-[11px] text-slate-500 mt-1">Mar de Ajó y zona hasta 45 km. Retiro sin cargo en el taller.</p>
+              <p className="text-[11px] text-slate-500 mt-1">{LOCAL_COVERAGE}. Retiro sin cargo en el taller.</p>
             </div>
 
             <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200/70 text-center flex flex-col items-center">
@@ -1981,15 +1999,21 @@ export default function TiendaPage() {
                     {cart.map(item => {
                       const kitFigures = getKitFigureCount({ ...item, figuras_por_kit: products.find(p => String(p.id) === String(item.id))?.figuras_por_kit ?? item.figuras_por_kit });
                       return (
-                      <article key={`${item.id}-${item.color}-${JSON.stringify(item.selectedPieceIds || [])}`} className="grid grid-cols-[72px_minmax(0,1fr)] gap-4 py-5 sm:grid-cols-[88px_minmax(0,1fr)]">
+                      <article key={`${item.id}-${item.color}-${JSON.stringify([item.selectedPieceIds || [], item.personalizedName])}`} className="grid grid-cols-[72px_minmax(0,1fr)] gap-4 py-5 sm:grid-cols-[88px_minmax(0,1fr)]">
                         <img src={item.image} alt={item.title} className="h-[88px] w-full rounded-xl bg-slate-50 object-cover sm:h-[104px]" />
                         <div className="min-w-0">
-                          <div className="flex items-start justify-between gap-2"><h3 className="text-sm font-bold leading-snug text-slate-900">{item.title}</h3><button onClick={() => removeCartItem(item.id, item.color, item.selectedPieceIds)} aria-label={`Quitar ${item.title}`} className="-mr-2 -mt-2 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 hover:bg-red-50 hover:text-red-600"><Trash2 className="h-4 w-4" /></button></div>
+                          <div className="flex items-start justify-between gap-2"><h3 className="text-sm font-bold leading-snug text-slate-900">{item.title}</h3><button onClick={() => removeCartItem(item.id, item.color, item.selectedPieceIds, item.personalizedName)} aria-label={`Quitar ${item.title}`} className="-mr-2 -mt-2 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 hover:bg-red-50 hover:text-red-600"><Trash2 className="h-4 w-4" /></button></div>
+                          {item.personalizedName && <p className="text-xs text-slate-700">Nombre: {item.personalizedName} · Foto por WhatsApp</p>}
+                          {requiresPersonalization(item.title) && !item.personalizedName && <button type="button" className="text-xs font-bold text-cyan-800 underline" onClick={() => {
+                            const product = products.find(product => String(product.id) === String(item.id));
+                            if (product) { setIsCartOpen(false); openProductModal(product); }
+                          }}>Falta personalizar. Quitá esta línea y agregá el artículo personalizado.</button>}
+
                           {kitFigures && <p className="mt-1 text-xs font-bold text-cyan-800" data-testid="cart-kit-label">Kit completo · {kitFigures} {kitFigures === 1 ? 'figura' : 'figuras'}</p>}
                           <p className="mt-1 text-xs text-slate-500">{item.color}</p>
                           {kitFigures && <p className="mt-2 text-xs text-slate-600">{item.qty} {item.qty === 1 ? 'kit' : 'kits'} · {item.qty * kitFigures} figuras en total · ${item.price.toLocaleString('es-AR')} por kit</p>}
                           <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-                            <div className="inline-flex items-center rounded-lg border border-slate-200"><button aria-label={`Reducir cantidad de ${item.title}`} onClick={() => updateCartQty(item.id, item.color, -1, item.selectedPieceIds)} className="h-8 w-8 text-slate-600 hover:bg-slate-50">−</button><span className="min-w-7 text-center text-sm font-bold">{item.qty}</span><button aria-label={`Aumentar cantidad de ${item.title}`} onClick={() => updateCartQty(item.id, item.color, 1, item.selectedPieceIds)} className="h-8 w-8 text-slate-600 hover:bg-slate-50">+</button></div>
+                            <div className="inline-flex items-center rounded-lg border border-slate-200"><button aria-label={`Reducir cantidad de ${item.title}`} onClick={() => updateCartQty(item.id, item.color, -1, item.selectedPieceIds, item.personalizedName)} className="h-8 w-8 text-slate-600 hover:bg-slate-50">−</button><span className="min-w-7 text-center text-sm font-bold">{item.qty}</span><button aria-label={`Aumentar cantidad de ${item.title}`} onClick={() => updateCartQty(item.id, item.color, 1, item.selectedPieceIds, item.personalizedName)} className="h-8 w-8 text-slate-600 hover:bg-slate-50">+</button></div>
                             <p className="text-sm font-extrabold text-slate-900">${(item.price * item.qty).toLocaleString('es-AR')}</p>
                           </div>
                         </div>
@@ -2006,7 +2030,7 @@ export default function TiendaPage() {
                     {deliveryMethod === 'pickup' ? <p className="mt-3 text-xs leading-relaxed text-slate-500">Salta 3169, San Bernardo del Tuyú.</p> : (
                       <div className="mt-3 space-y-3">
                         <p className="text-xs text-slate-500">
-                          {correoEnabled ? 'Entrega local en La Costa, excepto Costa Esmeralda. Correo Argentino a todo el país.' : 'Cobertura en La Costa, excepto Costa Esmeralda.'}
+                          {correoEnabled ? '{LOCAL_COVERAGE}. Correo Argentino a todo el país.' : 'Cobertura en La Costa, excepto Costa Esmeralda.'}
                         </p>
                         <form onSubmit={handleCalculateShipping} className="flex gap-2">
                           <label className="min-w-0 flex-1">
@@ -2055,7 +2079,8 @@ export default function TiendaPage() {
             {cart.length > 0 && (
               <footer className="max-h-[45dvh] shrink-0 overflow-y-auto border-t border-slate-200 bg-white px-5 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-7" data-testid="cart-checkout-footer">
                 <div className="mb-4 flex items-center justify-between gap-3"><div><p className="text-sm text-slate-500">{deliveryMethod === 'shipping' && !shippingQuote ? 'Subtotal · envío a calcular' : 'Total a pagar'}</p></div><p className="text-2xl font-extrabold tracking-tight text-slate-900">${(cartSubtotal + (deliveryMethod === 'shipping' ? (shippingQuote?.price || 0) : 0)).toLocaleString('es-AR')}</p></div>
-                {isMpEnabled && <button onClick={() => { trackEvent({ tipo: 'iniciar_pago', metadata: { canal: 'mercadopago' } }); if (!buyerInfo.nombre.trim() || !buyerInfo.telefono.trim()) setIsBuyerModalOpen(true); else handleMercadoPagoCheckout(); }} disabled={isProcessingMp || (deliveryMethod === 'shipping' && !shippingQuote)} className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#009EE3] px-4 py-3.5 text-sm font-extrabold text-white transition hover:bg-[#0089c7] disabled:opacity-50"><CreditCard className="h-4 w-4" />{isProcessingMp ? 'Conectando…' : 'Continuar con Mercado Pago'}</button>}
+                {hasPendingPersonalization && <p role="status" className="mb-2 text-sm text-amber-900">Completá la personalización para continuar con el pago online.</p>}
+                {isMpEnabled && <button onClick={() => { trackEvent({ tipo: 'iniciar_pago', metadata: { canal: 'mercadopago' } }); if (!buyerInfo.nombre.trim() || !buyerInfo.telefono.trim()) setIsBuyerModalOpen(true); else handleMercadoPagoCheckout(); }} disabled={hasPendingPersonalization || isProcessingMp || (deliveryMethod === 'shipping' && !shippingQuote)} className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#009EE3] px-4 py-3.5 text-sm font-extrabold text-white transition hover:bg-[#0089c7] disabled:opacity-50"><CreditCard className="h-4 w-4" />{isProcessingMp ? 'Conectando…' : 'Continuar con Mercado Pago'}</button>}
                 <button onClick={() => { setIsCartOpen(false); setIsWhatsAppReviewOpen(true); }} className={`flex w-full items-center justify-center gap-2 rounded-xl px-3 py-3 text-sm font-bold ${isMpEnabled ? 'mt-1 text-emerald-800 hover:bg-emerald-50' : 'bg-emerald-600 text-white hover:bg-emerald-700'}`}><MessageCircle className="h-4 w-4" />{isMpEnabled ? 'O coordinar por WhatsApp' : 'Coordinar pedido por WhatsApp'}</button>
               </footer>
             )}
@@ -2078,9 +2103,10 @@ export default function TiendaPage() {
       <ProductStoreDetailModal
         product={activeProductModal}
         cartItems={cart}
+        quoteShipping={quoteProductShipping}
         isOpen={!!activeProductModal}
         onClose={closeProductModal}
-        onAddToCart={(product, qty, color) => addToCart(product, qty, color)}
+        onAddToCart={addToCart}
         onShare={(product) => setSocialShareProduct(product)}
       />
 
@@ -2220,6 +2246,11 @@ export default function TiendaPage() {
                 method={deliveryMethod === 'shipping' && correoEnabled && shippingProvider === 'correo' ? 'courier' : deliveryMethod}
               />
 
+              {personalizationNotes && <section className="rounded-xl border border-slate-200 p-3">
+                <h4 className="font-bold">Personalización del pedido</h4>
+                <p className="whitespace-pre-line break-words text-xs text-slate-700">{personalizationNotes}</p>
+                <p className="mt-1 text-xs text-slate-600">Después de pagar, adjuntá cada foto por WhatsApp e indicá el número de pedido y el nombre a imprimir.</p>
+              </section>}
               <div className="p-3 bg-sky-50 rounded-2xl border border-sky-100 flex items-center justify-between text-xs">
                 <span className="font-bold text-sky-900">Total a Pagar en Mercado Pago:</span>
                 <span className="font-black text-base text-sky-600">
@@ -2400,6 +2431,7 @@ export default function TiendaPage() {
                   <h4 className="font-black text-[11px] text-slate-500 uppercase tracking-wider mb-1">Forma de Entrega:</h4>
                   <p className="font-extrabold text-slate-900">{receiptOrder.entrega_tipo || 'A coordinar'}</p>
                   <p className="text-[11px] text-slate-600">{receiptOrder.entrega_direccion || 'Salta 3169, San Bernardo'}</p>
+                  {receiptOrder.notas?.includes('Foto por WhatsApp') && <a className="block text-sm font-bold text-emerald-800 underline" target="_blank" rel="noopener noreferrer" href={`https://wa.me/5492257512597?text=${encodeURIComponent(`Hola 3LD, les envío la foto para el pedido #${receiptOrder.numero}.`)}`}>Enviar foto del pedido por WhatsApp</a>}
                   {receiptOrder.notas && (
                     <p className="text-[10px] text-slate-500 italic mt-1 bg-white p-1 rounded border border-slate-100">
                       Nota: {receiptOrder.notas}

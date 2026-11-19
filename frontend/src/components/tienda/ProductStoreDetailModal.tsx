@@ -1,3 +1,4 @@
+import { LOCAL_COVERAGE, requiresPersonalization } from '@/lib/storePurchase'
 import React, { useState, useEffect, useMemo, useRef } from 'react'
 import {
   X,
@@ -159,6 +160,7 @@ export interface ProductStoreDetailModalProps {
   isAdminView?: boolean
   onEdit?: (product: any) => void
   cartItems?: ShippingCartLine[]
+  quoteShipping?: (postalCode: string, selection: { id: string | number; quantity: number; color: string; selected_piece_ids: string[] }) => Promise<{ cost: number; service: string; days_min?: number; days_max?: number }>
 }
 
 export function ProductStoreDetailModal({
@@ -170,10 +172,14 @@ export function ProductStoreDetailModal({
   isAdminView = false,
   onEdit,
   cartItems = [],
+  quoteShipping,
 }: ProductStoreDetailModalProps) {
   const product = useMemo(() => normalizeToStoreProduct(rawProduct), [rawProduct])
 
   const dialogRef = useRef<HTMLDivElement>(null)
+  const [personalizedName, setPersonalizedName] = useState('')
+  const [postalCode, setPostalCode] = useState('')
+  const [shippingResult, setShippingResult] = useState<{ key: string; message: string } | null>(null)
   const [quantity, setQuantity] = useState(1)
   const [activeImage, setActiveImage] = useState<string>('')
   const [selectedColor, setSelectedColor] = useState<string>('')
@@ -185,6 +191,8 @@ export function ProductStoreDetailModal({
     if (product && isOpen) {
       setActiveImage(product.images[0] || product.image || '')
       setSelectedColor('')
+      setPersonalizedName('')
+      setShippingResult(null)
       setQuantity(1)
 
       if (product.piezas && product.piezas.length > 0) {
@@ -263,7 +271,14 @@ export function ProductStoreDetailModal({
       precios_cantidad: allPiecesSelected ? quantityTiers : [],
     }
   }, [product, selectedPiezas, selectionPrice, calculatedPrice, allPiecesSelected, quantityTiers])
-  const shippingGoal = cartSelection ? projectFreeShipping(cartItems, cartSelection, quantity, selectedColor || 'Estándar') : null
+  const needsPersonalization = Boolean(onAddToCart && product && requiresPersonalization(product.title))
+  const name = needsPersonalization ? personalizedName.trim() : undefined
+  const shippingSelection = cartSelection ? {
+    id: cartSelection.id, quantity, color: selectedColor || 'Estándar',
+    selected_piece_ids: cartSelection.selectedPieceIds || [],
+  } : null
+  const quoteKey = JSON.stringify([postalCode, shippingSelection])
+  const shippingGoal = cartSelection ? projectFreeShipping(cartItems, { ...cartSelection, personalizedName: name }, quantity, selectedColor || 'Estándar') : null
   const unitPrice = shippingGoal?.unitPrice ?? selectionPrice
   const totalPrice = Math.round(unitPrice * quantity * 100) / 100
   const unitSaving = Math.max(0, calculatedPrice - unitPrice)
@@ -287,8 +302,8 @@ export function ProductStoreDetailModal({
   const handleAddCartClick = () => {
     if (!onAddToCart) return
     const finalColor = selectedColor || 'Estándar'
-    if (!cartSelection) return
-    onAddToCart({ ...cartSelection, price: unitPrice }, quantity, finalColor)
+    if (!cartSelection || (needsPersonalization && !name)) return
+    onAddToCart({ ...cartSelection, personalizedName: name, price: unitPrice }, quantity, finalColor)
     onClose()
   }
 
@@ -432,13 +447,10 @@ export function ProductStoreDetailModal({
             {unitSaving > 0 && <p className="mt-1 text-sm font-bold text-emerald-700">Ahorrás {money(unitSaving)} {product.piezas?.length ? 'por selección' : kitFigures ? 'por kit completo' : 'por unidad'} con esta cantidad</p>}
 
             {!!shippingGoal?.existingQuantity && <p className="mt-1 text-xs leading-relaxed text-slate-500">Se suman a las {shippingGoal.existingQuantity} {kitFigures ? 'kits' : 'unidades'} de esta misma opción que ya tenés en el carrito.</p>}
-            {onAddToCart && shippingGoal && <div className="mt-4">
-              <FreeShippingProgress subtotal={shippingGoal.projectedSubtotal} preview>
-                {shippingGoal.targetQuantity !== null && <button type="button" onClick={() => setQuantity(shippingGoal.targetQuantity!)} className="mt-3 min-h-11 w-full rounded-xl border border-cyan-300 bg-white px-3 py-2 text-sm font-bold text-cyan-900 hover:bg-cyan-100 cursor-pointer">
-                  Elegir {shippingGoal.targetQuantity} {kitFigures ? 'kits' : 'unidades'} · Pedido {money(shippingGoal.targetSubtotal!)}
-                </button>}
-                {shippingGoal.targetQuantity !== null && <p className="mt-1.5 text-xs leading-relaxed text-cyan-900">Sumá {shippingGoal.targetQuantity - quantity} más de esta selección. Ya calculamos los descuentos por cantidad{cartItems.length ? ' y lo que tenés en el carrito' : ''}.</p>}
-              </FreeShippingProgress>
+            {needsPersonalization && <div className="mt-4 space-y-2">
+              <label className="block text-sm font-bold" htmlFor="product-personalized-name">Nombre para imprimir (obligatorio)</label>
+              <input id="product-personalized-name" value={personalizedName} maxLength={60} onChange={event => setPersonalizedName(event.target.value)} className="w-full rounded-xl border border-slate-300 px-3 py-2" />
+              <p className="text-xs text-slate-600">Foto por WhatsApp. Si pagás online, adjuntala después con el número de pedido. Si coordinás por WhatsApp, adjuntala en el mismo chat.</p>
             </div>}
 
             {quantityTiers.length > 0 && allPiecesSelected && (
@@ -500,6 +512,35 @@ export function ProductStoreDetailModal({
                 </div>
               </div>
             )}
+
+            {quoteShipping && <details className="mt-4 rounded-xl border border-slate-200 p-3 text-sm">
+              <summary className="cursor-pointer font-bold">Calculá el envío con tu código postal</summary>
+              <p className="mt-2 text-xs text-slate-600">{LOCAL_COVERAGE}. La cotización corresponde a esta selección. El carrito calcula el envío del pedido completo.</p>
+              <form className="mt-2 flex flex-wrap gap-2" onSubmit={async event => {
+                event.preventDefault()
+                if (!shippingSelection || !/^[0-9]{4}$/.test(postalCode)) return
+                setShippingResult({ key: quoteKey, message: 'Calculando…' })
+                try {
+                  const rate = await quoteShipping(postalCode, shippingSelection)
+                  const days = rate.days_min && rate.days_max ? ` · ${rate.days_min} a ${rate.days_max} días hábiles desde el despacho` : ''
+                  setShippingResult(current => current?.key === quoteKey ? { key: quoteKey, message: `${rate.service} · ${rate.cost ? money(rate.cost) : 'Gratis'}${days}` } : current)
+                } catch (error) {
+                  setShippingResult(current => current?.key === quoteKey ? { key: quoteKey, message: (error as { response?: { data?: { message?: string } } }).response?.data?.message || 'No pudimos cotizar este envío. Revisá el código postal o consultanos por WhatsApp.' } : current)
+                }
+              }}>
+                <input aria-label="Código postal para cotizar" inputMode="numeric" autoComplete="postal-code" value={postalCode} onChange={event => setPostalCode(event.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="Ej. 7111" className="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2" />
+                <button type="submit" disabled={!shippingSelection || postalCode.length !== 4 || (shippingResult?.key === quoteKey && shippingResult.message === 'Calculando…')} className="rounded-lg bg-slate-900 px-3 py-2 font-bold text-white disabled:opacity-50">Calcular envío</button>
+              </form>
+              <p role="status" className="mt-2">{shippingResult?.key === quoteKey && shippingResult.message}</p>
+            </details>}
+            {onAddToCart && shippingGoal && <details className="mt-4 text-sm"><summary className="mb-2 cursor-pointer font-semibold text-cyan-900">Ver beneficio de envío local gratis</summary>
+              <FreeShippingProgress subtotal={shippingGoal.projectedSubtotal} preview>
+                {shippingGoal.targetQuantity !== null && <button type="button" onClick={() => setQuantity(shippingGoal.targetQuantity!)} className="mt-3 min-h-11 w-full rounded-xl border border-cyan-300 bg-white px-3 py-2 text-sm font-bold text-cyan-900 hover:bg-cyan-100 cursor-pointer">
+                  Elegir {shippingGoal.targetQuantity} {kitFigures ? 'kits' : 'unidades'} · Pedido {money(shippingGoal.targetSubtotal!)}
+                </button>}
+                {shippingGoal.targetQuantity !== null && <p className="mt-1.5 text-xs leading-relaxed text-cyan-900">Sumá {shippingGoal.targetQuantity - quantity} más de esta selección. Ya calculamos los descuentos por cantidad{cartItems.length ? ' y lo que tenés en el carrito' : ''}.</p>}
+              </FreeShippingProgress>
+            </details>}
 
             {/* Selección de Piezas */}
             {product.piezas && product.piezas.length > 0 && (
@@ -636,7 +677,7 @@ export function ProductStoreDetailModal({
                   <button
                     type="button"
                     onClick={handleAddCartClick}
-                    disabled={!!product.piezas?.length && !Object.values(selectedPiezas).some(Boolean)}
+                    disabled={!cartSelection || (needsPersonalization && !name)}
                     className="min-h-12 flex-1 sm:flex-none justify-center disabled:opacity-40 disabled:cursor-not-allowed px-5 py-3 bg-slate-900 hover:bg-cyan-600 text-white font-bold text-xs rounded-2xl shadow-md transition active:scale-95 flex items-center gap-2 cursor-pointer"
                   >
                     <ShoppingCart className="w-4 h-4" />

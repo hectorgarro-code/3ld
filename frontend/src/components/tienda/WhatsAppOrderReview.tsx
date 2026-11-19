@@ -54,8 +54,8 @@ export function WhatsAppOrderReview({ items, delivery, shippingCost, notes, onNo
         <ul className="divide-y divide-slate-100">
           {items.map(item => {
             const figures = getKitFigureCount(item)
-            return <li key={JSON.stringify([item.id,item.color,item.selectedPieceIds])} className="py-3 first:pt-0">
-              <h3 className="break-words text-sm font-bold text-slate-900">{item.title}</h3>
+            return <li key={JSON.stringify([item.id,item.color,item.selectedPieceIds,item.personalizedName])} className="py-3 first:pt-0">
+              <h3 className="break-words text-sm font-bold text-slate-900">{item.title}</h3>{item.personalizedName && <p className="text-sm text-slate-700">Nombre: {item.personalizedName} · Adjuntá la foto en el chat</p>}
               <p className="mt-1 text-sm text-slate-700">{item.qty} {figures ? (item.qty === 1 ? 'kit' : 'kits') : (item.qty === 1 ? 'unidad' : 'unidades')}{figures ? ` · ${figures} figuras por kit · ${item.qty * figures} figuras en total` : ''}</p>
               <p className="mt-1 text-xs text-slate-500">Color: {item.color}</p>
               <p className="mt-1 text-sm font-bold text-slate-900">{money(item.price * item.qty)}</p>

@@ -10,6 +10,7 @@ export interface CartItem {
   figuras_por_kit?: number | null
   basePrice?: number
   selectedPieceIds?: string[]
+  personalizedName?: string
   image: string
   color: string
   weightGrams: number
@@ -27,6 +28,7 @@ interface CartState {
       figuras_por_kit?: number | null
       basePrice?: number
       selectedPieceIds?: string[]
+      personalizedName?: string
       image: string
       weightGrams?: number
       precios_cantidad?: { cantidad: number; precio: number }[] | any
@@ -34,8 +36,8 @@ interface CartState {
     qty?: number,
     color?: string
   ) => void
-  updateCartQty: (id: string | number, color: string, delta: number, selectedPieceIds?: string[]) => void
-  removeCartItem: (id: string | number, color: string, selectedPieceIds?: string[]) => void
+  updateCartQty: (id: string | number, color: string, delta: number, selectedPieceIds?: string[], personalizedName?: string) => void
+  removeCartItem: (id: string | number, color: string, selectedPieceIds?: string[], personalizedName?: string) => void
   applyQuote: (prices: number[]) => void
   clearCart: () => void
 }
@@ -55,7 +57,7 @@ export const useCartStore = create<CartState>()(
             : (typeof rawEscalas === 'string' ? JSON.parse(rawEscalas || '[]') : [])
 
           const basePrice = product.basePrice !== undefined ? product.basePrice : product.price
-          const existing = state.cart.find((item) => item.id === product.id && item.color === color && variantKey(item.selectedPieceIds) === variantKey(product.selectedPieceIds))
+          const existing = state.cart.find((item) => item.id === product.id && item.color === color && item.personalizedName === product.personalizedName && variantKey(item.selectedPieceIds) === variantKey(product.selectedPieceIds))
 
           if (existing) {
             const newQty = existing.qty + qty
@@ -76,6 +78,7 @@ export const useCartStore = create<CartState>()(
               {
                 id: product.id,
                 selectedPieceIds: product.selectedPieceIds,
+                personalizedName: product.personalizedName,
                 title: product.title,
                 figuras_por_kit: getKitFigureCount(product) ?? 0,
                 price: tierPrice,
@@ -94,11 +97,11 @@ export const useCartStore = create<CartState>()(
         })
       },
 
-      updateCartQty: (id, color, delta, selectedPieceIds) => {
+      updateCartQty: (id, color, delta, selectedPieceIds, personalizedName) => {
         set((state) => ({
           cart: state.cart
             .map((item) => {
-              if (item.id === id && item.color === color && variantKey(item.selectedPieceIds) === variantKey(selectedPieceIds)) {
+              if (item.id === id && item.color === color && item.personalizedName === personalizedName && variantKey(item.selectedPieceIds) === variantKey(selectedPieceIds)) {
                 const newQty = item.qty + delta
                 if (newQty <= 0) return null
                 const base = item.basePrice ?? item.price
@@ -111,9 +114,9 @@ export const useCartStore = create<CartState>()(
         }))
       },
 
-      removeCartItem: (id, color, selectedPieceIds) => {
+      removeCartItem: (id, color, selectedPieceIds, personalizedName) => {
         set((state) => ({
-          cart: state.cart.filter((item) => !(item.id === id && item.color === color && variantKey(item.selectedPieceIds) === variantKey(selectedPieceIds))),
+          cart: state.cart.filter((item) => !(item.id === id && item.color === color && item.personalizedName === personalizedName && variantKey(item.selectedPieceIds) === variantKey(selectedPieceIds))),
         }))
       },
 

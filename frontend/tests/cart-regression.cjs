@@ -11,7 +11,8 @@ function compile(file,requireFn=require){
  return scope.exports;
 }
 const pricing=compile('lib/pricing.ts');
-const {useCartStore}=compile('store/cartStore.ts',name=>name==='@/lib/pricing'?pricing:require(name));
+const productKit=compile('lib/productKit.ts');
+const {useCartStore}=compile('store/cartStore.ts',name=>name==='@/lib/pricing'?pricing:name==='@/lib/productKit'?productKit:require(name));
 const product={id:113,title:'Pieza A',price:2000,image:'/test.png',selectedPieceIds:['a']};
 useCartStore.getState().addToCart(product,1,'Blanco');
 useCartStore.getState().addToCart({...product,title:'Pieza B',price:3000,selectedPieceIds:['b']},1,'Blanco');
@@ -48,3 +49,13 @@ assert.equal(useCartStore.getState().cart[0].price,1500);
 useCartStore.getState().updateCartQty(114,'Estándar',-11);
 assert.equal(useCartStore.getState().cart[0].price,2500);
 console.log('OK: detalle envía el precio descontado para seguimiento y conserva el precio original al reducir cantidades.');
+
+useCartStore.getState().clearCart();
+useCartStore.getState().addToCart({...product, personalizedName:'Ana'},1,'Blanco');
+useCartStore.getState().addToCart({...product, personalizedName:'Luz'},1,'Blanco');
+useCartStore.getState().updateCartQty(113,'Blanco',1,['a'],'Ana');
+assert.equal(useCartStore.getState().cart[0].qty,2);
+assert.equal(useCartStore.getState().cart[1].qty,1);
+useCartStore.getState().removeCartItem(113,'Blanco',['a'],'Ana');
+assert.equal(useCartStore.getState().cart[0].personalizedName,'Luz');
+console.log('OK: dos nombres del mismo producto mantienen líneas independientes.');
