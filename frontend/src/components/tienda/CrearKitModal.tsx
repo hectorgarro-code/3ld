@@ -1,3 +1,4 @@
+import { KitPreview } from './KitPreview'
 import { buildComboCover } from '@/lib/comboCover'
 import React, { useState, useEffect, useMemo } from 'react'
 import {
@@ -58,6 +59,7 @@ export function CrearKitModal({
   const [selectedCoverImage, setSelectedCoverImage] = useState<string>('')
   const [automaticCover, setAutomaticCover] = useState('')
   const [isSaving, setIsSaving] = useState(false)
+  const [showPreview, setShowPreview] = useState(false)
 
   // Cargar productos vendibles
   useEffect(() => {
@@ -301,6 +303,7 @@ export function CrearKitModal({
   }
 
   if (!isOpen) return null
+  const canPreview = selectedComponents.length >= 2 && Boolean(kitName.trim()) && typeof kitPrice === 'number' && kitPrice > 0 && kitPrice < totalIndividualPrice
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-950/80 backdrop-blur-xs animate-in fade-in duration-200">
@@ -571,11 +574,15 @@ export function CrearKitModal({
             </div>
 
             {/* Botón Final de Guardado */}
-            <div className="pt-2 mt-auto">
+            <div className="pt-2 mt-auto space-y-2">
+              <button type="button" disabled={!canPreview || isSaving} onClick={() => setShowPreview(true)}
+                className="min-h-11 w-full rounded-xl border border-indigo-200 bg-white px-3 text-xs font-bold text-indigo-900 hover:bg-indigo-50 disabled:opacity-50">
+                Vista previa antes de publicar
+              </button>
               <button
                 type="button"
                 onClick={handleSaveKit}
-                disabled={isSaving || selectedComponents.length < 2 || !kitName.trim() || !kitPrice}
+                disabled={isSaving || !canPreview}
                 className="w-full py-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-2xl text-xs font-black flex items-center justify-center gap-2 shadow-lg shadow-orange-500/20 transition active:scale-95 disabled:opacity-50 cursor-pointer"
               >
                 <CheckCircle2 className="w-4 h-4" />
@@ -585,6 +592,9 @@ export function CrearKitModal({
           </div>
         </div>
       </div>
+      {showPreview && typeof kitPrice === 'number' && <KitPreview
+        title={kitName.trim()} cover={selectedCoverImage || automaticCover} price={kitPrice}
+        regular={totalIndividualPrice} components={selectedComponents} onClose={() => setShowPreview(false)} />}
     </div>
   )
 }

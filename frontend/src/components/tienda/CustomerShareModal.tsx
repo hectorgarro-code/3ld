@@ -1,3 +1,4 @@
+import { comboWhatsAppText } from '@/lib/comboWhatsApp'
 import React, { useState } from 'react'
 import { X, Share2, Copy, Check, MessageCircle, Link2, ExternalLink } from 'lucide-react'
 import { toast } from '@/store/toastStore'
@@ -79,8 +80,9 @@ export function CustomerShareModal({ isOpen, onClose, product }: CustomerShareMo
     }
   }
 
-  const includes = isCombo ? '\nIncluye:\n' + components.map(piece => `• ${piece.cantidad || 1} × ${piece.nombre}`).join('\n') : ''
-  const text = `¡Mirá ${isCombo ? 'este combo' : 'este producto'} en 3LD!\n*${title}* · $${priceFormatted}${includes}\n${shareUrl}`
+  const text = isCombo
+    ? comboWhatsAppText(title, `$${priceFormatted}`, components, shareUrl)
+    : `¡Mirá este producto en 3LD!\n*${title}* · $${priceFormatted}\n${shareUrl}`
   const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`
 
   const handleNativeShare = async () => {
