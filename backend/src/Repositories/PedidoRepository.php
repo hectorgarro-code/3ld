@@ -835,7 +835,20 @@ class PedidoRepository
 
     public function procesarStockItem(int $itemId, string $nuevoEstado): void
     {
-        $stmtItem = $this->db->prepare("SELECT producto_id, cantidad, stock_descontado FROM pedido_items WHERE id = ?");
+        $ownsTransaction = !$this->db->inTransaction();
+        if ($ownsTransaction) $this->db->beginTransaction();
+        try {
+            $this->actualizarStockItem($itemId, $nuevoEstado);
+            if ($ownsTransaction) $this->db->commit();
+        } catch (\Throwable $error) {
+            if ($ownsTransaction && $this->db->inTransaction()) $this->db->rollBack();
+            throw $error;
+        }
+    }
+
+    private function actualizarStockItem(int $itemId, string $nuevoEstado): void
+    {
+        $stmtItem = $this->db->prepare("SELECT producto_id, cantidad, stock_descontado FROM pedido_items WHERE id = ? FOR UPDATE");
         $stmtItem->execute([$itemId]);
         $item = $stmtItem->fetch();
 
@@ -876,10 +889,6 @@ class PedidoRepository
         }
 
         if ($hasComponents) {
-            // Descontar el stock del combo mismo si tiene inventario directo registrado
-            $this->db->prepare("UPDATE productos SET stock_actual = GREATEST(0, stock_actual - ?), updated_at = NOW() WHERE id = ?")->execute([$cantidad, $productoId]);
-            $this->db->prepare("INSERT INTO movimientos_stock (producto_id, cantidad, tipo_movimiento, notas) VALUES (?, ?, 'venta', ?)")
-                ->execute([$productoId, -$cantidad, "Descuento por venta de Kit/Combo: {$producto['nombre']}"]);
             return;
         }
 
@@ -932,9 +941,6 @@ class PedidoRepository
                 }
             }
             if ($hasComponents) {
-                $this->db->prepare("UPDATE productos SET stock_actual = stock_actual + ?, updated_at = NOW() WHERE id = ?")->execute([$cantidad, $productoId]);
-                $this->db->prepare("INSERT INTO movimientos_stock (producto_id, cantidad, tipo_movimiento, notas) VALUES (?, ?, 'anulacion_venta', ?)")
-                    ->execute([$productoId, $cantidad, "Restauración de stock por anulación de Kit/Combo: {$producto['nombre']}"]);
                 return;
             }
         }

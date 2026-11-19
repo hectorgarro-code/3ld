@@ -39,6 +39,52 @@ class TiendaController
      * GET /api/v1/tienda/categorias
      * Endpoint público para obtener las categorías de la tienda
      */
+    public function compartirProducto(ResponseInterface $response, int $id): ResponseInterface
+    {
+        $product = $this->repository->getProductoParaCompartir($id);
+        if (!$product) {
+            return Response::error('Producto no disponible.', 404);
+        }
+
+        $pieces = json_decode($product['piezas'] ?? '[]', true);
+        $components = array_filter(is_array($pieces) ? $pieces : [], static fn($piece) => !empty($piece['producto_id']));
+        if (!$components) {
+            return $response->withStatus(302)->withHeader('Location', '/?producto=' . $id);
+        }
+
+        $origin = 'https://3ld.com.ar';
+        $target = $origin . '/?producto=' . $id;
+        $shareUrl = $origin . '/api/v1/tienda/compartir/' . $id;
+        $image = trim((string) $product['imagen_url']);
+        if ($image === '') $image = '/logo.png';
+        if (!preg_match('~^https?://~i', $image)) $image = $origin . '/' . ltrim($image, '/');
+        $image = preg_replace('~^https?://sistema\.3ld\.com\.ar/~i', $origin . '/', $image);
+        $regular = (float) $product['precio_venta'];
+        $offer = (float) $product['precio_oferta'];
+        $price = $offer > 0 && $offer < $regular ? $offer : $regular;
+        $title = $product['nombre'] . ' | 3LD';
+        $description = '$' . number_format($price, 0, ',', '.') . ' · Incluye ' . implode(', ', array_map(
+            static fn($piece) => ($piece['cantidad'] ?? 1) . ' × ' . ($piece['nombre'] ?? ''),
+            $components
+        ));
+        $escape = static fn($value) => htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        $title = $escape($title);
+        $description = $escape($description);
+        $image = $escape($image);
+        $target = $escape($target);
+        $response->getBody()->write(<<<HTML
+        <!doctype html><html lang="es-AR"><head><meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>{$title}</title><link rel="canonical" href="{$target}">
+        <meta property="og:type" content="website"><meta property="og:url" content="{$shareUrl}">
+        <meta property="og:title" content="{$title}"><meta property="og:description" content="{$description}">
+        <meta property="og:image" content="{$image}">
+        </head><body><main><a href="{$target}">Ver {$title}</a></main>
+        <script>location.replace(document.querySelector('main a').href)</script></body></html>
+        HTML);
+        return $response->withHeader('Content-Type', 'text/html; charset=utf-8')->withHeader('Cache-Control', 'public, max-age=60');
+    }
+
     public function getCategorias(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
     {
         try {

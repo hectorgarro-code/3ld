@@ -11,6 +11,8 @@ interface CustomerShareModalProps {
     title?: string
     nombre?: string
     price?: number | string
+    precio_oferta?: number | string | null
+    piezas?: { nombre: string; cantidad?: number; producto_id?: number | string }[]
     precio_venta?: number | string
     image?: string
     imagen_url?: string
@@ -24,7 +26,10 @@ export function CustomerShareModal({ isOpen, onClose, product }: CustomerShareMo
   if (!isOpen || !product) return null
 
   const title = String(product.nombre || product.title || 'Producto 3LD')
-  const rawPrice = product.precio_venta ?? product.price ?? 0
+  const components = product.piezas?.filter(piece => piece.producto_id) ?? []
+  const isCombo = components.length > 0
+  const offer = Number(product.precio_oferta)
+  const rawPrice = offer > 0 && offer < Number(product.precio_venta) ? offer : product.price ?? product.precio_venta ?? 0
   const numPrice = typeof rawPrice === 'number' ? rawPrice : (parseFloat(String(rawPrice)) || 0)
   const priceFormatted = numPrice.toLocaleString('es-AR')
 
@@ -37,7 +42,9 @@ export function CustomerShareModal({ isOpen, onClose, product }: CustomerShareMo
     mainImage = product.imagenes[0]
   }
 
-  const shareUrl = `https://3ld.com.ar/?producto=${product.id}`
+  const shareUrl = isCombo
+    ? `https://3ld.com.ar/api/v1/tienda/compartir/${encodeURIComponent(product.id)}`
+    : `https://3ld.com.ar/?producto=${encodeURIComponent(product.id)}`
 
   const copyToClipboard = async () => {
     let success = false
@@ -72,11 +79,9 @@ export function CustomerShareModal({ isOpen, onClose, product }: CustomerShareMo
     }
   }
 
-  const handleShareWhatsApp = () => {
-    const text = `¡Mirá este producto en 3LD! ✨\n*${title}* - $${priceFormatted}\n${shareUrl}`
-    const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`
-    window.open(waUrl, '_blank')
-  }
+  const includes = isCombo ? '\nIncluye:\n' + components.map(piece => `• ${piece.cantidad || 1} × ${piece.nombre}`).join('\n') : ''
+  const text = `¡Mirá ${isCombo ? 'este combo' : 'este producto'} en 3LD!\n*${title}* · $${priceFormatted}${includes}\n${shareUrl}`
+  const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`
 
   const handleNativeShare = async () => {
     if (typeof navigator !== 'undefined' && navigator.share) {
@@ -171,14 +176,15 @@ export function CustomerShareModal({ isOpen, onClose, product }: CustomerShareMo
 
           {/* Botones de acción rápida */}
           <div className="space-y-2 pt-1">
-            <button
-              type="button"
-              onClick={handleShareWhatsApp}
+            <a
+              href={waUrl}
+              target="_blank"
+              rel="noopener noreferrer"
               className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-xs font-black flex items-center justify-center gap-2 shadow-md shadow-emerald-600/20 transition active:scale-98"
             >
               <MessageCircle className="w-4 h-4" />
               <span>Compartir por WhatsApp</span>
-            </button>
+            </a>
 
             {canNativeShare && (
               <button

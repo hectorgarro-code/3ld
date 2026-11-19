@@ -708,6 +708,9 @@ $app->post('/api/analytics/track', function ($req, $res) use ($container) {
 $app->get('/api/v1/tienda/productos', function ($req, $res) use ($container) {
     return $container->get(TiendaController::class)->getProductos($req, $res);
 });
+$app->get('/api/v1/tienda/compartir/{id:[0-9]+}', function ($req, $res, $args) use ($container) {
+    return $container->get(TiendaController::class)->compartirProducto($res, (int)$args['id']);
+});
 $app->get('/api/v1/tienda/categorias', function ($req, $res) use ($container) {
     return $container->get(TiendaController::class)->getCategorias($req, $res);
 });

@@ -578,16 +578,8 @@ export function ProductStoreDetailModal({
 
             {/* Si es Combo / Kit: Lista de Artículos incluidos */}
             {isCombo && product.piezas && product.piezas.length > 0 && (
-              <div className="mt-4 bg-gradient-to-br from-amber-50 to-orange-50/70 p-4 rounded-2xl border border-amber-200/90 space-y-3">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-black text-amber-950 flex items-center gap-1.5 uppercase tracking-wide">
-                    <Boxes className="w-4 h-4 text-amber-600" />
-                    Este Combo Incluye ({product.piezas.length} artículos):
-                  </label>
-                  <span className="text-[10px] bg-gradient-to-r from-amber-500 to-orange-500 text-white font-black px-2.5 py-0.5 rounded-full shadow-2xs">
-                    Pack Promocional
-                  </span>
-                </div>
+              <details open className="mt-4 bg-gradient-to-br from-amber-50 to-orange-50/70 p-4 rounded-2xl border border-amber-200/90 space-y-3">
+                <summary className="cursor-pointer text-xs font-black text-amber-950">Este combo incluye ({product.piezas.length} productos)</summary>
 
                 <div className="grid gap-2 sm:grid-cols-2">
                   {product.piezas.map((pieza: any, pIdx: number) => (
@@ -627,7 +619,7 @@ export function ProductStoreDetailModal({
                   <Sparkles className="w-3.5 h-3.5 text-amber-600 shrink-0" />
                   <span>Todos los artículos del combo se incluyen juntos con su precio promocional aplicado.</span>
                 </div>
-              </div>
+              </details>
             )}
 
             {/* Selección de Piezas estándar si NO es combo */}
@@ -769,7 +761,7 @@ export function ProductStoreDetailModal({
                     className="min-h-12 flex-1 sm:flex-none justify-center disabled:opacity-40 disabled:cursor-not-allowed px-5 py-3 bg-slate-900 hover:bg-cyan-600 text-white font-bold text-xs rounded-2xl shadow-md transition active:scale-95 flex items-center gap-2 cursor-pointer"
                   >
                     <ShoppingCart className="w-4 h-4" />
-                    <span>Agregar al Carrito</span>
+                    <span>{isCombo ? 'Agregar Combo al Carrito' : 'Agregar al Carrito'}</span>
                   </button>
                 ) : isAdminView ? (
                   <div className="flex items-center gap-1.5">

@@ -34,7 +34,16 @@ final class CheckoutQuote
             $selection = array_map('strval', $selection);
             if (count($selection) !== count(array_unique($selection))) throw new InvalidArgumentException('Hay piezas repetidas.');
             $title = (string)$product['nombre']; $all = true;
-            if ($pieces) {
+            $comboPieces = array_filter($pieces, static fn($piece) => !empty($piece['producto_id']));
+            $isCombo = count($comboPieces) > 0;
+            if ($isCombo) {
+                $componentIds = array_map(static fn($piece) => (string)($piece['id'] ?? $piece['producto_id']), $comboPieces);
+                if ($selection && (count($selection) !== count($componentIds) || array_diff($selection, $componentIds))) {
+                    throw new InvalidArgumentException('El combo se vende completo.');
+                }
+                $selection = [];
+            }
+            if ($pieces && !$isCombo) {
                 if (!$selection) throw new InvalidArgumentException('Volvé a agregar el producto y elegí sus piezas.');
                 $selected = [];
                 foreach ($pieces as $piece) {
@@ -52,7 +61,7 @@ final class CheckoutQuote
                 $title .= ' (' . implode(', ', array_column($selected, 'nombre')) . ')';
             } elseif ($selection) throw new InvalidArgumentException('El producto no tiene esas piezas.');
             if ($all && $sale > 0 && $sale < (float)($product['precio_venta'] ?? 0)) $price = $sale;
-            if ($all) {
+            if ($all && !$isCombo) {
                 if (!empty($product['estructura_precio_id'])) {
                     try {
                         $stEp = $this->db->prepare('SELECT escalas FROM estructuras_precio_cantidad WHERE id = ? LIMIT 1');

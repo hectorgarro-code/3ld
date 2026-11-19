@@ -18,6 +18,13 @@ class TiendaRepository
     /**
      * Obtener productos públicos para la tienda (es_tienda = 1 y activo = 1)
      */
+    public function getProductoParaCompartir(int $id): ?array
+    {
+        $stmt = $this->db->prepare('SELECT nombre, imagen_url, precio_venta, precio_oferta, piezas FROM productos WHERE id = ? AND activo = 1 AND es_tienda = 1 AND es_vendible = 1');
+        $stmt->execute([$id]);
+        return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+    }
+
     public function getProductosPublicos(array $params = []): array
     {
         $q = $params['q'] ?? '';
@@ -168,6 +175,32 @@ class TiendaRepository
                         $item['size'] = implode(' x ', $parts);
                     }
                 }
+            }
+            unset($item);
+            $componentIds = [];
+            foreach ($items as $item) {
+                foreach ($item['piezas'] as $piece) {
+                    if (!empty($piece['producto_id'])) $componentIds[(int)$piece['producto_id']] = true;
+                }
+            }
+            if ($componentIds) {
+                $placeholders = implode(',', array_fill(0, count($componentIds), '?'));
+                $stockQuery = $this->db->prepare("SELECT id, stock_actual FROM productos WHERE activo = 1 AND id IN ($placeholders)");
+                $stockQuery->execute(array_keys($componentIds));
+                $componentStock = $stockQuery->fetchAll(PDO::FETCH_KEY_PAIR);
+                foreach ($items as &$item) {
+                    $limits = [];
+                    foreach ($item['piezas'] as $piece) {
+                        if (empty($piece['producto_id'])) continue;
+                        $available = max(0, (float)($componentStock[$piece['producto_id']] ?? 0));
+                        $limits[] = (int)floor($available / max(1, (int)($piece['cantidad'] ?? 1)));
+                    }
+                    if ($limits) {
+                        $item['stock_actual'] = min($limits);
+                        $item['stockStatus'] = $item['stock_actual'] > 0 ? 'ready' : 'custom';
+                    }
+                }
+                unset($item);
             }
             return $items;
         } catch (\PDOException $e) {

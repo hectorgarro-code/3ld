@@ -1,3 +1,4 @@
+import { buildComboCover } from '@/lib/comboCover'
 import React, { useState, useEffect, useMemo } from 'react'
 import {
   X,
@@ -52,8 +53,10 @@ export function CrearKitModal({
   const [kitName, setKitName] = useState('')
   const [kitDescription, setKitDescription] = useState('')
   const [kitPrice, setKitPrice] = useState<number | ''>('')
+  const [manualPrice, setManualPrice] = useState(false)
   const [selectedComponents, setSelectedComponents] = useState<ComponentProductItem[]>([])
   const [selectedCoverImage, setSelectedCoverImage] = useState<string>('')
+  const [automaticCover, setAutomaticCover] = useState('')
   const [isSaving, setIsSaving] = useState(false)
 
   // Cargar productos vendibles
@@ -63,9 +66,10 @@ export function CrearKitModal({
     const loadProducts = async () => {
       setIsLoadingProducts(true)
       try {
-        const res = await api.get('/tienda/admin/productos')
-        const list = res.data?.data && Array.isArray(res.data.data) ? res.data.data : []
-        setAvailableProducts(list.filter((p: any) => p.es_vendible !== 0 && p.categoria_nombre !== 'Kits y Combos'))
+        const res = await api.get('/productos', { params: { per_page: 500 } })
+        const data = res.data?.data
+        const list: any[] = Array.isArray(data) ? data : (data?.items ?? data?.productos ?? [])
+        setAvailableProducts(list.filter((p: any) => Number(p.es_vendible) === 1 && Number(p.activo) === 1 && p.categoria_nombre !== 'Kits y Combos' && !p.piezas?.some((piece: { producto_id?: number }) => piece.producto_id)))
       } catch (err) {
         console.error('Error al cargar productos:', err)
         showToast('Error al cargar productos de la tienda', 'error')
@@ -136,23 +140,21 @@ export function CrearKitModal({
     return Math.round(((kitPrice - totalCost) / totalCost) * 100)
   }, [kitPrice, totalCost])
 
-  // Auto-sugerir precio con 15% OFF cuando se agregan componentes y kitPrice está vacío
   useEffect(() => {
-    if (totalIndividualPrice > 0 && (kitPrice === '' || kitPrice === 0)) {
-      const suggested = Math.round((totalIndividualPrice * 0.85) / 100) * 100
-      setKitPrice(suggested)
-    }
-  }, [totalIndividualPrice])
+    if (!manualPrice) setKitPrice(totalIndividualPrice > 0 ? Math.floor(totalIndividualPrice * 0.85) : '')
+  }, [manualPrice, totalIndividualPrice])
 
-  // Auto-sugerir imagen de portada si no está elegida
   useEffect(() => {
-    if (!selectedCoverImage && selectedComponents.length > 0) {
-      const firstWithImg = selectedComponents.find((c) => Boolean(c.imagen_url))
-      if (firstWithImg?.imagen_url) {
-        setSelectedCoverImage(firstWithImg.imagen_url)
-      }
+    if (!isOpen) return
+    let active = true
+    setAutomaticCover('')
+    if (selectedComponents.length >= 2) {
+      void buildComboCover(selectedComponents).then(cover => {
+        if (active) setAutomaticCover(cover || '')
+      }).catch(() => {})
     }
-  }, [selectedComponents, selectedCoverImage])
+    return () => { active = false }
+  }, [isOpen, selectedComponents])
 
   // Auto-sugerir nombre si está vacío
   useEffect(() => {
@@ -182,7 +184,9 @@ export function CrearKitModal({
 
   // Quitar componente
   const handleRemoveComponent = (id: number) => {
-    setSelectedComponents((prev) => prev.filter((c) => c.id !== id))
+    const remaining = selectedComponents.filter(component => component.id !== id)
+    setSelectedComponents(remaining)
+    if (!remaining.some(component => component.imagen_url === selectedCoverImage)) setSelectedCoverImage('')
   }
 
   // Cambiar cantidad de un componente
@@ -201,7 +205,6 @@ export function CrearKitModal({
   // Filtrado de productos disponibles
   const filteredAvailable = useMemo(() => {
     return availableProducts.filter((p) => {
-      if (selectedComponents.some((c) => c.id === p.id)) return false
       if (selectedCategory !== 'all' && String(p.categoria_id) !== selectedCategory) return false
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim()
@@ -223,13 +226,26 @@ export function CrearKitModal({
       showToast('Seleccioná al menos 2 productos para armar el combo', 'info')
       return
     }
-    if (typeof kitPrice !== 'number' || kitPrice <= 0) {
-      showToast('Ingresá un precio de combo válido mayor a 0', 'info')
+    if (typeof kitPrice !== 'number' || kitPrice <= 0 || kitPrice >= totalIndividualPrice) {
+      showToast('Ingresá un precio mayor a cero y menor a la suma de los artículos', 'info')
       return
     }
 
     setIsSaving(true)
     try {
+      const categoriesResponse = await api.get('/categorias')
+      const categories = categoriesResponse.data?.data ?? categoriesResponse.data
+      const category = Array.isArray(categories) && categories.find((item: { nombre: string; id: number }) => item.nombre === 'Kits y Combos')
+      if (!category) throw new Error('No encontramos la categoría Kits y Combos.')
+      let cover = selectedCoverImage
+      if (!cover) {
+        const generated = await buildComboCover(selectedComponents)
+        if (generated) {
+          const upload = await api.post('/media/upload', { image_base64: generated })
+          cover = upload.data?.data?.url
+        }
+        if (!cover) throw new Error('No pudimos armar la portada. Elegí una foto principal para continuar.')
+      }
       const piezasData = selectedComponents.map((comp) => ({
         id: comp.id,
         producto_id: comp.id,
@@ -249,15 +265,15 @@ export function CrearKitModal({
       // Crear el nuevo producto en la categoría "Kits y Combos" (id: 5)
       const payload = {
         nombre: kitName.trim(),
-        tipo: 'combo',
-        categoria_id: 5, // Categoría oficial Kits y Combos
+        tipo: 'compuesto',
+        categoria_id: category.id,
         precio_venta: totalIndividualPrice, // Precio normal tachado
         precio_oferta: kitPrice, // Precio promocional del combo
         precio_costo: totalCost,
         stock_actual: calculatedStock,
         estado_stock: calculatedStock > 0 ? 'ready' : 'custom',
-        imagen_url: selectedCoverImage || selectedComponents[0]?.imagen_url || '',
-        imagenes: selectedComponents.map((c) => c.imagen_url).filter(Boolean),
+        imagen_url: cover,
+        imagenes: [...new Set([cover, ...selectedComponents.map(c => c.imagen_url).filter(Boolean)])],
         descripcion: autoDescription,
         piezas: piezasData,
         es_tienda: 1,
@@ -278,7 +294,7 @@ export function CrearKitModal({
       }
     } catch (err: any) {
       console.error('Error al crear kit:', err)
-      showToast(err.response?.data?.message || 'Error al guardar el combo en el servidor', 'error')
+      showToast(err.response?.data?.message || err.message || 'Error al guardar el combo en el servidor', 'error')
     } finally {
       setIsSaving(false)
     }
@@ -348,9 +364,8 @@ export function CrearKitModal({
                 </div>
               ) : (
                 filteredAvailable.map((prod) => (
-                  <div
+                  <label
                     key={prod.id}
-                    onClick={() => handleAddComponent(prod)}
                     className="flex items-center justify-between p-2.5 bg-white hover:bg-amber-50/50 rounded-2xl border border-slate-200 hover:border-amber-300 transition cursor-pointer group shadow-2xs"
                   >
                     <div className="flex items-center gap-3 min-w-0">
@@ -385,15 +400,15 @@ export function CrearKitModal({
                       <span className="text-xs font-black text-slate-900">
                         ${Number(prod.precio_venta).toLocaleString('es-AR')}
                       </span>
-                      <button
-                        type="button"
-                        className="px-2.5 py-1.5 bg-amber-500 group-hover:bg-amber-600 text-white rounded-xl text-xs font-black flex items-center gap-1 shadow-xs transition"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                        <span className="hidden sm:inline">Sumar</span>
-                      </button>
+                      <input
+                        type="checkbox"
+                        aria-label={`Incluir ${prod.nombre}`}
+                        checked={selectedComponents.some(component => component.id === prod.id)}
+                        onChange={event => event.target.checked ? handleAddComponent(prod) : handleRemoveComponent(prod.id)}
+                        className="h-5 w-5 accent-amber-600"
+                      />
                     </div>
-                  </div>
+                  </label>
                 ))
               )}
             </div>
@@ -489,6 +504,9 @@ export function CrearKitModal({
                   <label className="block text-[11px] font-black text-slate-700 uppercase tracking-wide mb-1">
                     Foto Principal de Portada:
                   </label>
+                  <button type="button" onClick={() => setSelectedCoverImage('')} aria-pressed={!selectedCoverImage} className="mt-2 text-xs font-bold text-indigo-800 underline">Usar composición automática</button>
+                  {!selectedCoverImage && automaticCover && <img src={automaticCover} alt="Vista previa de portada del combo" className="mt-2 h-32 max-w-full rounded-xl border object-contain" />}
+
                   <div className="flex items-center gap-2 overflow-x-auto py-1">
                     {selectedComponents.map((comp) => (
                       <div
@@ -526,7 +544,7 @@ export function CrearKitModal({
                       type="number"
                       placeholder="0"
                       value={kitPrice}
-                      onChange={(e) => setKitPrice(e.target.value === '' ? '' : Number(e.target.value))}
+                      onChange={(e) => { setManualPrice(true); setKitPrice(e.target.value === '' ? '' : Number(e.target.value)) }}
                       className="w-full pl-7 pr-3 py-2 bg-white border border-amber-300 rounded-xl text-base font-black text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
                     />
                   </div>

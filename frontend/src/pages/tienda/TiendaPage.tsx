@@ -1743,7 +1743,7 @@ export default function TiendaPage() {
                   <div className="absolute top-2 left-2 flex flex-col gap-1">
                     {isComboProduct ? (
                       <span className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-[10px] font-black px-2 py-0.5 rounded-md backdrop-blur-xs flex items-center gap-1 shadow-md">
-                        <Sparkles className="w-3 h-3 text-amber-300 fill-amber-300" /> COMBO ({comboPiecesCount} art.)
+                        <Sparkles className="w-3 h-3 text-amber-300 fill-amber-300" /> COMBO AHORRO ({comboPiecesCount} productos)
                       </span>
                     ) : isProductInStock(product) ? (
                       <span className="bg-emerald-500/90 text-white text-[10px] font-black px-2 py-0.5 rounded-md backdrop-blur-xs flex items-center gap-1 shadow-xs">
@@ -2828,11 +2828,11 @@ export default function TiendaPage() {
                     )}
                     {p.piezas && p.piezas.length > 0 && (
                       <div className="mt-2 pt-1.5 border-t border-slate-100 text-[9px] text-slate-700 space-y-0.5">
-                        <p className="font-extrabold text-indigo-900 uppercase">🧩 Piezas incluidas / opcionales:</p>
+                        <p className="font-extrabold text-indigo-900 uppercase">{p.piezas.some(pieza => pieza.producto_id) ? 'Este combo incluye' : 'Piezas incluidas / opcionales'}:</p>
                         {p.piezas.map((pieza, pIdx) => (
                           <div key={pIdx} className="flex items-center justify-between">
-                            <span>• {pieza.nombre}{pieza.medidas ? ` (${pieza.medidas})` : ''}</span>
-                            <span className="font-bold">${Number(pieza.precio).toLocaleString('es-AR')}</span>
+                            <span>• {pieza.producto_id ? `${pieza.cantidad || 1} × ` : ''}{pieza.nombre}{pieza.medidas ? ` (${pieza.medidas})` : ''}</span>
+                            <span className={pieza.producto_id ? "font-bold line-through" : "font-bold"}>${Number(pieza.precio).toLocaleString('es-AR')}</span>
                           </div>
                         ))}
                       </div>
@@ -2876,6 +2876,7 @@ export default function TiendaPage() {
                             : (typeof p.precios_cantidad === 'string' && (p.precios_cantidad as string).trim())
                             ? (() => { try { return JSON.parse(p.precios_cantidad as string) } catch { return [] } })()
                             : []
+                          if (p.piezas?.some(piece => piece.producto_id)) return null
                           const hasPiezas = p.piezas && p.piezas.length > 0
                           const hasEscalas = parsedEscalas && parsedEscalas.length > 0
                           if (hasPiezas || hasEscalas) {
@@ -2889,6 +2890,7 @@ export default function TiendaPage() {
                             : (typeof p.precios_cantidad === 'string' && (p.precios_cantidad as string).trim())
                             ? (() => { try { return JSON.parse(p.precios_cantidad as string) } catch { return [] } })()
                             : []
+                          if (p.piezas?.some(piece => piece.producto_id)) return p.price.toLocaleString('es-AR')
                           if (p.piezas && p.piezas.length > 0) {
                             return (Math.min(...p.piezas.map(pz => Number(pz.precio) || 0).filter(pr => pr > 0)) || p.price).toLocaleString('es-AR')
                           }

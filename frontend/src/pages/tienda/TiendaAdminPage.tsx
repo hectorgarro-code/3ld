@@ -1644,8 +1644,9 @@ export default function TiendaAdminPage() {
                 try { parsedPiezas = JSON.parse(p.piezas) } catch (e) {}
               }
 
-              const sumPiezasVenta = parsedPiezas.reduce((acc, pz) => acc + (Number(pz.precio) || 0), 0)
-              const sumPiezasCosto = parsedPiezas.reduce((acc, pz) => acc + (Number(pz.precio_costo) || 0), 0)
+              const isCombo = parsedPiezas.some(pz => pz.producto_id)
+              const sumPiezasVenta = parsedPiezas.reduce((acc, pz) => acc + (Number(pz.precio) || 0) * (Number(pz.cantidad) || 1), 0)
+              const sumPiezasCosto = parsedPiezas.reduce((acc, pz) => acc + (Number(pz.precio_costo) || 0) * (Number(pz.cantidad) || 1), 0)
 
               const parsedEscalas: any[] = Array.isArray(p.precios_cantidad)
                 ? p.precios_cantidad
@@ -1654,7 +1655,7 @@ export default function TiendaAdminPage() {
                 : []
 
               const costo = sumPiezasCosto > 0 ? sumPiezasCosto : (p.precio_costo || 0)
-              const venta = sumPiezasVenta > 0 ? sumPiezasVenta : (p.precio_venta || 0)
+              const venta = isCombo ? Number(p.precio_oferta || p.precio_venta) : sumPiezasVenta > 0 ? sumPiezasVenta : (p.precio_venta || 0)
               const mayorista = (p.precio_mayorista && Number(p.precio_mayorista) > 0)
                 ? Number(p.precio_mayorista)
                 : Math.round(venta * 0.8)
@@ -1707,8 +1708,9 @@ export default function TiendaAdminPage() {
                       {reportType === 'completo' ? (
                         <div className="space-y-1">
                           <p className="font-black text-slate-900 text-sm">
-                            Venta: {'$' + venta.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            {isCombo ? 'Precio combo' : 'Venta'}: {'$' + venta.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </p>
+                          {isCombo && Number(p.precio_venta) > venta && <p className="line-through text-slate-600">Por separado: ${Number(p.precio_venta).toLocaleString('es-AR')}</p>}
                           <p className="text-xs font-black text-indigo-700">
                             Mayorista (-20%): {'$' + mayorista.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </p>
@@ -1759,7 +1761,7 @@ export default function TiendaAdminPage() {
                     <tr className="bg-indigo-50/50 border-b-2 border-slate-300">
                       <td colSpan={printIncludePhotos ? 5 : 4} className="p-3 pl-8">
                         <p className="font-black text-xs text-indigo-950 uppercase tracking-wide mb-1.5 flex items-center gap-1">
-                          🧩 DESGLOSE DE PIEZAS DEL SET ({parsedPiezas.length} componentes):
+                          {isCombo ? 'Incluye' : 'Desglose de piezas'} ({parsedPiezas.length} componentes)
                         </p>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
                           {parsedPiezas.map((pz: any, idx: number) => {
@@ -1780,7 +1782,7 @@ export default function TiendaAdminPage() {
                                     />
                                   )}
                                   <div className="min-w-0">
-                                    <p className="font-bold text-slate-900 truncate">{pz.nombre}</p>
+                                    <p className="font-bold text-slate-900 truncate">{isCombo ? `${pz.cantidad || 1} × ` : ''}{pz.nombre}</p>
                                     {pz.medidas && <p className="text-[10px] text-slate-500">📏 Medidas: {pz.medidas}</p>}
                                   </div>
                                 </div>
