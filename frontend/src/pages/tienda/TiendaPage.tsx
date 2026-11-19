@@ -1,3 +1,4 @@
+import { flushSync } from 'react-dom';
 import { LOCAL_COVERAGE, requiresPersonalization, personalizationSummary } from '@/lib/storePurchase';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
@@ -972,28 +973,25 @@ export default function TiendaPage() {
   };
 
   const [isPreparingCatalog, setIsPreparingCatalog] = useState(false);
-  const [catalogThumbnails, setCatalogThumbnails] = useState<Record<string, string>>({});
+  const [catalogThumbnails, setCatalogThumbnails] = useState<Record<string, string> | null>(null);
+
+  useEffect(() => {
+    const clearPrintCatalog = () => setCatalogThumbnails(null);
+    window.addEventListener('afterprint', clearPrintCatalog);
+    return () => window.removeEventListener('afterprint', clearPrintCatalog);
+  }, []);
 
   const handlePrintCatalog = async () => {
     setIsPreparingCatalog(true);
+    let thumbnails: Record<string, string> = {};
     try {
-      const urls: string[] = [];
-      filteredProducts.forEach((p) => {
-        if (p.image) urls.push(p.image);
-      });
-      if (urls.length > 0) {
-        const thumbMap = await optimizeImagesForPrint(urls, 320, 0.75);
-        setCatalogThumbnails((prev) => ({ ...prev, ...thumbMap }));
-      }
+      thumbnails = await optimizeImagesForPrint(filteredProducts.map(product => product.image), 320, 0.75);
     } catch (err) {
       console.error('Error optimizando catálogo para PDF:', err);
-    } finally {
-      setIsPreparingCatalog(false);
     }
-
-    setTimeout(() => {
-      window.print();
-    }, 150);
+    setIsPreparingCatalog(false);
+    flushSync(() => setCatalogThumbnails(thumbnails));
+    requestAnimationFrame(() => requestAnimationFrame(() => window.print()));
   };
 
   const getAdvisorWhatsAppUrl = () => {
@@ -2713,7 +2711,7 @@ export default function TiendaPage() {
       `}</style>
 
       {/* Printable 2-Column Catalog Container (visible ONLY during window.print()) */}
-      <div className="hidden print:block p-4 bg-white text-slate-900 font-sans">
+      {catalogThumbnails && <div className="hidden print:block p-4 bg-white text-slate-900 font-sans">
         {/* Catalog Formal Header */}
         <div className="border-b-2 border-slate-900 pb-3 mb-4 flex items-start justify-between">
           <div>
@@ -2864,7 +2862,7 @@ export default function TiendaPage() {
           <p>3LD Impresión 3D - Fabricación Digital & Piezas a Pedido</p>
           <p>Pedidos y cotizaciones vía WhatsApp (+54 9 2257 51-2597)</p>
         </div>
-      </div>
+      </div>}
 
       <CustomerShareModal
         isOpen={!!socialShareProduct}
