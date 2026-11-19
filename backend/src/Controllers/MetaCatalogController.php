@@ -120,7 +120,7 @@ class MetaCatalogController
             $hasSale = $salePriceNum > 0 && $salePriceNum < $priceNum;
             $salePriceFormatted = $hasSale ? number_format($salePriceNum, 2, '.', '') . ' ARS' : null;
 
-            $link = "{$this->baseUrl}/tienda?producto=" . $p['id'];
+            $link = "{$this->baseUrl}/?producto=" . $p['id'];
             $imageLink = $this->formatImageUrl($p['imagen_url']);
 
             // Disponibilidad: in stock / out of stock
@@ -235,7 +235,7 @@ class MetaCatalogController
             $hasSale = $salePriceNum > 0 && $salePriceNum < $priceNum;
             $salePriceFormatted = $hasSale ? number_format($salePriceNum, 2, '.', '') . ' ARS' : '';
 
-            $link = "{$this->baseUrl}/tienda?producto=" . $p['id'];
+            $link = "{$this->baseUrl}/?producto=" . $p['id'];
             $imageLink = $this->formatImageUrl($p['imagen_url']);
 
             $stock = isset($p['stock_actual']) ? (float)$p['stock_actual'] : 0;

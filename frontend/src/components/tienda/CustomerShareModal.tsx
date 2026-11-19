@@ -37,9 +37,7 @@ export function CustomerShareModal({ isOpen, onClose, product }: CustomerShareMo
     mainImage = product.imagenes[0]
   }
 
-  const shareUrl = typeof window !== 'undefined'
-    ? `${window.location.origin}/tienda?producto=${product.id}`
-    : `https://3ld.com.ar/tienda?producto=${product.id}`
+  const shareUrl = `https://3ld.com.ar/?producto=${product.id}`
 
   const copyToClipboard = async () => {
     let success = false

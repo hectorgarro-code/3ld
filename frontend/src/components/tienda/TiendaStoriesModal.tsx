@@ -199,7 +199,7 @@ export function TiendaStoriesModal({
 
   const handleShareCurrent = async () => {
     if (!currentProduct) return;
-    const url = `${window.location.origin}/tienda?producto=${currentProduct.id}`;
+    const url = `https://3ld.com.ar/?producto=${currentProduct.id}`;
     const pPrice = Number(currentProduct.price) || 0;
     if (typeof navigator !== 'undefined' && navigator.share) {
       try {
@@ -231,7 +231,7 @@ export function TiendaStoriesModal({
     if (!currentProduct) return;
     trackWhatsAppClick('historia', currentProduct);
     const phone = '5492257512597';
-    const text = `¡Hola 3LD! 👋 Vi esta historia en la tienda y me interesa saber más:\n\n*${currentProduct.title}*\nPrecio: $${currentProduct.price.toLocaleString('es-AR')}\nEnlace: ${window.location.origin}/tienda?producto=${currentProduct.id}`;
+    const text = `¡Hola 3LD! 👋 Vi esta historia en la tienda y me interesa saber más:\n\n*${currentProduct.title}*\nPrecio: $${currentProduct.price.toLocaleString('es-AR')}\nEnlace: https://3ld.com.ar/?producto=${currentProduct.id}`;
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(text)}`, '_blank');
   };
 

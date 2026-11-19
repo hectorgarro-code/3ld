@@ -78,6 +78,9 @@
   RewriteCond %{DOCUMENT_ROOT}/uploads/$1 -f
   RewriteRule ^uploads/(.*)$ uploads/$1 [L]
 
+  # Resolver enlaces de la tienda aunque exista un directorio fisico con ese nombre.
+  RewriteRule ^tienda/?$ index.html [L]
+
   # Si el archivo o directorio fisico existe, servirlo directamente sin reescribir
   RewriteCond %{REQUEST_FILENAME} -f [OR]
   RewriteCond %{REQUEST_FILENAME} -d

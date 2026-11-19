@@ -209,6 +209,8 @@ const hasValidSize = (size?: string | null) => {
   return true;
 };
 
+const CATALOG_BATCH_SIZE = 24;
+
 export default function TiendaPage() {
   // Data Fetching con React Query y caché instantáneo en LocalStorage
   const { data: products = [], isLoading: isLoadingProducts } = useQuery<StoreProduct[]>({
@@ -312,6 +314,7 @@ export default function TiendaPage() {
   const [selectedSubcategory, setSelectedSubcategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [stockFilter, setStockFilter] = useState('all'); // all, ready, custom
+  const [catalogBatch, setCatalogBatch] = useState({ filterKey: '', limit: CATALOG_BATCH_SIZE });
   const [sortOption, setSortOption] = useState('featured');
 
   // Modals & Notifications
@@ -891,7 +894,7 @@ export default function TiendaPage() {
         },
         offers: {
           '@type': 'Offer',
-          url: `https://3ld.com.ar/tienda?producto=${activeProductModal.id}`,
+          url: `https://3ld.com.ar/?producto=${activeProductModal.id}`,
           priceCurrency: 'ARS',
           price: activeProductModal.price,
           availability: Number(activeProductModal.stock_actual) > 0 || activeProductModal.stockStatus === 'custom'
@@ -1010,7 +1013,7 @@ export default function TiendaPage() {
       if (activeProductModal.size && hasValidSize(activeProductModal.size)) {
         text += `• Medidas: ${activeProductModal.size}\n`;
       }
-      text += `• Enlace directo: ${window.location.origin}/tienda?producto=${activeProductModal.id}`;
+      text += `• Enlace directo: https://3ld.com.ar/?producto=${activeProductModal.id}`;
     } else if (isCartOpen && cart.length > 0) {
       const totalCart = cart.reduce((acc, item) => acc + item.price * item.qty, 0);
       text += `🛒 *Estoy revisando mi carrito con ${cart.length} producto(s)* (Total: $${totalCart.toLocaleString('es-AR')}):\n`;
@@ -1168,6 +1171,8 @@ export default function TiendaPage() {
         return 0;
       });
   }, [products, selectedCategory, currentCategoryData, selectedSubcategory, stockFilter, searchQuery, sortOption]);
+  const catalogFilterKey = JSON.stringify([selectedCategory, selectedSubcategory, stockFilter, searchQuery, sortOption]);
+  const visibleProductLimit = catalogBatch.filterKey === catalogFilterKey ? catalogBatch.limit : CATALOG_BATCH_SIZE;
 
   const getCategoryDisplayName = (catKey: string) => {
     if (!catKey) return '';
@@ -1444,7 +1449,7 @@ export default function TiendaPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           
           {/* PC / Desktop: En una o más líneas con wrap */}
-          <div className="hidden md:flex md:flex-wrap items-center gap-2 py-3">
+          <div className="hidden h-14 items-center gap-2 overflow-x-auto md:flex [&>button]:shrink-0">
             {categories
               .filter((cat) => cat.id === 'all' || (categoryProductCounts[cat.name] ?? cat.productos_count ?? 0) > 0)
               .map((cat) => {
@@ -1488,7 +1493,7 @@ export default function TiendaPage() {
           </div>
 
           {/* Mobile / Celular: Menú Categorías al inicio + Destacadas */}
-          <div className="flex md:hidden items-center gap-2 py-2.5 overflow-x-auto no-scrollbar scroll-smooth">
+          <div className="flex h-12 md:hidden items-center gap-2 overflow-x-auto no-scrollbar scroll-smooth">
             {/* Botón Menú de Categorías al Inicio */}
             <button
               type="button"
@@ -1710,7 +1715,7 @@ export default function TiendaPage() {
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-            {filteredProducts.map((product, index) => (
+            {filteredProducts.slice(0, visibleProductLimit).map((product, index) => (
               <div
                 key={product.id}
                 className="bg-white rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition overflow-hidden flex flex-col group cursor-pointer"
@@ -1825,6 +1830,18 @@ export default function TiendaPage() {
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {filteredProducts.length > visibleProductLimit && (
+          <div className="mt-6 flex justify-center">
+            <button
+              type="button"
+              className="min-h-11 rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-900 hover:bg-slate-100"
+              onClick={() => setCatalogBatch({ filterKey: catalogFilterKey, limit: visibleProductLimit + CATALOG_BATCH_SIZE })}
+            >
+              Mostrar más productos
+            </button>
           </div>
         )}
 

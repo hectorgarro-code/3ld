@@ -471,7 +471,7 @@ export default function SocialPlannerPage() {
                         {post.product_name}
                       </p>
                       <a
-                        href={`https://3ld.com.ar/tienda?producto=${post.product_id}`}
+                        href={`https://3ld.com.ar/?producto=${post.product_id}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-[10px] font-bold text-sky-600 hover:underline flex items-center gap-1 mt-0.5"
