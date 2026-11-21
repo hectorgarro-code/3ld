@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use OpenAiDiagnostics\RequestLog;
 use RuntimeException;
+
+require_once __DIR__ . '/OpenAiRequestLog.php';
 
 class OpenAiService
 {
@@ -23,6 +26,7 @@ class OpenAiService
 
     public function optimizeProductForSales(string $rawTitle, string $rawDescription, array $extraContext = []): array
     {
+        $operationId = RequestLog::operationId();
         $tagsStr = !empty($extraContext['tags']) && is_array($extraContext['tags']) ? implode(', ', $extraContext['tags']) : '';
         $urlStr  = !empty($extraContext['url']) ? $extraContext['url'] : '';
         $images  = !empty($extraContext['images']) && is_array($extraContext['images']) ? $extraContext['images'] : [];
@@ -84,7 +88,7 @@ Entregá ÚNICAMENTE un objeto JSON sintácticamente válido (sin texto extra):
         // 1. Intento con visión multimodal si hay imagen disponible
         if ($imageUrlToAnalyze && str_starts_with($imageUrlToAnalyze, 'http')) {
             try {
-                $jsonResponse = $this->callOpenAiVision($prompt, $imageUrlToAnalyze, $systemPrompt, $selectedModel);
+                $jsonResponse = $this->callOpenAiVision($prompt, $imageUrlToAnalyze, $systemPrompt, $selectedModel, 'productos.optimizar_con_imagen', $operationId);
             } catch (\Throwable $e) {
                 $lastException = $e;
             }
@@ -93,13 +97,13 @@ Entregá ÚNICAMENTE un objeto JSON sintácticamente válido (sin texto extra):
         // 2. Si no hay imagen o la visión falló (ej: timeout o formato de imagen no aceptado), llamada textual directa
         if (empty($jsonResponse)) {
             try {
-                $jsonResponse = $this->callOpenAiWithSystem($prompt, $systemPrompt, $selectedModel);
+                $jsonResponse = $this->callOpenAiWithSystem($prompt, $systemPrompt, $selectedModel, 0.7, 'productos.optimizar', $operationId);
             } catch (\Throwable $e) {
                 $lastException = $e;
                 // Reintentar con modelo alternativo equilibrado
                 $altModel = ($selectedModel === 'gpt-4o') ? 'gpt-4o-mini' : 'gpt-4o';
                 try {
-                    $jsonResponse = $this->callOpenAiWithSystem($prompt, $systemPrompt, $altModel);
+                    $jsonResponse = $this->callOpenAiWithSystem($prompt, $systemPrompt, $altModel, 0.7, 'productos.optimizar', $operationId);
                 } catch (\Throwable $e2) {
                     $lastException = $e2;
                 }
@@ -157,7 +161,7 @@ Responde ÚNICAMENTE en JSON sintácticamente válido:
   \"seo_description\": \"Meta descripción Google (135 a 155 caracteres)\"
 }";
 
-        $jsonResponse = $this->callOpenAiWithSystem($prompt, $systemPrompt, $customModel);
+        $jsonResponse = $this->callOpenAiWithSystem($prompt, $systemPrompt, $customModel, 0.7, 'productos.texto_comercial');
         $cleanJson = preg_replace('/^```(?:json)?\s*|\s*```$/i', '', trim($jsonResponse));
         $data = json_decode($cleanJson, true);
 
@@ -205,7 +209,7 @@ INSTRUCCIONES SEO ESTRICTAS:
 }";
 
         try {
-            $jsonResponse = $this->callOpenAi($prompt);
+            $jsonResponse = $this->callOpenAi($prompt, feature: 'productos.seo');
             $cleanJson = preg_replace('/^```(?:json)?\s*|\s*```$/i', '', trim($jsonResponse));
             $data = json_decode($cleanJson, true);
 
@@ -240,6 +244,7 @@ INSTRUCCIONES SEO ESTRICTAS:
      */
     public function generateSocialCalendar(array $products, array $options = []): array
     {
+        $operationId = RequestLog::operationId();
         $daysCount   = max(1, min(120, (int)($options['days_count'] ?? 30)));
         $focus       = $options['focus'] ?? 'balanced';
         $tone        = $options['tone'] ?? 'cercano';
@@ -306,10 +311,10 @@ Responde ÚNICAMENTE con un arreglo JSON de objetos:
 ]";
 
         try {
-            $rawResponse = $this->callOpenAi($prompt, $modelChoice, 0.7);
+            $rawResponse = $this->callOpenAi($prompt, $modelChoice, 0.7, 'redes.planificar_calendario', $operationId);
         } catch (\Throwable $e) {
             if ($modelChoice !== 'gpt-4o-mini') {
-                $rawResponse = $this->callOpenAi($prompt, 'gpt-4o-mini', 0.7);
+                $rawResponse = $this->callOpenAi($prompt, 'gpt-4o-mini', 0.7, 'redes.planificar_calendario', $operationId);
             } else {
                 throw $e;
             }
@@ -328,7 +333,7 @@ Responde ÚNICAMENTE con un arreglo JSON de objetos:
     /**
      * Llamada con prompt de sistema personalizado
      */
-    public function callOpenAiWithSystem(string $prompt, string $systemPrompt, ?string $customModel = null, float $temperature = 0.7): string
+    public function callOpenAiWithSystem(string $prompt, string $systemPrompt, ?string $customModel = null, float $temperature = 0.7, string $feature = 'ia.general', ?string $operationId = null): string
     {
         if (empty($this->apiKey)) {
             throw new RuntimeException('API Key de OpenAI no configurada.');
@@ -344,13 +349,13 @@ Responde ÚNICAMENTE con un arreglo JSON de objetos:
             'temperature' => $temperature,
         ];
 
-        return $this->executeCurl($url, $payload);
+        return $this->executeCurl($url, $payload, $feature, $operationId);
     }
 
     /**
      * Llamada con soporte de visión para analizar imágenes reales del producto
      */
-    public function callOpenAiVision(string $prompt, string $imageUrl, string $systemPrompt, ?string $customModel = null): string
+    public function callOpenAiVision(string $prompt, string $imageUrl, string $systemPrompt, ?string $customModel = null, string $feature = 'ia.vision', ?string $operationId = null): string
     {
         if (empty($this->apiKey)) {
             throw new RuntimeException('API Key de OpenAI no configurada.');
@@ -384,23 +389,25 @@ Responde ÚNICAMENTE con un arreglo JSON de objetos:
             'temperature' => 0.5,
         ];
 
-        return $this->executeCurl($url, $payload);
+        return $this->executeCurl($url, $payload, $feature, $operationId);
     }
 
     /**
      * Realiza la llamada HTTP cURL a la API de OpenAI
      */
-    public function callOpenAi(string $prompt, ?string $customModel = null, float $temperature = 0.7): string
+    public function callOpenAi(string $prompt, ?string $customModel = null, float $temperature = 0.7, string $feature = 'ia.general', ?string $operationId = null): string
     {
         return $this->callOpenAiWithSystem(
             $prompt,
             'Eres un director de marketing digital y copywriter senior especializado en E-commerce, Meta Ads, Instagram y TikTok para una fábrica y tienda de productos impresos en 3D en Argentina (3LD). Debes responder siempre en español.',
             $customModel,
-            $temperature
+            $temperature,
+            $feature,
+            $operationId
         );
     }
 
-    private function executeCurl(string $url, array $payload): string
+    private function executeCurl(string $url, array $payload, string $feature, ?string $operationId): string
     {
         $ch = curl_init($url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -413,22 +420,19 @@ Responde ÚNICAMENTE con un arreglo JSON de objetos:
         curl_setopt($ch, CURLOPT_TIMEOUT, 35);
         curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
 
-        $response = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $error    = curl_error($ch);
-        curl_close($ch);
+        [$response, $httpCode, $error, $resData] = RequestLog::execute(
+            $ch, '3ld', $feature, 'chat/completions', $payload['model'], $operationId
+        );
 
         if ($response === false || !empty($error)) {
             throw new RuntimeException('Error de red al conectar con OpenAI: ' . $error);
         }
 
         if ($httpCode !== 200) {
-            $errData = json_decode($response, true);
-            $msg = $errData['error']['message'] ?? 'Error ' . $httpCode . ' devuelto por OpenAI';
+            $msg = $resData['error']['message'] ?? 'Error ' . $httpCode . ' devuelto por OpenAI';
             throw new RuntimeException('OpenAI Error: ' . $msg);
         }
 
-        $resData = json_decode($response, true);
         $content = $resData['choices'][0]['message']['content'] ?? '';
 
         if (empty($content)) {
