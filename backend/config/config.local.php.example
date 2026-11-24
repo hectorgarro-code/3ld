@@ -16,4 +16,8 @@ return [
         'debug' => false,
         'env'   => 'production',
     ],
+    // Si no configuraste OPENAI_API_KEY en el servidor, descomenta este bloque.
+    // 'openai' => [
+    //     'api_key' => 'PEGA_AQUI_TU_CLAVE_DE_3LD',
+    // ],
 ];

@@ -13,7 +13,7 @@ $config = [
         'expiration' => 86400, // 24 horas en segundos
     ],
     'openai' => [
-        'api_key' => getenv('OPENAI_API_KEY') ?: base64_decode('c2stcHJvai00VUxkU2d1NktORWhVbUhnekpTUmxELWlEQllaTTdybVFQWlgyYXhUdmJuNGdIVzBTVzVvMi1Cb1NkUlhsLU94bUNnNElQSXNRWVQzQmxia0ZKejB3LU9lc0tVUHk5Qjc0Mm1ZSmYxVml2UkNwWjlFbGRVUXRhUWtOZS1Hc2IzekRYZnFQcURja3R3YWlzMjhNSmNvYjh1Q3Qxa0E='),
+        'api_key' => getenv('OPENAI_API_KEY') ?: '',
         'model'   => getenv('OPENAI_MODEL') ?: 'gpt-4o-mini',
     ],
     'meta' => [

@@ -18,7 +18,7 @@ class OpenAiService
     {
         $key = trim((string)($config['openai']['api_key'] ?? ''));
         if (empty($key)) {
-            $key = (string) base64_decode('c2stcHJvai00VUxkU2d1NktORWhVbUhnekpTUmxELWlEQllaTTdybVFQWlgyYXhUdmJuNGdIVzBTVzVvMi1Cb1NkUlhsLU94bUNnNElQSXNRWVQzQmxia0ZKejB3LU9lc0tVUHk5Qjc0Mm1ZSmYxVml2UkNwWjlFbGRVUXRhUWtOZS1Hc2IzekRYZnFQcURja3R3YWlzMjhNSmNvYjh1Q3Qxa0E=');
+            $key = trim((string) getenv('OPENAI_API_KEY'));
         }
         $this->apiKey = $key;
         $this->model  = !empty($config['openai']['model']) ? $config['openai']['model'] : 'gpt-4o-mini';
